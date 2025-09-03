@@ -40,7 +40,7 @@ function DashboardHeader() {
 function TenantGrid({
   tenants,
   action,
-  isPending
+  isPending,
 }: {
   tenants: Tenant[];
   action: (formData: FormData) => void;
@@ -58,7 +58,7 @@ function TenantGrid({
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {tenants.map((tenant) => (
+      {tenants.map(tenant => (
         <Card key={tenant.subdomain}>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">

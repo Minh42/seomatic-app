@@ -22,7 +22,7 @@ export async function createSubdomainAction(
       subdomain,
       icon,
       success: false,
-      error: 'Please enter a valid emoji (maximum 10 characters)'
+      error: 'Please enter a valid emoji (maximum 10 characters)',
     };
   }
 
@@ -34,7 +34,7 @@ export async function createSubdomainAction(
       icon,
       success: false,
       error:
-        'Subdomain can only have lowercase letters, numbers, and hyphens. Please try again.'
+        'Subdomain can only have lowercase letters, numbers, and hyphens. Please try again.',
     };
   }
 
@@ -46,13 +46,13 @@ export async function createSubdomainAction(
       subdomain,
       icon,
       success: false,
-      error: 'This subdomain is already taken'
+      error: 'This subdomain is already taken',
     };
   }
 
   await redis.set(`subdomain:${sanitizedSubdomain}`, {
     emoji: icon,
-    createdAt: Date.now()
+    createdAt: Date.now(),
   });
 
   redirect(`${protocol}://${sanitizedSubdomain}.${rootDomain}`);

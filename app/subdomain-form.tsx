@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import {
   Popover,
   PopoverContent,
-  PopoverTrigger
+  PopoverTrigger,
 } from '@/components/ui/popover';
 import { Smile } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -18,7 +18,7 @@ import {
   EmojiPicker,
   EmojiPickerContent,
   EmojiPickerSearch,
-  EmojiPickerFooter
+  EmojiPickerFooter,
 } from '@/components/ui/emoji-picker';
 import { createSubdomainAction } from '@/app/actions';
 import { rootDomain } from '@/lib/utils';
@@ -56,7 +56,7 @@ function SubdomainInput({ defaultValue }: { defaultValue?: string }) {
 function IconPicker({
   icon,
   setIcon,
-  defaultValue
+  defaultValue,
 }: {
   icon: string;
   setIcon: (icon: string) => void;

@@ -5,7 +5,7 @@ import { getSubdomainData } from '@/lib/subdomains';
 import { protocol, rootDomain } from '@/lib/utils';
 
 export async function generateMetadata({
-  params
+  params,
 }: {
   params: Promise<{ subdomain: string }>;
 }): Promise<Metadata> {
@@ -14,18 +14,18 @@ export async function generateMetadata({
 
   if (!subdomainData) {
     return {
-      title: rootDomain
+      title: rootDomain,
     };
   }
 
   return {
     title: `${subdomain}.${rootDomain}`,
-    description: `Subdomain page for ${subdomain}.${rootDomain}`
+    description: `Subdomain page for ${subdomain}.${rootDomain}`,
   };
 }
 
 export default async function SubdomainPage({
-  params
+  params,
 }: {
   params: Promise<{ subdomain: string }>;
 }) {

@@ -3,7 +3,21 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "eslint . --ext .ts,.tsx --fix",
+    "lint:check": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{js,jsx,json,css,md}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.13",
@@ -15,18 +29,32 @@
     "@vercel/speed-insights": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "drizzle-orm": "^0.44.5",
     "frimousse": "^0.2.0",
     "lucide-react": "^0.510.0",
     "next": "15.3.2",
+    "postgres": "^3.4.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
     "@tailwindcss/postcss": "^4.1.6",
     "@types/node": "^22.15.17",
+    "@types/pg": "^8.15.5",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
+    "@typescript-eslint/eslint-plugin": "^8.42.0",
+    "@typescript-eslint/parser": "^8.42.0",
+    "drizzle-kit": "^0.31.4",
+    "eslint": "^9.34.0",
+    "eslint-config-next": "^15.5.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.6",
+    "prettier": "^3.6.2",
     "tailwindcss": "^4.1.6",
     "tw-animate-css": "^1.2.9",
     "typescript": "^5.8.3"

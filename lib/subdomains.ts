@@ -55,7 +55,7 @@ export async function getAllSubdomains() {
     return {
       subdomain,
       emoji: data?.emoji || '❓',
-      createdAt: data?.createdAt || Date.now()
+      createdAt: data?.createdAt || Date.now(),
     };
   });
 }

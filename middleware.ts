@@ -68,6 +68,6 @@ export const config = {
      * 2. /_next (Next.js internals)
      * 3. all root files inside /public (e.g. /favicon.ico)
      */
-    '/((?!api|_next|[\\w-]+\\.\\w+).*)'
-  ]
+    '/((?!api|_next|[\\w-]+\\.\\w+).*)',
+  ],
 };
