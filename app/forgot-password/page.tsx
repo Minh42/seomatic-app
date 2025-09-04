@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
-import { LoginPageClient } from '@/components/auth/LoginPageClient';
+import { ForgotPasswordClient } from '@/components/auth/ForgotPasswordClient';
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   return (
     <Suspense
       fallback={
@@ -10,7 +10,7 @@ export default function LoginPage() {
         </div>
       }
     >
-      <LoginPageClient />
+      <ForgotPasswordClient />
     </Suspense>
   );
 }

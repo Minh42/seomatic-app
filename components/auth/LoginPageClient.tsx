@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from '@tanstack/react-form';
 import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
@@ -9,81 +10,58 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { AuthForm } from '@/components/auth/AuthForm';
-import { SignupFeatures } from '@/components/auth/SignupFeatures';
-import { PasswordStrengthIndicator } from '@/components/auth/PasswordStrengthIndicator';
-import { signupSchema, type SignupFormData } from '@/lib/validations/auth';
+import { loginSchema, type LoginFormData } from '@/lib/validations/auth';
 
-export default function SignUpPage() {
+export function LoginPageClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('verified') === 'true') {
+      toast.success('Email verified successfully! You can now sign in.');
+    }
+  }, [searchParams]);
 
   const form = useForm({
     defaultValues: {
       email: '',
       password: '',
-    } as SignupFormData,
+      rememberMe: false,
+    } as LoginFormData,
     onSubmit: async ({ value }) => {
       setIsLoading(true);
       setEmailError(null);
       setPasswordError(null);
 
       try {
-        // First create the user account
-        const signupResponse = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: value.email,
-            password: value.password,
-          }),
+        const result = await signIn('credentials', {
+          email: value.email,
+          password: value.password,
+          redirect: false,
         });
 
-        const signupData = await signupResponse.json();
-
-        if (!signupResponse.ok) {
-          if (signupResponse.status === 429) {
-            toast.error(
-              signupData.error ||
-                'Too many signup attempts. Please wait before trying again.'
+        if (result?.error) {
+          // Handle specific error messages from credentials provider
+          if (result.error.includes('verify your email')) {
+            setEmailError(
+              'Please verify your email address before signing in.'
             );
-          } else if (
-            signupData.error?.includes('email already exists') ||
-            signupData.error?.includes('User with this email')
-          ) {
-            setEmailError('A user with this email already exists');
+          } else if (result.error.includes('Too many login attempts')) {
+            toast.error(
+              'Too many login attempts. Please wait before trying again.'
+            );
           } else {
-            toast.error(
-              signupData.error || 'Failed to create account. Please try again.'
-            );
+            toast.error('Invalid email or password. Please try again.');
           }
-          return;
-        }
-
-        // Account created successfully - redirect to verification page
-        if (signupData.requiresVerification) {
-          window.location.href = `/auth/verify-request?email=${encodeURIComponent(value.email)}`;
-        } else {
-          // Fallback: try to sign in automatically if no verification required
-          const result = await signIn('credentials', {
-            email: value.email,
-            password: value.password,
-            redirect: false,
-          });
-
-          if (result?.error) {
-            toast.error(
-              'Account created but failed to sign in. Please try logging in.'
-            );
-          } else if (result?.ok) {
-            window.location.href = '/dashboard';
-          }
+        } else if (result?.ok) {
+          // Redirect to dashboard
+          window.location.href = '/dashboard';
         }
       } catch (err) {
         toast.error('An unexpected error occurred. Please try again.');
-        console.error('Signup error:', err);
+        console.error('Login error:', err);
       } finally {
         setIsLoading(false);
       }
@@ -98,18 +76,24 @@ export default function SignUpPage() {
   };
 
   return (
-    <AuthLayout testimonialContent={<SignupFeatures />}>
+    <AuthLayout>
       <AuthForm
-        title="Create a free account"
-        subtitle="Launch your first SEO pages today — start scaling your content marketing to drive traffic, leads, and growth."
+        title="Welcome back"
+        subtitle="Sign in to your account to continue building SEO pages."
         showSocialFirst={true}
         onSocialAuth={handleSocialAuth}
         error={null}
         isLoading={isLoading}
+        extraLinks={[
+          {
+            text: 'Forgot your password?',
+            href: '/forgot-password',
+          },
+        ]}
         bottomLink={{
-          text: 'Already have an account?',
-          linkText: 'Login Now',
-          href: '/login',
+          text: "Don't have an account?",
+          linkText: 'Sign up',
+          href: '/signup',
         }}
       >
         <form
@@ -125,7 +109,7 @@ export default function SignUpPage() {
             validators={{
               onBlur: ({ value }) => {
                 try {
-                  signupSchema.shape.email.parse(value);
+                  loginSchema.shape.email.parse(value);
                   return undefined;
                 } catch (error: unknown) {
                   return error && typeof error === 'object' && 'errors' in error
@@ -165,7 +149,7 @@ export default function SignUpPage() {
             validators={{
               onBlur: ({ value }) => {
                 try {
-                  signupSchema.shape.password.parse(value);
+                  loginSchema.shape.password.parse(value);
                   return undefined;
                 } catch (error: unknown) {
                   return error && typeof error === 'object' && 'errors' in error
@@ -196,7 +180,6 @@ export default function SignUpPage() {
                 {passwordError && (
                   <p className="text-sm text-red-600">{passwordError}</p>
                 )}
-                <PasswordStrengthIndicator password={field.state.value} />
               </div>
             )}
           </form.Field>
@@ -210,7 +193,7 @@ export default function SignUpPage() {
                 className="w-full h-10 md:h-12 text-sm md:text-base font-medium"
                 disabled={!canSubmit || isSubmitting || isLoading}
               >
-                {isLoading ? 'Creating account...' : 'Continue →'}
+                {isLoading ? 'Signing in...' : 'Sign In →'}
               </Button>
             )}
           </form.Subscribe>

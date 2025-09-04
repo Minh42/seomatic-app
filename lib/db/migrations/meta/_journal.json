@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1756910831187,
+      "tag": "0000_zippy_midnight",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1756915231718,
+      "tag": "0001_optimal_skin",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1756917784077,
+      "tag": "0002_dizzy_sheva_callister",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1756968947375,
+      "tag": "0003_mixed_spacker_dave",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1756970855683,
+      "tag": "0004_past_magus",
+      "breakpoints": true
+    }
+  ]
+}

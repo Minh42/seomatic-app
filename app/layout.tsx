@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Geist } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { SessionProvider } from '@/components/auth/SessionProvider';
+import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 
 const geistSans = Geist({
@@ -21,7 +23,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} antialiased`}>
-        {children}
+        <SessionProvider>{children}</SessionProvider>
+        <Toaster />
         <SpeedInsights />
       </body>
     </html>

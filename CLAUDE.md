@@ -37,6 +37,10 @@ For complete product requirements, feature roadmap, and business objectives, see
 - **State Management:** TanStack for server state management and data fetching
 - **Authentication:** NextAuth.js for OAuth and session management
 - **Payments:** Stripe for payment processing and subscription management
+- **Email:** Bento API for email automation and transactional emails
+- **Analytics:** PostHog for in-app product analytics and user tracking
+- **Forms:** TanStack Form for form management and validation
+- **Validation:** Zod for schema validation and type safety
 - **Hosting:** Vercel for application deployment
 
 ## Architecture Overview
