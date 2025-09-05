@@ -22,6 +22,19 @@ export const resendRateLimit = new Ratelimit({
   analytics: true,
 });
 
+// Anti-abuse rate limits
+export const ipSignupRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(3, '24h'), // 3 accounts per IP per 24h
+  analytics: true,
+});
+
+export const fingerprintSignupRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(3, '24h'), // 3 accounts per fingerprint per 24h
+  analytics: true,
+});
+
 export async function checkRateLimit(
   rateLimit: Ratelimit,
   identifier: string

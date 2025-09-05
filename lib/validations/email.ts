@@ -1,0 +1,23 @@
+import disposableEmailDomains from 'disposable-email-domains';
+
+export function isDisposableEmail(email: string): boolean {
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (!domain) return false;
+
+  return disposableEmailDomains.includes(domain);
+}
+
+export function validateEmailDomain(email: string): {
+  isValid: boolean;
+  message?: string;
+} {
+  if (isDisposableEmail(email)) {
+    return {
+      isValid: false,
+      message:
+        'Disposable email addresses are not allowed. Please use a permanent email address.',
+    };
+  }
+
+  return { isValid: true };
+}

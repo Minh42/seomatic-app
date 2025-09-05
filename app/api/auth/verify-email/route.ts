@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users, verificationTokens } from '@/lib/db/schema';
-import { cleanupExpiredTokens } from '@/lib/cleanup';
+import { cleanupExpiredTokens } from '@/lib/auth/token-cleanup';
 import { eq, and, sql } from 'drizzle-orm';
 
 export async function GET(request: Request) {
@@ -75,8 +75,8 @@ export async function GET(request: Request) {
         )
       );
 
-    // Redirect to login with success message
-    return NextResponse.redirect(new URL('/login?verified=true', request.url));
+    // Redirect to onboarding after successful verification
+    return NextResponse.redirect(new URL('/onboarding', request.url));
   } catch (error) {
     console.error('Email verification error:', error);
     return NextResponse.redirect(

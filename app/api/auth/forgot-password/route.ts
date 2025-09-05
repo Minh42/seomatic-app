@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { users, verificationTokens } from '@/lib/db/schema';
 import { passwordResetRequestSchema } from '@/lib/validations/auth';
 import { getBentoClient } from '@/lib/email/bento-client';
-import { emailRateLimit, checkRateLimit } from '@/lib/rate-limit';
+import { emailRateLimit, checkRateLimit } from '@/lib/auth/rate-limit';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 

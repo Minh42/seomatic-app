@@ -8,7 +8,6 @@ export async function cleanupExpiredTokens() {
       .delete(verificationTokens)
       .where(lt(verificationTokens.expires, new Date()));
 
-    console.log(`Cleaned up expired verification tokens`);
     return result;
   } catch (error) {
     console.error('Token cleanup error:', error);

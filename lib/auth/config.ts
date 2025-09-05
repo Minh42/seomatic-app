@@ -7,34 +7,8 @@ import TwitterProvider from 'next-auth/providers/twitter';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { createBentoEmailProvider } from '@/lib/auth/email-provider';
-import { credentialsProvider } from '@/lib/auth/credentials-provider';
-
-declare module 'next-auth' {
-  interface Session {
-    user: {
-      id: string;
-      email: string;
-      firstName?: string | null;
-      lastName?: string | null;
-      image?: string | null;
-    };
-  }
-
-  interface User {
-    id: string;
-    email: string;
-    firstName?: string | null;
-    lastName?: string | null;
-    image?: string | null;
-  }
-}
-
-declare module 'next-auth/jwt' {
-  interface JWT {
-    sub: string;
-  }
-}
+import { createBentoEmailProvider } from '@/lib/providers/email-provider';
+import { credentialsProvider } from '@/lib/providers/credentials-provider';
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db),
@@ -61,6 +35,8 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: 'jwt',
+    maxAge: 24 * 60 * 60, // Default 24 hours
+    updateAge: 60 * 60, // Update session every hour
   },
   pages: {
     signIn: '/login',
@@ -74,10 +50,19 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async jwt({ user, token }) {
+    async jwt({ user, token, account }) {
       if (user) {
         token.sub = user.id;
       }
+
+      // Handle remember me functionality
+      if (account?.rememberMe) {
+        token.rememberMe = true;
+        // Extend token expiration to 30 days when "remember me" is checked
+        const thirtyDays = 30 * 24 * 60 * 60; // 30 days in seconds
+        token.exp = Math.floor(Date.now() / 1000) + thirtyDays;
+      }
+
       return token;
     },
     async signIn({ account, profile }) {

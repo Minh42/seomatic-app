@@ -1,106 +1,101 @@
 'use client';
 
-import { useState } from 'react';
-import { useForm } from '@tanstack/react-form';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { AuthForm } from '@/components/auth/AuthForm';
+import { SignupForm } from '@/components/auth/SignupForm';
 import { SignupFeatures } from '@/components/auth/SignupFeatures';
-import { PasswordStrengthIndicator } from '@/components/auth/PasswordStrengthIndicator';
-import { signupSchema, type SignupFormData } from '@/lib/validations/auth';
+import { type SignupFormData } from '@/lib/validations/auth';
+import { useAuthForm } from '@/hooks/useAuthForm';
+import { useSocialAuth } from '@/hooks/useSocialAuth';
+import { AuthErrorHandler } from '@/lib/auth/error-handler';
 
 export default function SignUpPage() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [fingerprint, setFingerprint] = useState<string | null>(null);
 
-  const form = useForm({
-    defaultValues: {
-      email: '',
-      password: '',
-    } as SignupFormData,
-    onSubmit: async ({ value }) => {
-      setIsLoading(true);
-      setEmailError(null);
-      setPasswordError(null);
-
+  // Initialize fingerprinting
+  useEffect(() => {
+    const getFingerprint = async () => {
       try {
-        // First create the user account
-        const signupResponse = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: value.email,
-            password: value.password,
-          }),
-        });
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        setFingerprint(result.visitorId);
+      } catch (error) {
+        console.error('Failed to get fingerprint:', error);
+      }
+    };
 
-        const signupData = await signupResponse.json();
+    getFingerprint();
+  }, []);
 
-        if (!signupResponse.ok) {
-          if (signupResponse.status === 429) {
-            toast.error(
-              signupData.error ||
-                'Too many signup attempts. Please wait before trying again.'
-            );
-          } else if (
-            signupData.error?.includes('email already exists') ||
-            signupData.error?.includes('User with this email')
-          ) {
-            setEmailError('A user with this email already exists');
-          } else {
-            toast.error(
-              signupData.error || 'Failed to create account. Please try again.'
-            );
-          }
-          return;
-        }
-
-        // Account created successfully - redirect to verification page
-        if (signupData.requiresVerification) {
-          window.location.href = `/auth/verify-request?email=${encodeURIComponent(value.email)}`;
-        } else {
-          // Fallback: try to sign in automatically if no verification required
-          const result = await signIn('credentials', {
-            email: value.email,
-            password: value.password,
-            redirect: false,
+  const { form, isLoading, emailError, passwordError, handleAuthError } =
+    useAuthForm<SignupFormData>({
+      defaultValues: {
+        email: '',
+        password: '',
+        fingerprint: '',
+      },
+      onSubmit: async values => {
+        try {
+          // First create the user account
+          const signupResponse = await fetch('/api/auth/signup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: values.email,
+              password: values.password,
+              fingerprint,
+            }),
           });
 
-          if (result?.error) {
-            toast.error(
-              'Account created but failed to sign in. Please try logging in.'
-            );
-          } else if (result?.ok) {
-            window.location.href = '/dashboard';
-          }
-        }
-      } catch (err) {
-        toast.error('An unexpected error occurred. Please try again.');
-        console.error('Signup error:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-  });
+          const signupData = await signupResponse.json();
 
-  const handleSocialAuth = {
-    google: () => signIn('google', { callbackUrl: '/dashboard' }),
-    facebook: () => signIn('facebook', { callbackUrl: '/dashboard' }),
-    linkedin: () => signIn('linkedin', { callbackUrl: '/dashboard' }),
-    twitter: () => signIn('twitter', { callbackUrl: '/dashboard' }),
-  };
+          if (!signupResponse.ok) {
+            const authError = AuthErrorHandler.handleSignUpError(
+              signupData.error,
+              signupResponse.status
+            );
+            handleAuthError(authError);
+            return;
+          }
+
+          // Account created successfully - redirect to verification page
+          if (signupData.requiresVerification) {
+            window.location.href = `/auth/verify-request?email=${encodeURIComponent(values.email)}`;
+          } else {
+            // Fallback: try to sign in automatically if no verification required
+            const result = await signIn('credentials', {
+              email: values.email,
+              password: values.password,
+              redirect: false,
+            });
+
+            if (result?.error) {
+              toast.error(
+                'Account created but failed to sign in. Please try logging in.'
+              );
+            } else if (result?.ok) {
+              window.location.href = '/dashboard';
+            }
+          }
+        } catch (err) {
+          toast.error('An unexpected error occurred. Please try again.');
+          console.error('Signup error:', err);
+        }
+      },
+    });
+
+  const handleSocialAuth = useSocialAuth('/dashboard');
 
   return (
     <AuthLayout testimonialContent={<SignupFeatures />}>
       <AuthForm
-        title="Create a free account"
+        title="Start your 14-day free trial"
         subtitle="Launch your first SEO pages today — start scaling your content marketing to drive traffic, leads, and growth."
         showSocialFirst={true}
         onSocialAuth={handleSocialAuth}
@@ -112,109 +107,17 @@ export default function SignUpPage() {
           href: '/login',
         }}
       >
-        <form
-          className="space-y-4 md:space-y-6"
+        <SignupForm
+          form={form}
+          isLoading={isLoading}
+          emailError={emailError}
+          passwordError={passwordError}
           onSubmit={e => {
             e.preventDefault();
             e.stopPropagation();
             form.handleSubmit();
           }}
-        >
-          <form.Field
-            name="email"
-            validators={{
-              onBlur: ({ value }) => {
-                try {
-                  signupSchema.shape.email.parse(value);
-                  return undefined;
-                } catch (error: unknown) {
-                  return error && typeof error === 'object' && 'errors' in error
-                    ? (error as { errors: { message: string }[] }).errors?.[0]
-                        ?.message
-                    : 'Invalid email';
-                }
-              },
-            }}
-          >
-            {field => (
-              <div className="space-y-2">
-                <Label htmlFor="email">Work Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="rand.fishkin@company.com"
-                  value={field.state.value}
-                  onChange={e => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                  disabled={isLoading}
-                />
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-sm text-red-600">
-                    {field.state.meta.errors[0]}
-                  </p>
-                )}
-                {emailError && (
-                  <p className="text-sm text-red-600">{emailError}</p>
-                )}
-              </div>
-            )}
-          </form.Field>
-
-          <form.Field
-            name="password"
-            validators={{
-              onBlur: ({ value }) => {
-                try {
-                  signupSchema.shape.password.parse(value);
-                  return undefined;
-                } catch (error: unknown) {
-                  return error && typeof error === 'object' && 'errors' in error
-                    ? (error as { errors: { message: string }[] }).errors?.[0]
-                        ?.message
-                    : 'Invalid password';
-                }
-              },
-            }}
-          >
-            {field => (
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••••"
-                  value={field.state.value}
-                  onChange={e => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                  disabled={isLoading}
-                />
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-sm text-red-600">
-                    {field.state.meta.errors[0]}
-                  </p>
-                )}
-                {passwordError && (
-                  <p className="text-sm text-red-600">{passwordError}</p>
-                )}
-                <PasswordStrengthIndicator password={field.state.value} />
-              </div>
-            )}
-          </form.Field>
-
-          <form.Subscribe
-            selector={state => [state.canSubmit, state.isSubmitting]}
-          >
-            {([canSubmit, isSubmitting]) => (
-              <Button
-                type="submit"
-                className="w-full h-10 md:h-12 text-sm md:text-base font-medium"
-                disabled={!canSubmit || isSubmitting || isLoading}
-              >
-                {isLoading ? 'Creating account...' : 'Continue →'}
-              </Button>
-            )}
-          </form.Subscribe>
-        </form>
+        />
       </AuthForm>
     </AuthLayout>
   );

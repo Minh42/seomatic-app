@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users, verificationTokens } from '@/lib/db/schema';
 import { passwordResetSchema } from '@/lib/validations/auth';
-import { hashPassword } from '@/lib/auth/password';
-import { cleanupExpiredTokens } from '@/lib/cleanup';
+import { hashPassword } from '@/lib/utils/password';
+import { cleanupExpiredTokens } from '@/lib/auth/token-cleanup';
 import { eq, and } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {

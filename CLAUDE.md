@@ -145,6 +145,34 @@ NEXT_PUBLIC_ROOT_DOMAIN=yourdomain.com  # Optional, defaults to localhost:3000
 - **Destructure imports:** `import { foo } from 'bar'` when possible
 - **Pre-commit hooks:** Configured with husky + lint-staged to automatically lint and format before commits
 
+### Refactoring Guidelines
+
+**Only extract components/files when:**
+
+1. **Reused** in multiple places
+2. **Complex enough** to warrant separation (>100-150 lines)
+3. **Different concerns** (UI vs logic vs data)
+
+**Avoid over-refactoring:**
+
+- Don't create unnecessary abstraction layers (e.g., `PageClient` components that aren't reused)
+- Keep related logic together - a single page/feature should live in one file unless there's a compelling reason to split
+- Prefer co-location over premature separation
+- File splitting should solve real problems, not create imaginary ones
+
+**Good extractions:**
+
+- Reusable UI components (`Button`, `Input`, `Modal`)
+- Shared business logic hooks (`useAuthForm`, `useCountAnimation`)
+- Utility functions used across modules
+- Complex forms with validation (when reused)
+
+**Bad extractions:**
+
+- Page-specific components that aren't reused elsewhere
+- Single-use "Client" wrapper components
+- Breaking apart cohesive units for organizational aesthetics
+
 ### Deployment Considerations
 
 - Designed for Vercel deployment

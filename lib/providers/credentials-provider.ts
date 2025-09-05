@@ -1,10 +1,8 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
-import { verifyPassword } from '@/lib/auth/password';
+import { verifyPassword } from '@/lib/utils/password';
 import { loginSchema } from '@/lib/validations/auth';
-import { loginRateLimit, checkRateLimit } from '@/lib/rate-limit';
-import { eq } from 'drizzle-orm';
+import { loginRateLimit, checkRateLimit } from '@/lib/auth/rate-limit';
+import { UserService } from '@/lib/services/user-service';
 
 export const credentialsProvider = CredentialsProvider({
   id: 'credentials',
@@ -12,6 +10,7 @@ export const credentialsProvider = CredentialsProvider({
   credentials: {
     email: { label: 'Email', type: 'email' },
     password: { label: 'Password', type: 'password' },
+    rememberMe: { label: 'Remember Me', type: 'text' },
   },
   async authorize(credentials) {
     try {
@@ -23,6 +22,7 @@ export const credentialsProvider = CredentialsProvider({
       const validatedData = loginSchema.parse({
         email: credentials.email,
         password: credentials.password,
+        rememberMe: credentials.rememberMe === 'true',
       });
 
       // Check rate limit for login attempts
@@ -37,11 +37,7 @@ export const credentialsProvider = CredentialsProvider({
       }
 
       // Find the user in the database
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, validatedData.email))
-        .limit(1);
+      const user = await UserService.findByEmail(validatedData.email);
 
       if (!user) {
         return null;

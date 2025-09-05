@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 
 type SocialAuthProps = {
@@ -121,10 +122,15 @@ export function AuthForm({
     <div>
       <div className="text-center mb-8">
         <div className="flex items-center justify-center mb-6">
-          <div className="bg-blue-600 rounded-lg p-2 mr-3">
-            <span className="text-white font-bold">S</span>
-          </div>
-          <span className="text-xl font-semibold">SEOmatic</span>
+          <Image
+            src="/logos/seomatic.svg"
+            alt="SEOmatic"
+            width={140}
+            height={40}
+            className="h-8 w-auto"
+            priority
+          />
+          <span className="ml-3 text-xl font-semibold">SEOmatic</span>
         </div>
 
         <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 mb-2">

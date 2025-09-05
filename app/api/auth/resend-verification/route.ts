@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { users, verificationTokens } from '@/lib/db/schema';
 import { emailVerificationSchema } from '@/lib/validations/auth';
 import { getBentoClient } from '@/lib/email/bento-client';
-import { resendRateLimit, checkRateLimit } from '@/lib/rate-limit';
+import { resendRateLimit, checkRateLimit } from '@/lib/auth/rate-limit';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
       await bentoClient.triggerEvent({
         email,
-        type: '$email_verification',
+        type: '$email_verification_v2',
         fields: {
           verification_url: verificationUrl,
           expires_in: '24 hours',

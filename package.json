@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.10.0",
+    "@fingerprintjs/fingerprintjs": "^4.6.2",
     "@radix-ui/react-dialog": "^1.1.13",
     "@radix-ui/react-label": "^2.1.6",
     "@radix-ui/react-popover": "^1.1.13",
@@ -39,6 +40,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "csrf": "^3.1.0",
+    "disposable-email-domains": "^1.0.62",
     "drizzle-orm": "^0.44.5",
     "frimousse": "^0.2.0",
     "lucide-react": "^0.510.0",

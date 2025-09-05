@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { SessionProvider } from '@/components/auth/SessionProvider';
+import { SessionProvider } from '@/components/providers/SessionProvider';
 import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 

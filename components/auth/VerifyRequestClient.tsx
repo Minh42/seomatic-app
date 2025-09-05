@@ -1,14 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { AuthLayout } from '@/components/auth/AuthLayout';
+import { Button } from '@/components/ui/button';
 
 export function VerifyRequestClient() {
   const searchParams = useSearchParams();
   const email = searchParams.get('email');
   const [isResending, setIsResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+
+  // Cooldown timer
+  useEffect(() => {
+    if (cooldownSeconds > 0) {
+      const timer = setTimeout(() => {
+        setCooldownSeconds(cooldownSeconds - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldownSeconds]);
 
   const handleResendEmail = async () => {
     if (!email) {
@@ -32,6 +45,7 @@ export function VerifyRequestClient() {
 
       if (response.ok) {
         setResendMessage('Verification email sent successfully!');
+        setCooldownSeconds(60); // 60 second cooldown
       } else if (response.status === 429) {
         setResendMessage(
           data.error || 'Too many requests. Please wait before trying again.'
@@ -51,29 +65,18 @@ export function VerifyRequestClient() {
     <AuthLayout>
       <div className="text-center">
         <div className="flex items-center justify-center mb-6">
-          <div className="bg-blue-600 rounded-lg p-2 mr-3">
-            <span className="text-white font-bold">S</span>
-          </div>
-          <span className="text-xl font-semibold">SEOmatic</span>
+          <Image
+            src="/logos/seomatic.svg"
+            alt="SEOmatic"
+            width={140}
+            height={40}
+            className="h-8 w-auto"
+            priority
+          />
+          <span className="ml-3 text-xl font-semibold">SEOmatic</span>
         </div>
 
         <div className="mb-8">
-          <div className="w-16 h-16 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
-            <svg
-              className="w-8 h-8 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
-
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 mb-4">
             Check your email
           </h1>
@@ -86,37 +89,53 @@ export function VerifyRequestClient() {
               </p>
             )}
             <p className="text-sm leading-relaxed max-w-md mx-auto">
-              Click the link in the email to verify your account and complete
-              your registration. The link will expire in 24 hours.
+              👉 Click the button in the email to verify your account and
+              continue. The link will expire in 24 hours.
             </p>
           </div>
         </div>
 
         <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Didn&apos;t receive the email? Check your spam folder, then:
+          </p>
+
+          <Button
+            onClick={handleResendEmail}
+            disabled={isResending || !email || cooldownSeconds > 0}
+            variant="outline"
+            className="w-full cursor-pointer"
+          >
+            {isResending
+              ? 'Sending...'
+              : cooldownSeconds > 0
+                ? `Resend in ${cooldownSeconds}s`
+                : 'Resend verification email'}
+          </Button>
+
           {resendMessage && (
-            <div
-              className={`p-3 rounded-md text-sm ${
-                resendMessage.includes('success')
-                  ? 'bg-green-50 border border-green-200 text-green-600'
-                  : 'bg-red-50 border border-red-200 text-red-600'
+            <p
+              className={`text-sm text-center ${
+                resendMessage.includes('successfully')
+                  ? 'text-green-600'
+                  : 'text-red-600'
               }`}
             >
               {resendMessage}
-            </div>
+            </p>
           )}
 
-          <p className="text-sm text-gray-500">
-            Didn&apos;t receive the email? Check your spam folder or{' '}
-            <button
-              onClick={handleResendEmail}
-              disabled={isResending || !email}
-              className="text-blue-600 hover:text-blue-500 font-medium disabled:opacity-50"
+          <p className="text-sm text-center text-gray-500">
+            Wrong email address?{' '}
+            <a
+              href="/signup"
+              className="text-blue-600 hover:text-blue-500 font-medium"
             >
-              {isResending ? 'Sending...' : 'resend verification email'}
-            </button>
+              Change email
+            </a>
           </p>
 
-          <div className="pt-4">
+          <div className="pt-4 border-t border-gray-200">
             <a
               href="/login"
               className="text-sm text-gray-500 hover:text-gray-700"

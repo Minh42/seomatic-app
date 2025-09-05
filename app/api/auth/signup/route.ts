@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users, verificationTokens } from '@/lib/db/schema';
-import { hashPassword } from '@/lib/auth/password';
+import { hashPassword } from '@/lib/utils/password';
 import { signupSchema } from '@/lib/validations/auth';
 import { getBentoClient } from '@/lib/email/bento-client';
-import { emailRateLimit, checkRateLimit } from '@/lib/rate-limit';
+import {
+  emailRateLimit,
+  ipSignupRateLimit,
+  fingerprintSignupRateLimit,
+  checkRateLimit,
+} from '@/lib/auth/rate-limit';
+import { validateEmailDomain } from '@/lib/validations/email';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
@@ -14,18 +20,66 @@ export async function POST(request: NextRequest) {
 
     // Validate the input
     const validatedData = signupSchema.parse(body);
-    const { email, password } = validatedData;
+    const { email, password, fingerprint } = validatedData;
 
-    // Check rate limit for signups
-    const rateCheck = await checkRateLimit(emailRateLimit, email);
-    if (!rateCheck.success) {
+    // Validate email domain (block disposable emails)
+    const emailValidation = validateEmailDomain(email);
+    if (!emailValidation.isValid) {
+      return NextResponse.json(
+        { error: emailValidation.message },
+        { status: 400 }
+      );
+    }
+
+    // Get IP address for rate limiting
+    const ip =
+      request.ip ||
+      request.headers.get('x-forwarded-for') ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
+
+    // Check rate limits
+    const emailRateCheck = await checkRateLimit(emailRateLimit, email);
+    if (!emailRateCheck.success) {
       return NextResponse.json(
         {
-          error: 'Too many signup attempts. Please wait before trying again.',
-          retryAfter: rateCheck.reset,
+          error:
+            'Too many signup attempts from this email. Please wait before trying again.',
+          retryAfter: emailRateCheck.reset,
         },
         { status: 429 }
       );
+    }
+
+    // Check IP rate limit
+    const ipRateCheck = await checkRateLimit(ipSignupRateLimit, ip as string);
+    if (!ipRateCheck.success) {
+      return NextResponse.json(
+        {
+          error:
+            'Too many accounts created from this location. Please try again later.',
+          retryAfter: ipRateCheck.reset,
+        },
+        { status: 429 }
+      );
+    }
+
+    // Check fingerprint rate limit (if fingerprint provided)
+    if (fingerprint) {
+      const fingerprintRateCheck = await checkRateLimit(
+        fingerprintSignupRateLimit,
+        fingerprint
+      );
+      if (!fingerprintRateCheck.success) {
+        return NextResponse.json(
+          {
+            error:
+              'Too many accounts created from this device. Please try again later.',
+            retryAfter: fingerprintRateCheck.reset,
+          },
+          { status: 429 }
+        );
+      }
     }
 
     // Check if user already exists
@@ -84,7 +138,7 @@ export async function POST(request: NextRequest) {
 
         await bentoClient.triggerEvent({
           email,
-          type: '$email_verification',
+          type: '$email_verification_v2',
           fields: {
             verification_url: verificationUrl,
             expires_in: '24 hours',
