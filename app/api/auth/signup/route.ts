@@ -33,7 +33,6 @@ export async function POST(request: NextRequest) {
 
     // Get IP address for rate limiting
     const ip =
-      request.ip ||
       request.headers.get('x-forwarded-for') ||
       request.headers.get('x-real-ip') ||
       'unknown';
@@ -107,7 +106,6 @@ export async function POST(request: NextRequest) {
         passwordHash,
         emailVerified: false,
         isActive: true,
-        currentOnboardingStep: '1',
       })
       .returning({
         id: users.id,

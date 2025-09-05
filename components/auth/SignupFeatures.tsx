@@ -19,7 +19,7 @@ export function SignupFeatures() {
         required.
       </h2>
 
-      <div className="space-y-2 mb-8">
+      <div className="space-y-2">
         {features.map((feature, index) => (
           <div key={index} className="flex items-center">
             <Check className="h-5 w-5 text-green-400 mr-3 flex-shrink-0" />
@@ -28,7 +28,7 @@ export function SignupFeatures() {
         ))}
       </div>
 
-      <SocialProof type="pages" />
+      <SocialProof type="users" />
     </div>
   );
 }

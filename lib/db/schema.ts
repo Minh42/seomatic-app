@@ -80,7 +80,22 @@ export const users = pgTable('users', {
   // User metadata
   emailVerified: boolean('email_verified').default(false),
   isActive: boolean('is_active').default(true),
-  currentOnboardingStep: varchar('current_onboarding_step').default('1'),
+
+  // Onboarding data stored as JSON
+  onboardingData: json('onboarding_data').$type<{
+    useCases: string[];
+    otherUseCase?: string;
+    professionalRole: string;
+    otherProfessionalRole?: string;
+    companySize: string;
+    industry: string;
+    otherIndustry?: string;
+    discoverySource: string;
+    otherDiscoverySource?: string;
+    previousAttempts?: string;
+  }>(),
+  onboardingCompleted: boolean('onboarding_completed').default(false),
+  onboardingCompletedAt: timestamp('onboarding_completed_at'),
 
   // Timestamps
   createdAt: timestamp('created_at').defaultNow().notNull(),

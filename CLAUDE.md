@@ -135,7 +135,6 @@ NEXT_PUBLIC_ROOT_DOMAIN=yourdomain.com  # Optional, defaults to localhost:3000
 - **Payments:** Hybrid subscription + usage-based pricing model tracking pages published
 - Server actions handle form submissions and database operations
 - Path alias `@/*` points to root directory
-- No authentication is implemented (marked as TODO in admin)
 - Subdomain validation sanitizes input to alphanumeric + hyphens only
 - **NEVER add fallbacks and fake data** - maintain data integrity
 

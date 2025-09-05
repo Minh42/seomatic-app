@@ -34,7 +34,7 @@ function LoginPageContent() {
           const result = await signIn('credentials', {
             email: values.email,
             password: values.password,
-            rememberMe: values.rememberMe.toString(),
+            rememberMe: values.rememberMe?.toString() || 'false',
             redirect: false,
           });
 

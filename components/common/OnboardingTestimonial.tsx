@@ -2,7 +2,7 @@ import { Quote } from 'lucide-react';
 import Image from 'next/image';
 import { SocialProof } from './SocialProof';
 
-export function FeaturedTestimonial() {
+export function OnboardingTestimonial() {
   return (
     <>
       {/* Quote Icon */}
@@ -40,8 +40,8 @@ export function FeaturedTestimonial() {
         </div>
       </div>
 
-      {/* Social Proof */}
-      <SocialProof type="pages" />
+      {/* Social Proof - users for onboarding */}
+      <SocialProof type="users" />
     </>
   );
 }

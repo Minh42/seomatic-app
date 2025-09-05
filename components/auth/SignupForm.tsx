@@ -78,8 +78,10 @@ export function SignupForm({
         )}
       </form.Field>
 
-      <form.Subscribe selector={state => [state.canSubmit, state.isSubmitting]}>
-        {([canSubmit, isSubmitting]) => (
+      <form.Subscribe
+        selector={(state: any) => [state.canSubmit, state.isSubmitting]}
+      >
+        {([canSubmit, isSubmitting]: [boolean, boolean]) => (
           <Button
             type="submit"
             className="w-full h-10 md:h-12 text-sm md:text-base font-medium"

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export function useFieldValidation<T extends z.ZodType>(
+export function useFieldValidation<T extends z.ZodObject<any>>(
   schema: T,
   fieldName: keyof z.infer<T>
 ) {
@@ -14,7 +14,7 @@ export function useFieldValidation<T extends z.ZodType>(
         return undefined;
       } catch (error: unknown) {
         if (error instanceof z.ZodError) {
-          return error.errors[0]?.message || `Invalid ${String(fieldName)}`;
+          return error.issues[0]?.message || `Invalid ${String(fieldName)}`;
         }
         return `Invalid ${String(fieldName)}`;
       }

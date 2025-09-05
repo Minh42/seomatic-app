@@ -96,7 +96,7 @@ export default function SignUpPage() {
     <AuthLayout testimonialContent={<SignupFeatures />}>
       <AuthForm
         title="Start your 14-day free trial"
-        subtitle="Launch your first SEO pages today — start scaling your content marketing to drive traffic, leads, and growth."
+        subtitle="Launch your first SEO pages today — start scaling your content marketing to drive traffic, leads, and sales."
         showSocialFirst={true}
         onSocialAuth={handleSocialAuth}
         error={null}
