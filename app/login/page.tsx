@@ -8,6 +8,7 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 import { AuthForm } from '@/components/auth/AuthForm';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { FeaturedTestimonial } from '@/components/common/FeaturedTestimonial';
+import { SocialProof } from '@/components/common/SocialProof';
 import { type LoginFormData } from '@/lib/validations/auth';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { useSocialAuth } from '@/hooks/useSocialAuth';
@@ -54,7 +55,14 @@ function LoginPageContent() {
   const handleSocialAuth = useSocialAuth('/dashboard');
 
   return (
-    <AuthLayout testimonialContent={<FeaturedTestimonial />}>
+    <AuthLayout
+      testimonialContent={
+        <>
+          <FeaturedTestimonial />
+          <SocialProof type="pages" />
+        </>
+      }
+    >
       <AuthForm
         title="Welcome back"
         subtitle="Sign in to your account to continue scaling SEO pages fast."

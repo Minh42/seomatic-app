@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { users, verificationTokens } from '@/lib/db/schema';
+import { users } from '@/lib/db/schema';
 import { hashPassword } from '@/lib/utils/password';
 import { signupSchema } from '@/lib/validations/auth';
-import { getBentoClient } from '@/lib/email/bento-client';
 import {
   emailRateLimit,
   ipSignupRateLimit,
@@ -12,7 +11,6 @@ import {
 } from '@/lib/auth/rate-limit';
 import { validateEmailDomain } from '@/lib/validations/email';
 import { eq } from 'drizzle-orm';
-import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -104,7 +102,6 @@ export async function POST(request: NextRequest) {
       .values({
         email,
         passwordHash,
-        emailVerified: false,
         isActive: true,
       })
       .returning({
@@ -112,48 +109,13 @@ export async function POST(request: NextRequest) {
         email: users.email,
         firstName: users.firstName,
         lastName: users.lastName,
-        emailVerified: users.emailVerified,
       });
-
-    // Generate verification token
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    // Store verification token
-    await db.insert(verificationTokens).values({
-      identifier: email,
-      token,
-      expires,
-      type: 'email_verification',
-    });
-
-    // Trigger email verification event in Bento
-    const bentoClient = getBentoClient();
-    if (bentoClient) {
-      try {
-        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-        const verificationUrl = `${baseUrl}/api/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
-
-        await bentoClient.triggerEvent({
-          email,
-          type: '$email_verification_v2',
-          fields: {
-            verification_url: verificationUrl,
-            expires_in: '24 hours',
-          },
-        });
-      } catch (emailError) {
-        console.error('Failed to trigger verification event:', emailError);
-        // Continue anyway - user can request another verification email
-      }
-    }
 
     return NextResponse.json(
       {
-        message:
-          'User created successfully. Please check your email to verify your account.',
+        message: 'Account created successfully! Please sign in to continue.',
         user: newUser,
-        requiresVerification: true,
+        shouldRedirect: '/login?newAccount=true',
       },
       { status: 201 }
     );

@@ -1,6 +1,5 @@
 import { Quote } from 'lucide-react';
 import Image from 'next/image';
-import { SocialProof } from './SocialProof';
 
 export function FeaturedTestimonial() {
   return (
@@ -39,9 +38,6 @@ export function FeaturedTestimonial() {
           </div>
         </div>
       </div>
-
-      {/* Social Proof */}
-      <SocialProof type="pages" />
     </>
   );
 }

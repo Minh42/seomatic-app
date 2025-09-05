@@ -7,7 +7,6 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 const errorMessages = {
   Configuration: 'There is a problem with the server configuration.',
   AccessDenied: 'You do not have permission to sign in.',
-  Verification: 'The verification token has expired or has already been used.',
   Default: 'An error occurred during authentication.',
 };
 

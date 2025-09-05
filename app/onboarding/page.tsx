@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { OnboardingTestimonial } from '@/components/common/OnboardingTestimonial';
+import { SocialProof } from '@/components/common/SocialProof';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Step1UseCases } from '@/components/onboarding/Step1UseCases';
@@ -126,9 +127,10 @@ export default function OnboardingPage() {
       </div>
 
       {/* Right side - Testimonial */}
-      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 text-white p-6 lg:p-8 flex-col justify-center">
-        <div className="max-w-md mx-auto space-y-6">
+      <div className="hidden lg:flex lg:flex-1 lg:items-center lg:justify-center bg-slate-900 text-white p-12">
+        <div className="max-w-md">
           <OnboardingTestimonial />
+          <SocialProof type="pages" />
         </div>
       </div>
     </div>

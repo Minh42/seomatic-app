@@ -78,7 +78,6 @@ export const users = pgTable('users', {
   twitterId: varchar('twitter_id'),
 
   // User metadata
-  emailVerified: boolean('email_verified').default(false),
   isActive: boolean('is_active').default(true),
 
   // Onboarding data stored as JSON

@@ -36,6 +36,13 @@
       "when": 1756970855683,
       "tag": "0004_past_magus",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1757082195806,
+      "tag": "0005_ambiguous_celestials",
+      "breakpoints": true
     }
   ]
 }

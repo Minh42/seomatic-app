@@ -1,19 +1,12 @@
 import { toast } from 'sonner';
 
 export interface AuthError {
-  type: 'email' | 'password' | 'general' | 'rate_limit' | 'verification';
+  type: 'email' | 'password' | 'general' | 'rate_limit';
   message: string;
 }
 
 export class AuthErrorHandler {
   static handleSignInError(error: string): AuthError {
-    if (error.includes('verify your email')) {
-      return {
-        type: 'verification',
-        message: 'Please verify your email address before signing in.',
-      };
-    }
-
     if (error.includes('Too many login attempts')) {
       return {
         type: 'rate_limit',
@@ -63,7 +56,6 @@ export class AuthErrorHandler {
 
     switch (authError.type) {
       case 'email':
-      case 'verification':
         setEmailError?.(authError.message);
         break;
       case 'password':

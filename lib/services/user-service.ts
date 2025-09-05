@@ -35,14 +35,4 @@ export class UserService {
 
     return user?.isActive || false;
   }
-
-  static async isEmailVerified(userId: string): Promise<boolean> {
-    const [user] = await db
-      .select({ emailVerified: users.emailVerified })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    return user?.emailVerified || false;
-  }
 }

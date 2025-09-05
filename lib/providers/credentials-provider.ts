@@ -63,11 +63,6 @@ export const credentialsProvider = CredentialsProvider({
         return null;
       }
 
-      // Check if email is verified (optional - comment out to allow unverified login)
-      if (!user.emailVerified) {
-        throw new Error('Please verify your email address before signing in.');
-      }
-
       // Return the user object (NextAuth will handle the session)
       return {
         id: user.id,

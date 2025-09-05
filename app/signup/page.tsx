@@ -64,24 +64,20 @@ export default function SignUpPage() {
             return;
           }
 
-          // Account created successfully - redirect to verification page
-          if (signupData.requiresVerification) {
-            window.location.href = `/auth/verify-request?email=${encodeURIComponent(values.email)}`;
-          } else {
-            // Fallback: try to sign in automatically if no verification required
-            const result = await signIn('credentials', {
-              email: values.email,
-              password: values.password,
-              redirect: false,
-            });
+          // Account created successfully - sign in automatically
+          const result = await signIn('credentials', {
+            email: values.email,
+            password: values.password,
+            redirect: false,
+          });
 
-            if (result?.error) {
-              toast.error(
-                'Account created but failed to sign in. Please try logging in.'
-              );
-            } else if (result?.ok) {
-              window.location.href = '/dashboard';
-            }
+          if (result?.error) {
+            // If auto sign-in fails, redirect to login with a success message
+            toast.success('Account created! Please sign in to continue.');
+            window.location.href = '/login?newAccount=true';
+          } else if (result?.ok) {
+            // Successfully signed in - redirect to onboarding
+            window.location.href = '/onboarding';
           }
         } catch (err) {
           toast.error('An unexpected error occurred. Please try again.');
@@ -90,7 +86,7 @@ export default function SignUpPage() {
       },
     });
 
-  const handleSocialAuth = useSocialAuth('/dashboard');
+  const handleSocialAuth = useSocialAuth('/onboarding');
 
   return (
     <AuthLayout testimonialContent={<SignupFeatures />}>
