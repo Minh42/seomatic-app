@@ -101,10 +101,14 @@ export function Step2WorkspaceInfo({ form, isSubmitting }: StepComponentProps) {
               </Label>
               <Select
                 value={field.state.value || ''}
-                onValueChange={field.handleChange}
+                onValueChange={value => {
+                  field.handleChange(value);
+                  // Force form to re-render when selecting Other
+                  form.setFieldValue('professionalRole', value);
+                }}
                 disabled={isSubmitting}
               >
-                <SelectTrigger className="mt-2">
+                <SelectTrigger className="mt-2 w-full">
                   <SelectValue placeholder="Choose an option..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -124,27 +128,31 @@ export function Step2WorkspaceInfo({ form, isSubmitting }: StepComponentProps) {
           )}
         </form.Field>
 
-        {form.state.values.professionalRole === 'Other' && (
-          <form.Field name="otherProfessionalRole">
-            {(field: any) => (
-              <div>
-                <Textarea
-                  placeholder="Please specify your professional role..."
-                  value={field.state.value || ''}
-                  onChange={e => field.handleChange(e.target.value)}
-                  disabled={isSubmitting}
-                  className="w-full"
-                  rows={3}
-                />
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {field.state.meta.errors[0]}
-                  </p>
+        <form.Subscribe selector={state => state.values.professionalRole}>
+          {professionalRole =>
+            professionalRole === 'Other' && (
+              <form.Field name="otherProfessionalRole">
+                {(field: any) => (
+                  <div>
+                    <Textarea
+                      placeholder="Please specify your professional role..."
+                      value={field.state.value || ''}
+                      onChange={e => field.handleChange(e.target.value)}
+                      disabled={isSubmitting}
+                      className="w-full"
+                      rows={3}
+                    />
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {field.state.meta.errors[0]}
+                      </p>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
-          </form.Field>
-        )}
+              </form.Field>
+            )
+          }
+        </form.Subscribe>
 
         <form.Field name="companySize">
           {(field: any) => (
@@ -157,7 +165,7 @@ export function Step2WorkspaceInfo({ form, isSubmitting }: StepComponentProps) {
                 onValueChange={field.handleChange}
                 disabled={isSubmitting}
               >
-                <SelectTrigger className="mt-2">
+                <SelectTrigger className="mt-2 w-full">
                   <SelectValue placeholder="Choose an option..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -185,10 +193,14 @@ export function Step2WorkspaceInfo({ form, isSubmitting }: StepComponentProps) {
               </Label>
               <Select
                 value={field.state.value || ''}
-                onValueChange={field.handleChange}
+                onValueChange={value => {
+                  field.handleChange(value);
+                  // Force form to re-render when selecting Other
+                  form.setFieldValue('industry', value);
+                }}
                 disabled={isSubmitting}
               >
-                <SelectTrigger className="mt-2">
+                <SelectTrigger className="mt-2 w-full">
                   <SelectValue placeholder="Choose an option..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -208,27 +220,31 @@ export function Step2WorkspaceInfo({ form, isSubmitting }: StepComponentProps) {
           )}
         </form.Field>
 
-        {form.state.values.industry === 'Other' && (
-          <form.Field name="otherIndustry">
-            {(field: any) => (
-              <div>
-                <Textarea
-                  placeholder="Please specify your industry..."
-                  value={field.state.value || ''}
-                  onChange={e => field.handleChange(e.target.value)}
-                  disabled={isSubmitting}
-                  className="w-full"
-                  rows={3}
-                />
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {field.state.meta.errors[0]}
-                  </p>
+        <form.Subscribe selector={state => state.values.industry}>
+          {industry =>
+            industry === 'Other' && (
+              <form.Field name="otherIndustry">
+                {(field: any) => (
+                  <div>
+                    <Textarea
+                      placeholder="Please specify your industry..."
+                      value={field.state.value || ''}
+                      onChange={e => field.handleChange(e.target.value)}
+                      disabled={isSubmitting}
+                      className="w-full"
+                      rows={3}
+                    />
+                    {field.state.meta.errors.length > 0 && (
+                      <p className="text-sm text-red-600 mt-1">
+                        {field.state.meta.errors[0]}
+                      </p>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
-          </form.Field>
-        )}
+              </form.Field>
+            )
+          }
+        </form.Subscribe>
       </div>
     </div>
   );

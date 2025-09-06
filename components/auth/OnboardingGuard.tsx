@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
-import { hasCompletedOnboarding } from '@/lib/auth/onboarding-check';
+import { OnboardingService } from '@/lib/services/onboarding-service';
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
@@ -18,7 +18,9 @@ export async function OnboardingGuard({ children }: OnboardingGuardProps) {
     redirect('/login');
   }
 
-  const completedOnboarding = await hasCompletedOnboarding(session.user.id);
+  const completedOnboarding = await OnboardingService.hasCompletedOnboarding(
+    session.user.id
+  );
 
   if (!completedOnboarding) {
     redirect('/onboarding');

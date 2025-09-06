@@ -11,7 +11,7 @@ import { SignupFeatures } from '@/components/auth/SignupFeatures';
 import { type SignupFormData } from '@/lib/validations/auth';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { useSocialAuth } from '@/hooks/useSocialAuth';
-import { AuthErrorHandler } from '@/lib/auth/error-handler';
+import { AuthErrorHandler } from '@/lib/auth/errors';
 
 export default function SignUpPage() {
   const [fingerprint, setFingerprint] = useState<string | null>(null);

@@ -165,12 +165,48 @@ NEXT_PUBLIC_ROOT_DOMAIN=yourdomain.com  # Optional, defaults to localhost:3000
 - Shared business logic hooks (`useAuthForm`, `useCountAnimation`)
 - Utility functions used across modules
 - Complex forms with validation (when reused)
+- **Service layer for business logic** (see Service Layer Architecture below)
 
 **Bad extractions:**
 
 - Page-specific components that aren't reused elsewhere
 - Single-use "Client" wrapper components
 - Breaking apart cohesive units for organizational aesthetics
+
+### Service Layer Architecture
+
+**Business logic should be abstracted into service files** located in `/lib/services/`. This pattern provides:
+
+- **Separation of concerns:** API routes handle HTTP concerns, services handle business logic
+- **Reusability:** Services can be used across multiple API routes, server components, and server actions
+- **Testability:** Services are easier to unit test in isolation
+- **Type safety:** Full TypeScript support with defined interfaces
+- **Consistency:** Standardized error handling and return types
+
+**Existing Services:**
+
+- **`user-service.ts`** - User creation, management, profile updates, and account operations
+- **`workspace-service.ts`** - Workspace CRUD and ownership verification
+- **`onboarding-service.ts`** - Onboarding progress tracking and completion
+- **`auth-service.ts`** - Authentication flows (password reset, email verification)
+- **`team-service.ts`** - Team member invitations, workspace members, and role management
+- **`subscription-service.ts`** - Subscription plans, usage tracking, and limits
+
+**Service Pattern Example:**
+
+```typescript
+// In service file (/lib/services/example-service.ts)
+export class ExampleService {
+  static async performOperation(params: OperationParams) {
+    // Business logic here
+    return result;
+  }
+}
+
+// In API route
+import { ExampleService } from '@/lib/services/example-service';
+const result = await ExampleService.performOperation(params);
+```
 
 ### Deployment Considerations
 

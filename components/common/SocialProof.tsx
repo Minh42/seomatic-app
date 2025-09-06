@@ -1,3 +1,5 @@
+'use client';
+
 import Image from 'next/image';
 import { useCountAnimation } from '@/hooks/useCountAnimation';
 
@@ -7,15 +9,15 @@ interface SocialProofProps {
   type?: SocialProofType;
   message?: string;
   pageCount?: number;
+  userCount?: number;
 }
 
 export function SocialProof({
   type = 'pages',
   message,
   pageCount = 15400,
+  userCount = 0,
 }: SocialProofProps) {
-  const userCount = 1200; // Hardcoded for now, could come from props or API later
-
   const displayUserCount = useCountAnimation({
     targetCount: userCount,
     enabled: type === 'users',

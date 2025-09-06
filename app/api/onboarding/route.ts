@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
-import { db } from '@/lib/db';
-import {
-  users,
-  workspaces,
-  teamMembers,
-  teamInvitations,
-  subscriptions,
-} from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
-import {
-  onboardingSchema,
-  type UserOnboardingData,
-} from '@/lib/validations/onboarding';
-import { randomBytes } from 'crypto';
+import { WorkspaceService } from '@/lib/services/workspace-service';
+import { OnboardingService } from '@/lib/services/onboarding-service';
+import { TeamService } from '@/lib/services/team-service';
+import { SubscriptionService } from '@/lib/services/subscription-service';
+import { onboardingSchema } from '@/lib/validations/onboarding';
+import { z } from 'zod';
+import { EmailService } from '@/lib/services/email-service';
+
+// Extended schema to include workspaceId
+const onboardingSubmissionSchema = onboardingSchema.extend({
+  workspaceId: z.string().optional(),
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,7 +30,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // Validate the data with Zod
-    const validationResult = onboardingSchema.safeParse(body);
+    const validationResult = onboardingSubmissionSchema.safeParse(body);
 
     if (!validationResult.success) {
       return NextResponse.json(
@@ -47,165 +45,107 @@ export async function POST(req: NextRequest) {
     const data = validationResult.data;
     const userId = session.user.id;
 
-    // Start a transaction to ensure data consistency
-    const result = await db.transaction(async tx => {
-      // 1. Check if user already completed onboarding
-      const existingUser = await tx
-        .select({ onboardingCompleted: users.onboardingCompleted })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
+    // Check if user already completed onboarding
+    const isCompleted = await OnboardingService.isCompleted(userId);
+    if (isCompleted) {
+      return NextResponse.json(
+        { error: 'Onboarding has already been completed' },
+        { status: 400 }
+      );
+    }
 
-      if (existingUser[0]?.onboardingCompleted) {
-        throw new Error('Onboarding already completed');
+    // Use the provided workspaceId or get user's workspace
+    let workspaceId: string;
+
+    if (data.workspaceId) {
+      // Verify the workspace belongs to the user
+      const isOwner = await WorkspaceService.verifyOwnership(
+        data.workspaceId,
+        userId
+      );
+      if (!isOwner) {
+        return NextResponse.json(
+          { error: 'Invalid workspace' },
+          { status: 400 }
+        );
       }
+      workspaceId = data.workspaceId;
+    } else {
+      // Get or create user's workspace
+      let workspace = await WorkspaceService.getPrimaryWorkspace(userId);
 
-      // 2. Create or get user's default workspace
-      let workspace = await tx
-        .select()
-        .from(workspaces)
-        .where(eq(workspaces.ownerId, userId))
-        .limit(1);
-
-      if (workspace.length === 0) {
-        // Create a new workspace
-        const newWorkspace = await tx
-          .insert(workspaces)
-          .values({
-            name: data.workspaceName,
-            ownerId: userId,
-            whiteLabelEnabled: false,
-          })
-          .returning();
-
-        workspace = newWorkspace;
-      } else {
-        // Update existing workspace name if different
-        if (workspace[0].name !== data.workspaceName) {
-          await tx
-            .update(workspaces)
-            .set({
-              name: data.workspaceName,
-              updatedAt: new Date(),
-            })
-            .where(eq(workspaces.id, workspace[0].id));
-        }
-      }
-
-      const workspaceId = workspace[0].id;
-
-      // 3. Prepare onboarding data for storage (exclude workspaceName and teamMembers)
-      const userOnboardingData: UserOnboardingData = {
-        useCases: data.useCases,
-        otherUseCase: data.otherUseCase,
-        professionalRole: data.professionalRole,
-        otherProfessionalRole: data.otherProfessionalRole,
-        companySize: data.companySize,
-        industry: data.industry,
-        otherIndustry: data.otherIndustry,
-        discoverySource: data.discoverySource,
-        otherDiscoverySource: data.otherDiscoverySource,
-        previousAttempts: data.previousAttempts,
-      };
-
-      // 4. Process team member invitations (if any)
-      if (data.teamMembers && data.teamMembers.length > 0) {
-        for (const member of data.teamMembers) {
-          // Generate a unique invitation token
-          const token = randomBytes(32).toString('hex');
-          const expiresAt = new Date();
-          expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
-
-          // Roles already match database schema: 'viewer', 'member', 'admin'
-          const role = member.role;
-
-          // Create team member record (pending)
-          const teamMemberResult = await tx
-            .insert(teamMembers)
-            .values({
-              userId, // plan owner
-              memberUserId: userId, // placeholder, will be updated when invitation is accepted
-              invitedBy: userId,
-              role,
-              status: 'pending',
-            })
-            .returning({ id: teamMembers.id });
-
-          // Create invitation
-          await tx.insert(teamInvitations).values({
-            token,
-            email: member.email.toLowerCase(),
-            teamMemberId: teamMemberResult[0].id,
-            expiresAt,
-          });
-
-          // TODO: Send invitation emails to team members
-          // This would typically be handled by an email service
-          console.log(
-            'Team invitation created for:',
-            member.email,
-            'with role:',
-            role
-          );
-        }
-      }
-
-      // 5. Update user with onboarding data and completion status
-      await tx
-        .update(users)
-        .set({
-          onboardingData: userOnboardingData,
-          onboardingCompleted: true,
-          onboardingCompletedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userId));
-
-      // 6. Check if user has a subscription, if not create a trial
-      const userSubscription = await tx
-        .select()
-        .from(subscriptions)
-        .where(eq(subscriptions.ownerId, userId))
-        .limit(1);
-
-      if (userSubscription.length === 0) {
-        // Create a trial subscription (14 days)
-        const trialEndDate = new Date();
-        trialEndDate.setDate(trialEndDate.getDate() + 14);
-
-        await tx.insert(subscriptions).values({
+      if (!workspace) {
+        workspace = await WorkspaceService.create({
+          name: data.workspaceName || 'My Workspace',
           ownerId: userId,
-          planType: 'starter',
-          status: 'trialing',
-          maxDomains: 1,
-          maxTeamMembers: 2,
-          maxPages: 10,
-          maxWords: 50000,
-          overageRatePerPage: '0.00',
-          whiteLabelEnabled: false,
-          currentPeriodStart: new Date(),
-          currentPeriodEnd: trialEndDate,
         });
       }
 
-      return {
+      workspaceId = workspace.id;
+    }
+
+    // Process team member invitations (if any)
+    if (data.teamMembers && data.teamMembers.length > 0) {
+      for (const member of data.teamMembers) {
+        try {
+          await TeamService.inviteMember({
+            email: member.email,
+            role: member.role,
+            invitedBy: userId,
+          });
+        } catch (error) {
+          console.error('Failed to invite team member:', error);
+          // Continue even if invitation fails - don't block onboarding
+        }
+      }
+    }
+
+    // Complete onboarding
+    await OnboardingService.completeOnboarding({
+      userId,
+      workspaceId,
+      ...data,
+    });
+
+    // Track onboarding completion
+    await EmailService.trackOnboardingComplete({
+      email: session.user.email || '',
+      userId,
+      workspaceId,
+      completedAt: new Date(),
+    });
+
+    // Check if user has a subscription, if not create a trial
+    const subscription = await SubscriptionService.getByOwnerId(userId);
+
+    if (!subscription) {
+      await SubscriptionService.createTrial({
+        ownerId: userId,
+        trialDays: 14,
+      });
+    }
+
+    return NextResponse.json(
+      {
         success: true,
         workspaceId,
         message: 'Onboarding completed successfully',
-      };
-    });
-
-    return NextResponse.json(result, { status: 200 });
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Onboarding error:', error);
 
-    // Check for specific errors
+    // Handle service-level errors
     if (error instanceof Error) {
+      if (error.message === 'User not found') {
+        return NextResponse.json({ error: error.message }, { status: 404 });
+      }
       if (error.message === 'Onboarding already completed') {
-        return NextResponse.json(
-          { error: 'Onboarding has already been completed' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      if (error.message.includes('workspace')) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
       }
     }
 
@@ -228,39 +168,27 @@ export async function GET() {
     const userId = session.user.id;
 
     // Check if user has completed onboarding
-    const user = await db
-      .select({
-        onboardingCompleted: users.onboardingCompleted,
-        onboardingCompletedAt: users.onboardingCompletedAt,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+    const progress = await OnboardingService.getProgress(userId);
 
-    if (user.length === 0) {
+    if (!progress) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // If onboarding is completed, also fetch the workspace
     let workspaceData = null;
-    if (user[0].onboardingCompleted) {
-      const workspace = await db
-        .select({
-          id: workspaces.id,
-          name: workspaces.name,
-        })
-        .from(workspaces)
-        .where(eq(workspaces.ownerId, userId))
-        .limit(1);
-
-      if (workspace.length > 0) {
-        workspaceData = workspace[0];
+    if (progress.onboardingCompleted) {
+      const workspace = await WorkspaceService.getPrimaryWorkspace(userId);
+      if (workspace) {
+        workspaceData = {
+          id: workspace.id,
+          name: workspace.name,
+        };
       }
     }
 
     return NextResponse.json({
-      onboardingCompleted: user[0].onboardingCompleted || false,
-      onboardingCompletedAt: user[0].onboardingCompletedAt,
+      onboardingCompleted: progress.onboardingCompleted,
+      onboardingCompletedAt: progress.onboardingCompletedAt,
       workspace: workspaceData,
     });
   } catch (error) {

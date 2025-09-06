@@ -1,7 +1,19 @@
+'use client';
+
 import { Check } from 'lucide-react';
 import { SocialProof } from '@/components/common/SocialProof';
+import { useEffect, useState } from 'react';
 
 export function SignupFeatures() {
+  const [userCount, setUserCount] = useState(0);
+
+  useEffect(() => {
+    // Fetch user count from API
+    fetch('/api/stats/users')
+      .then(res => res.json())
+      .then(data => setUserCount(data.count || 0))
+      .catch(error => console.error('Failed to fetch user count:', error));
+  }, []);
   const features = [
     'Connect 1 Domain',
     'Publish up to 10 Pages',
@@ -28,7 +40,7 @@ export function SignupFeatures() {
         ))}
       </div>
 
-      <SocialProof type="users" />
+      <SocialProof type="users" userCount={userCount} />
     </div>
   );
 }

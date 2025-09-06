@@ -7,8 +7,8 @@ import TwitterProvider from 'next-auth/providers/twitter';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { createBentoEmailProvider } from '@/lib/providers/email-provider';
-import { credentialsProvider } from '@/lib/providers/credentials-provider';
+import { createBentoEmailProvider } from '@/lib/providers/auth-email';
+import { credentialsProvider } from '@/lib/providers/auth-credentials';
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db),

@@ -43,6 +43,13 @@
       "when": 1757082195806,
       "tag": "0005_ambiguous_celestials",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1757085322312,
+      "tag": "0006_broken_dorian_gray",
+      "breakpoints": true
     }
   ]
 }

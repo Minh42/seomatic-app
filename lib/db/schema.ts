@@ -80,19 +80,25 @@ export const users = pgTable('users', {
   // User metadata
   isActive: boolean('is_active').default(true),
 
-  // Onboarding data stored as JSON
-  onboardingData: json('onboarding_data').$type<{
-    useCases: string[];
-    otherUseCase?: string;
-    professionalRole: string;
-    otherProfessionalRole?: string;
-    companySize: string;
-    industry: string;
-    otherIndustry?: string;
-    discoverySource: string;
-    otherDiscoverySource?: string;
-    previousAttempts?: string;
-  }>(),
+  // Onboarding fields - stored as individual columns for easier access
+  // Step 1: Use Cases
+  useCases: text('use_cases').array(), // Array of use case IDs
+  otherUseCase: text('other_use_case'),
+
+  // Step 2: Workspace Info (professional info)
+  professionalRole: varchar('professional_role'),
+  otherProfessionalRole: varchar('other_professional_role'),
+  companySize: varchar('company_size'),
+  industry: varchar('industry'),
+  otherIndustry: varchar('other_industry'),
+
+  // Step 4: Discovery
+  discoverySource: varchar('discovery_source'),
+  otherDiscoverySource: varchar('other_discovery_source'),
+  previousAttempts: text('previous_attempts'),
+
+  // Onboarding tracking
+  onboardingCurrentStep: integer('onboarding_current_step').default(1), // Start at step 1
   onboardingCompleted: boolean('onboarding_completed').default(false),
   onboardingCompletedAt: timestamp('onboarding_completed_at'),
 

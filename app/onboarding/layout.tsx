@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { redirect } from 'next/navigation';
-import { hasCompletedOnboarding } from '@/lib/auth/onboarding-check';
+import { OnboardingService } from '@/lib/services/onboarding-service';
 
 export default async function OnboardingLayout({
   children,
@@ -16,7 +16,9 @@ export default async function OnboardingLayout({
   }
 
   // 2. Check if user has already completed onboarding
-  const completedOnboarding = await hasCompletedOnboarding(session.user.id);
+  const completedOnboarding = await OnboardingService.hasCompletedOnboarding(
+    session.user.id
+  );
   if (completedOnboarding) {
     // User has already completed onboarding, redirect to dashboard
     redirect('/dashboard');

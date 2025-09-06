@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
-import { AuthErrorHandler, type AuthError } from '@/lib/auth/error-handler';
+import { AuthErrorHandler, type AuthError } from '@/lib/auth/errors';
 
 interface UseAuthFormOptions<T> {
   defaultValues: T;

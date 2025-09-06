@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
-import { hashPassword } from '@/lib/utils/password';
+import { UserService } from '@/lib/services/user-service';
 import { signupSchema } from '@/lib/validations/auth';
 import {
   emailRateLimit,
@@ -9,8 +7,6 @@ import {
   fingerprintSignupRateLimit,
   checkRateLimit,
 } from '@/lib/auth/rate-limit';
-import { validateEmailDomain } from '@/lib/validations/email';
-import { eq } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,15 +15,6 @@ export async function POST(request: NextRequest) {
     // Validate the input
     const validatedData = signupSchema.parse(body);
     const { email, password, fingerprint } = validatedData;
-
-    // Validate email domain (block disposable emails)
-    const emailValidation = validateEmailDomain(email);
-    if (!emailValidation.isValid) {
-      return NextResponse.json(
-        { error: emailValidation.message },
-        { status: 400 }
-      );
-    }
 
     // Get IP address for rate limiting
     const ip =
@@ -79,37 +66,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-
-    if (existingUser.length > 0) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
-        { status: 400 }
-      );
-    }
-
-    // Hash the password
-    const passwordHash = await hashPassword(password);
-
-    // Create the user
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        email,
-        passwordHash,
-        isActive: true,
-      })
-      .returning({
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-      });
+    // Create the user using UserService
+    const newUser = await UserService.createUser({
+      email,
+      password,
+      fingerprint,
+    });
 
     return NextResponse.json(
       {
@@ -122,6 +84,16 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     console.error('Signup error:', error);
 
+    // Handle service-level errors
+    if (error instanceof Error) {
+      if (
+        error.message === 'User with this email already exists' ||
+        error.message.includes('Invalid email domain')
+      ) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+    }
+
     // Handle Zod validation errors
     if (error && typeof error === 'object' && 'errors' in error) {
       return NextResponse.json(
@@ -129,20 +101,6 @@ export async function POST(request: NextRequest) {
           error: 'Validation failed',
           details: (error as { errors: unknown[] }).errors,
         },
-        { status: 400 }
-      );
-    }
-
-    // Handle database errors
-    if (
-      error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      (error as { code: string }).code === '23505'
-    ) {
-      // PostgreSQL unique violation
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
         { status: 400 }
       );
     }

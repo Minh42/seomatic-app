@@ -4,13 +4,12 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { OnboardingTestimonial } from '@/components/common/OnboardingTestimonial';
 import { SocialProof } from '@/components/common/SocialProof';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
 import { Step1UseCases } from '@/components/onboarding/Step1UseCases';
 import { Step2WorkspaceInfo } from '@/components/onboarding/Step2WorkspaceInfo';
 import { Step3TeamMembers } from '@/components/onboarding/Step3TeamMembers';
 import { Step4Discovery } from '@/components/onboarding/Step4Discovery';
 import { ProgressBar } from '@/components/onboarding/ProgressBar';
+import { ErrorDisplay } from '@/components/onboarding/ErrorDisplay';
 import { useOnboardingForm } from '@/hooks/useOnboardingForm';
 
 export default function OnboardingPage() {
@@ -27,6 +26,7 @@ export default function OnboardingPage() {
     canGoPrevious,
     canSkip,
     retrySubmission,
+    isLoadingProgress,
   } = useOnboardingForm();
 
   return (
@@ -50,37 +50,36 @@ export default function OnboardingPage() {
 
           <ProgressBar currentStep={currentStep} totalSteps={4} />
 
-          {/* Error Alert */}
-          {error && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                {error.message}
-                {error.code === 'SERVER_ERROR' && (
-                  <Button
-                    variant="link"
-                    onClick={retrySubmission}
-                    className="ml-2 p-0 h-auto"
-                  >
-                    Try again
-                  </Button>
-                )}
-              </AlertDescription>
-            </Alert>
-          )}
+          {/* Error Display */}
+          <ErrorDisplay
+            error={error}
+            onRetry={retrySubmission}
+            canRetry={!isSubmitting && currentStep === 4}
+          />
 
           {/* Step Components */}
-          {currentStep === 1 && (
-            <Step1UseCases form={form} isSubmitting={isSubmitting} />
-          )}
-          {currentStep === 2 && (
-            <Step2WorkspaceInfo form={form} isSubmitting={isSubmitting} />
-          )}
-          {currentStep === 3 && (
-            <Step3TeamMembers form={form} isSubmitting={isSubmitting} />
-          )}
-          {currentStep === 4 && (
-            <Step4Discovery form={form} isSubmitting={isSubmitting} />
+          {isLoadingProgress ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading your progress...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {currentStep === 1 && (
+                <Step1UseCases form={form} isSubmitting={isSubmitting} />
+              )}
+              {currentStep === 2 && (
+                <Step2WorkspaceInfo form={form} isSubmitting={isSubmitting} />
+              )}
+              {currentStep === 3 && (
+                <Step3TeamMembers form={form} isSubmitting={isSubmitting} />
+              )}
+              {currentStep === 4 && (
+                <Step4Discovery form={form} isSubmitting={isSubmitting} />
+              )}
+            </>
           )}
 
           {/* Navigation Buttons */}
@@ -90,7 +89,7 @@ export default function OnboardingPage() {
                 onClick={handlePreviousStep}
                 variant="outline"
                 disabled={!canGoPrevious}
-                className="px-6 md:px-8 h-10 md:h-12 text-sm md:text-base font-medium"
+                className="px-6 md:px-8 h-10 md:h-12 text-sm md:text-base font-medium cursor-pointer disabled:cursor-not-allowed"
               >
                 ← Back
               </Button>
@@ -103,7 +102,7 @@ export default function OnboardingPage() {
                 <button
                   onClick={handleSkipStep}
                   disabled={!canSkip}
-                  className="text-gray-500 hover:text-gray-700 text-xs md:text-sm font-medium disabled:opacity-50"
+                  className="text-gray-500 hover:text-gray-700 text-xs md:text-sm font-medium disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                 >
                   Skip for now
                 </button>
@@ -111,7 +110,7 @@ export default function OnboardingPage() {
               <Button
                 onClick={handleNextStep}
                 disabled={!canGoNext}
-                className="px-6 md:px-8 h-10 md:h-12 text-sm md:text-base font-medium"
+                className="px-6 md:px-8 h-10 md:h-12 text-sm md:text-base font-medium cursor-pointer disabled:cursor-not-allowed"
               >
                 {isSubmitting
                   ? 'Processing...'
