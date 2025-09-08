@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const signupSchema = z.object({
+// API schema - used by the signup API endpoint
+export const signupApiSchema = z.object({
   email: z
     .string()
     .min(1, 'Email is required')
@@ -17,6 +18,30 @@ export const signupSchema = z.object({
   fingerprint: z.string().optional(),
 });
 
+// Form schema - used by the signup form (includes confirmPassword)
+export const signupSchema = z
+  .object({
+    email: z
+      .string()
+      .min(1, 'Email is required')
+      .email('Please enter a valid email address')
+      .max(100, 'Email must be less than 100 characters'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(100, 'Password must be less than 100 characters')
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+        'Password must contain at least one lowercase letter, one uppercase letter, and one number'
+      ),
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+    fingerprint: z.string().optional(),
+  })
+  .refine(data => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
+
 export const loginSchema = z.object({
   email: z
     .string()
@@ -28,14 +53,6 @@ export const loginSchema = z.object({
     .min(1, 'Password is required')
     .max(100, 'Password must be less than 100 characters'),
   rememberMe: z.boolean().default(false).optional(),
-});
-
-export const emailVerificationSchema = z.object({
-  email: z
-    .string()
-    .min(1, 'Email is required')
-    .email('Please enter a valid email address')
-    .max(100, 'Email must be less than 100 characters'),
 });
 
 export const passwordResetRequestSchema = z.object({
@@ -64,7 +81,6 @@ export const passwordResetSchema = z.object({
 
 export type SignupFormData = z.infer<typeof signupSchema>;
 export type LoginFormData = z.infer<typeof loginSchema>;
-export type EmailVerificationFormData = z.infer<typeof emailVerificationSchema>;
 export type PasswordResetRequestFormData = z.infer<
   typeof passwordResetRequestSchema
 >;

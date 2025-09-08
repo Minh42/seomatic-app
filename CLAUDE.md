@@ -188,9 +188,11 @@ NEXT_PUBLIC_ROOT_DOMAIN=yourdomain.com  # Optional, defaults to localhost:3000
 - **`user-service.ts`** - User creation, management, profile updates, and account operations
 - **`workspace-service.ts`** - Workspace CRUD and ownership verification
 - **`onboarding-service.ts`** - Onboarding progress tracking and completion
-- **`auth-service.ts`** - Authentication flows (password reset, email verification)
+- **`auth-service.ts`** - Authentication flows (password reset)
 - **`team-service.ts`** - Team member invitations, workspace members, and role management
 - **`subscription-service.ts`** - Subscription plans, usage tracking, and limits
+- **`rate-limit-service.ts`** - Rate limiting with Upstash Redis for auth and API endpoints
+- **`email-service.ts`** - Email operations via Bento API
 
 **Service Pattern Example:**
 
@@ -206,6 +208,67 @@ export class ExampleService {
 // In API route
 import { ExampleService } from '@/lib/services/example-service';
 const result = await ExampleService.performOperation(params);
+```
+
+### API Route Structure
+
+**Consistent RESTful API pattern** where main resources are at the root level and sub-resources/actions are in nested folders.
+
+**Structure Pattern:**
+
+```
+/api/[resource]/route.ts           - Main resource CRUD operations
+/api/[resource]/[action]/route.ts  - Specific actions or sub-resources
+```
+
+**Pattern Benefits:**
+
+- **Predictable:** Developers can easily understand API structure
+- **RESTful:** Follows REST principles with clear resource boundaries
+- **Scalable:** Easy to add new sub-resources without breaking existing ones
+- **Clear separation:** Main resources vs. specific actions/sub-resources
+- **Consistent:** All APIs follow the same organizational pattern
+
+### Rate Limiting
+
+The application uses **Upstash Redis** for distributed rate limiting across all instances. Rate limits are configured per endpoint type:
+
+**Authentication Endpoints:**
+
+- Login: 5 attempts per minute
+- Signup: 3 signups per 10 minutes
+- Password Reset: 3 requests per 15 minutes
+
+**API Endpoints:**
+
+- General API: 100 requests per minute
+- Workspace Creation: 5 per hour
+- Team Invites: 20 per hour
+
+**Implementation:**
+
+- `RateLimitService` in `/lib/services/rate-limit-service.ts` provides centralized rate limiting
+- `withRateLimit` middleware in `/lib/middleware/rate-limit.ts` for easy API route protection
+- Automatic rate limit headers (`X-RateLimit-*`) in responses
+- Fails open if Redis is unavailable (allows requests to prevent service disruption)
+
+**Usage in API Routes:**
+
+```typescript
+import {
+  withRateLimit,
+  addRateLimitHeaders,
+} from '@/lib/middleware/rate-limit';
+
+export async function POST(request: NextRequest) {
+  // Check rate limit
+  const rateLimitResponse = await withRateLimit(request, { type: 'login' });
+  if (rateLimitResponse) return rateLimitResponse;
+
+  // Your API logic here
+  const response = NextResponse.json({ data });
+  return addRateLimitHeaders(response, request);
+}
 ```
 
 ### Deployment Considerations

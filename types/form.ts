@@ -20,4 +20,11 @@ export interface FormFieldState<T = any> {
 export interface StepComponentProps {
   form: OnboardingForm;
   isSubmitting?: boolean;
+  error?: {
+    message: string;
+    code?: string;
+    field?: string;
+  } | null;
+  onRetryWorkspace?: (newName: string) => Promise<void>;
+  onCancelWorkspaceRecovery?: () => void;
 }

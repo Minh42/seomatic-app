@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { users, teamMembers, teamInvitations } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { OnboardingFormData } from '@/lib/validations/onboarding';
 
 export interface SaveProgressParams {
@@ -46,6 +46,21 @@ export class OnboardingService {
       return null;
     }
 
+    // Load pending team invitations sent by this user during onboarding
+    const pendingInvitations = await db
+      .select({
+        email: teamInvitations.email,
+        role: teamMembers.role,
+      })
+      .from(teamMembers)
+      .innerJoin(
+        teamInvitations,
+        eq(teamMembers.id, teamInvitations.teamMemberId)
+      )
+      .where(
+        and(eq(teamMembers.userId, userId), eq(teamMembers.status, 'pending'))
+      );
+
     // Format onboarding data for the form
     const onboardingData = {
       currentStep: user.onboardingCurrentStep || 1,
@@ -59,89 +74,13 @@ export class OnboardingService {
       discoverySource: user.discoverySource || '',
       otherDiscoverySource: user.otherDiscoverySource || '',
       previousAttempts: user.previousAttempts || '',
-      teamMembers: [], // Loaded separately from teamMembers table
+      teamMembers: pendingInvitations || [],
     };
 
     return {
       onboardingCompleted: user.onboardingCompleted || false,
       onboardingCompletedAt: user.onboardingCompletedAt,
       onboardingData,
-    };
-  }
-
-  /**
-   * Save onboarding progress for a specific step
-   */
-  static async saveProgress({ userId, step, data }: SaveProgressParams) {
-    // Check if onboarding is already completed
-    const [user] = await db
-      .select({ onboardingCompleted: users.onboardingCompleted })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    if (user.onboardingCompleted) {
-      throw new Error('Onboarding already completed');
-    }
-
-    // Build update object
-    const updateData: any = {
-      updatedAt: new Date(),
-    };
-
-    // If data is provided, save it based on step
-    if (data && Object.keys(data).length > 0) {
-      switch (step) {
-        case 1:
-          // Step 1: Use Cases
-          if (data.useCases !== undefined) updateData.useCases = data.useCases;
-          if (data.otherUseCase !== undefined)
-            updateData.otherUseCase = data.otherUseCase;
-          break;
-
-        case 2:
-          // Step 2: Professional/Company Info
-          if (data.professionalRole !== undefined)
-            updateData.professionalRole = data.professionalRole;
-          if (data.otherProfessionalRole !== undefined)
-            updateData.otherProfessionalRole = data.otherProfessionalRole;
-          if (data.companySize !== undefined)
-            updateData.companySize = data.companySize;
-          if (data.industry !== undefined) updateData.industry = data.industry;
-          if (data.otherIndustry !== undefined)
-            updateData.otherIndustry = data.otherIndustry;
-          break;
-
-        case 3:
-          // Step 3: Team members - handled separately
-          break;
-
-        case 4:
-          // Step 4: Discovery
-          if (data.discoverySource !== undefined)
-            updateData.discoverySource = data.discoverySource;
-          if (data.otherDiscoverySource !== undefined)
-            updateData.otherDiscoverySource = data.otherDiscoverySource;
-          if (data.previousAttempts !== undefined)
-            updateData.previousAttempts = data.previousAttempts;
-          break;
-      }
-    } else {
-      // If no data provided, just update the step (for navigation)
-      updateData.onboardingCurrentStep = step;
-    }
-
-    // Update user's onboarding data
-    await db.update(users).set(updateData).where(eq(users.id, userId));
-
-    return {
-      success: true,
-      message: `Step ${step} progress saved`,
-      savedFields: Object.keys(updateData),
     };
   }
 
@@ -222,6 +161,82 @@ export class OnboardingService {
       console.error('Error checking onboarding status:', error);
       return false;
     }
+  }
+
+  /**
+   * Save onboarding progress for a specific step
+   */
+  static async saveProgress({ userId, step, data }: SaveProgressParams) {
+    // Check if onboarding is already completed
+    const [user] = await db
+      .select({ onboardingCompleted: users.onboardingCompleted })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (user.onboardingCompleted) {
+      throw new Error('Onboarding already completed');
+    }
+
+    // Build update object
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+
+    // If data is provided, save it based on step
+    if (data && Object.keys(data).length > 0) {
+      switch (step) {
+        case 1:
+          // Step 1: Use Cases
+          if (data.useCases !== undefined) updateData.useCases = data.useCases;
+          if (data.otherUseCase !== undefined)
+            updateData.otherUseCase = data.otherUseCase;
+          break;
+
+        case 2:
+          // Step 2: Professional/Company Info
+          if (data.professionalRole !== undefined)
+            updateData.professionalRole = data.professionalRole;
+          if (data.otherProfessionalRole !== undefined)
+            updateData.otherProfessionalRole = data.otherProfessionalRole;
+          if (data.companySize !== undefined)
+            updateData.companySize = data.companySize;
+          if (data.industry !== undefined) updateData.industry = data.industry;
+          if (data.otherIndustry !== undefined)
+            updateData.otherIndustry = data.otherIndustry;
+          break;
+
+        case 3:
+          // Step 3: Team members - handled separately
+          break;
+
+        case 4:
+          // Step 4: Discovery
+          if (data.discoverySource !== undefined)
+            updateData.discoverySource = data.discoverySource;
+          if (data.otherDiscoverySource !== undefined)
+            updateData.otherDiscoverySource = data.otherDiscoverySource;
+          if (data.previousAttempts !== undefined)
+            updateData.previousAttempts = data.previousAttempts;
+          break;
+      }
+    } else {
+      // If no data provided, just update the step (for navigation)
+      updateData.onboardingCurrentStep = step;
+    }
+
+    // Update user's onboarding data
+    await db.update(users).set(updateData).where(eq(users.id, userId));
+
+    return {
+      success: true,
+      message: `Step ${step} progress saved`,
+      savedFields: Object.keys(updateData),
+    };
   }
 
   /**

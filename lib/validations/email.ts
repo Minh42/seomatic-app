@@ -1,10 +1,10 @@
-import disposableEmailDomains from 'disposable-email-domains';
+import { isDisposable } from 'disposable-email-domains-js';
 
 export function isDisposableEmail(email: string): boolean {
   const domain = email.split('@')[1]?.toLowerCase();
   if (!domain) return false;
 
-  return disposableEmailDomains.includes(domain);
+  return isDisposable(domain);
 }
 
 export function validateEmailDomain(email: string): {

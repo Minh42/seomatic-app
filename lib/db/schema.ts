@@ -144,9 +144,7 @@ export const teamMembers = pgTable('team_members', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id), // plan owner
-  memberUserId: uuid('member_user_id')
-    .notNull()
-    .references(() => users.id), // team member
+  memberUserId: uuid('member_user_id').references(() => users.id), // team member - nullable for pending invitations
   invitedBy: uuid('invited_by')
     .notNull()
     .references(() => users.id),
@@ -380,7 +378,7 @@ export const verificationTokens = pgTable(
     identifier: varchar('identifier').notNull(),
     token: varchar('token').notNull(),
     expires: timestamp('expires').notNull(),
-    type: varchar('type').default('email_verification'), // 'email_verification' or 'password_reset'
+    type: varchar('type').default('password_reset'), // Type of verification token
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   vt => ({

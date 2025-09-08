@@ -82,13 +82,43 @@ export async function POST(req: NextRequest) {
 
     // Handle service-level errors
     if (error instanceof Error) {
-      if (error.message === 'A workspace with this name already exists') {
-        return NextResponse.json({ error: error.message }, { status: 409 });
+      // Check for duplicate workspace name errors
+      if (
+        error.message.includes('duplicate') ||
+        error.message.includes('already exists') ||
+        error.message === 'A workspace with this name already exists'
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'A workspace with this name already exists. Please choose a different name.',
+            code: 'DUPLICATE_WORKSPACE',
+          },
+          { status: 409 }
+        );
+      }
+
+      // Handle database constraint violations
+      if (
+        error.message.includes('constraint') ||
+        error.message.includes('unique')
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'This workspace name is not available. Please try another name.',
+            code: 'DUPLICATE_WORKSPACE',
+          },
+          { status: 409 }
+        );
       }
     }
 
     return NextResponse.json(
-      { error: 'Failed to create workspace' },
+      {
+        error: 'Failed to create workspace. Please try again.',
+        code: 'WORKSPACE_ERROR',
+      },
       { status: 500 }
     );
   }

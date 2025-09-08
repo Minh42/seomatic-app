@@ -1,22 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
-import { WorkspaceService } from '@/lib/services/workspace-service';
 import { OnboardingService } from '@/lib/services/onboarding-service';
-import { TeamService } from '@/lib/services/team-service';
+import { WorkspaceService } from '@/lib/services/workspace-service';
 import { SubscriptionService } from '@/lib/services/subscription-service';
-import { onboardingSchema } from '@/lib/validations/onboarding';
-import { z } from 'zod';
 import { EmailService } from '@/lib/services/email-service';
+import { onboardingSubmissionSchema } from '@/lib/validations/onboarding';
 
-// Extended schema to include workspaceId
-const onboardingSubmissionSchema = onboardingSchema.extend({
-  workspaceId: z.string().optional(),
-});
+// GET /api/onboarding - Check onboarding status
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
 
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+
+    // Check if onboarding is completed
+    const isCompleted = await OnboardingService.isCompleted(userId);
+
+    if (isCompleted) {
+      return NextResponse.json({
+        completed: true,
+        redirectTo: '/dashboard',
+      });
+    }
+
+    // Get current progress for incomplete onboarding
+    const [progress, workspace] = await Promise.all([
+      OnboardingService.getProgress(userId),
+      WorkspaceService.getPrimaryWorkspace(userId),
+    ]);
+
+    return NextResponse.json({
+      completed: false,
+      currentStep: progress?.onboardingData?.currentStep || 1,
+      hasWorkspace: !!workspace,
+      workspaceId: workspace?.id || null,
+      workspaceName: workspace?.name || '',
+    });
+  } catch (error) {
+    console.error('Error checking onboarding status:', error);
+    return NextResponse.json(
+      { error: 'Failed to check onboarding status' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/onboarding - Complete onboarding
 export async function POST(req: NextRequest) {
   try {
-    // Get the current user session
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
@@ -26,10 +62,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Parse and validate the request body
     const body = await req.json();
+    const userId = session.user.id;
 
-    // Validate the data with Zod
+    // Validate the submission data
     const validationResult = onboardingSubmissionSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -43,7 +79,6 @@ export async function POST(req: NextRequest) {
     }
 
     const data = validationResult.data;
-    const userId = session.user.id;
 
     // Check if user already completed onboarding
     const isCompleted = await OnboardingService.isCompleted(userId);
@@ -71,34 +106,51 @@ export async function POST(req: NextRequest) {
       }
       workspaceId = data.workspaceId;
     } else {
-      // Get or create user's workspace
+      // Get or create user's workspace with proper error handling
       let workspace = await WorkspaceService.getPrimaryWorkspace(userId);
 
       if (!workspace) {
-        workspace = await WorkspaceService.create({
-          name: data.workspaceName || 'My Workspace',
-          ownerId: userId,
-        });
+        try {
+          workspace = await WorkspaceService.create({
+            name: data.workspaceName || 'My Workspace',
+            ownerId: userId,
+          });
+        } catch (error) {
+          console.error('Failed to create workspace during onboarding:', error);
+
+          // Provide helpful error message based on the error type
+          if (error instanceof Error) {
+            if (
+              error.message.includes('duplicate') ||
+              error.message.includes('already exists')
+            ) {
+              return NextResponse.json(
+                {
+                  error:
+                    'A workspace with this name already exists. Please choose a different name.',
+                  code: 'DUPLICATE_WORKSPACE',
+                  field: 'workspaceName',
+                },
+                { status: 409 }
+              );
+            }
+          }
+
+          return NextResponse.json(
+            {
+              error: 'Failed to create workspace. Please try again.',
+              code: 'WORKSPACE_ERROR',
+              field: 'workspaceName',
+            },
+            { status: 500 }
+          );
+        }
       }
 
       workspaceId = workspace.id;
     }
 
-    // Process team member invitations (if any)
-    if (data.teamMembers && data.teamMembers.length > 0) {
-      for (const member of data.teamMembers) {
-        try {
-          await TeamService.inviteMember({
-            email: member.email,
-            role: member.role,
-            invitedBy: userId,
-          });
-        } catch (error) {
-          console.error('Failed to invite team member:', error);
-          // Continue even if invitation fails - don't block onboarding
-        }
-      }
-    }
+    // Team invitations are now sent in Step 3, not during final completion
 
     // Complete onboarding
     await OnboardingService.completeOnboarding({
@@ -134,7 +186,7 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('Onboarding error:', error);
+    console.error('Error completing onboarding:', error);
 
     // Handle service-level errors
     if (error instanceof Error) {
@@ -151,50 +203,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       { error: 'Failed to complete onboarding' },
-      { status: 500 }
-    );
-  }
-}
-
-// GET endpoint to check onboarding status
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = session.user.id;
-
-    // Check if user has completed onboarding
-    const progress = await OnboardingService.getProgress(userId);
-
-    if (!progress) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    // If onboarding is completed, also fetch the workspace
-    let workspaceData = null;
-    if (progress.onboardingCompleted) {
-      const workspace = await WorkspaceService.getPrimaryWorkspace(userId);
-      if (workspace) {
-        workspaceData = {
-          id: workspace.id,
-          name: workspace.name,
-        };
-      }
-    }
-
-    return NextResponse.json({
-      onboardingCompleted: progress.onboardingCompleted,
-      onboardingCompletedAt: progress.onboardingCompletedAt,
-      workspace: workspaceData,
-    });
-  } catch (error) {
-    console.error('Error checking onboarding status:', error);
-    return NextResponse.json(
-      { error: 'Failed to check onboarding status' },
       { status: 500 }
     );
   }

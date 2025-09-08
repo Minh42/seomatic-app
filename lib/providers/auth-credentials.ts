@@ -1,7 +1,7 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { verifyPassword } from '@/lib/utils/password';
 import { loginSchema } from '@/lib/validations/auth';
-import { loginRateLimit, checkRateLimit } from '@/lib/auth/rate-limit';
+import { RateLimitService } from '@/lib/services/rate-limit-service';
 import { UserService } from '@/lib/services/user-service';
 
 export const credentialsProvider = CredentialsProvider({
@@ -26,9 +26,9 @@ export const credentialsProvider = CredentialsProvider({
       });
 
       // Check rate limit for login attempts
-      const rateCheck = await checkRateLimit(
-        loginRateLimit,
-        validatedData.email
+      const rateCheck = await RateLimitService.check(
+        'login',
+        `email:${validatedData.email}`
       );
       if (!rateCheck.success) {
         throw new Error(
@@ -63,14 +63,17 @@ export const credentialsProvider = CredentialsProvider({
         return null;
       }
 
-      // Return the user object (NextAuth will handle the session)
+      // Return the user object with rememberMe flag
+      // The rememberMe value needs to be accessible in the JWT callback
       return {
         id: user.id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         image: user.avatarUrl,
-      };
+        // Add rememberMe to the user object so it can be accessed in jwt callback
+        rememberMe: validatedData.rememberMe,
+      } as any;
     } catch (error) {
       console.error('Credentials authorization error:', error);
       return null;

@@ -26,7 +26,9 @@ export class WorkspaceService {
       .limit(1);
 
     if (existing.length > 0) {
-      throw new Error('A workspace with this name already exists');
+      throw new Error(
+        `You already have a workspace named "${name}". Please choose a different name to avoid confusion.`
+      );
     }
 
     const [workspace] = await db

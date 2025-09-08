@@ -20,14 +20,39 @@ export const step1Schema = z
     }
   );
 
+// Workspace name validation
+export const workspaceNameSchema = z
+  .string()
+  .min(1, 'Workspace name is required')
+  .min(2, 'Workspace name must be at least 2 characters')
+  .max(50, 'Workspace name must be less than 50 characters')
+  .regex(
+    /^[a-zA-Z0-9][a-zA-Z0-9\s-]*[a-zA-Z0-9]$/,
+    'Workspace name must start and end with a letter or number, and can only contain letters, numbers, spaces, and hyphens'
+  )
+  .refine(
+    name => {
+      // Check for consecutive spaces or hyphens
+      return !/(  |--|\s-|-\s)/.test(name);
+    },
+    {
+      message: 'Workspace name cannot have consecutive spaces or hyphens',
+    }
+  )
+  .refine(
+    name => {
+      // Check that it's not just numbers
+      return !/^\d+$/.test(name);
+    },
+    {
+      message: 'Workspace name cannot be only numbers',
+    }
+  );
+
 // Step 2: Workspace Information
 export const step2Schema = z
   .object({
-    workspaceName: z
-      .string()
-      .min(1, 'Workspace name is required')
-      .min(2, 'Workspace name must be at least 2 characters')
-      .max(50, 'Workspace name must be less than 50 characters'),
+    workspaceName: workspaceNameSchema,
     professionalRole: z.string().min(1, 'Please select your professional role'),
     otherProfessionalRole: z.string().optional(),
     companySize: z.string().min(1, 'Please select your company size'),
@@ -66,8 +91,40 @@ export const step2Schema = z
 export const teamMemberSchema = z.object({
   email: z
     .string()
+    .min(1, 'Email is required')
     .email('Please enter a valid email address')
-    .min(1, 'Email is required'),
+    .toLowerCase()
+    .trim()
+    .refine(
+      email => {
+        // Additional validation for common email issues
+        const parts = email.split('@');
+        if (parts.length !== 2) return false;
+
+        const [localPart, domain] = parts;
+
+        // Check local part
+        if (localPart.length === 0 || localPart.length > 64) return false;
+        if (localPart.startsWith('.') || localPart.endsWith('.')) return false;
+        if (localPart.includes('..')) return false;
+
+        // Check domain
+        if (domain.length === 0 || domain.length > 253) return false;
+        if (!domain.includes('.')) return false;
+        if (domain.startsWith('.') || domain.endsWith('.')) return false;
+        if (domain.includes('..')) return false;
+
+        // Check for valid TLD
+        const tldParts = domain.split('.');
+        const tld = tldParts[tldParts.length - 1];
+        if (tld.length < 2) return false;
+
+        return true;
+      },
+      {
+        message: 'Please enter a valid email address with proper domain',
+      }
+    ),
   role: z.enum(['viewer', 'member', 'admin']),
 });
 
@@ -106,7 +163,7 @@ export const onboardingSchema = z.object({
   otherUseCase: z.string().optional(),
 
   // Step 2
-  workspaceName: z.string().min(1, 'Workspace name is required'), // For workspace creation, not stored in user
+  workspaceName: workspaceNameSchema, // For workspace creation, not stored in user
   professionalRole: z.string().min(1, 'Please select your professional role'),
   otherProfessionalRole: z.string().optional(),
   companySize: z.string().min(1, 'Please select your company size'),
@@ -122,12 +179,26 @@ export const onboardingSchema = z.object({
   previousAttempts: z.string().optional(),
 });
 
+// Progress update schema - for saving step progress
+export const progressSchema = z.object({
+  step: z.number().min(1).max(4),
+  data: z.any().optional(), // Data is optional for step-only updates
+  complete: z.boolean().optional(), // Flag to indicate final completion
+});
+
+// Extended submission schema - for final onboarding completion
+export const onboardingSubmissionSchema = onboardingSchema.extend({
+  workspaceId: z.string().optional(),
+});
+
 export type OnboardingFormData = z.infer<typeof onboardingSchema>;
 export type Step1Data = z.infer<typeof step1Schema>;
 export type Step2Data = z.infer<typeof step2Schema>;
 export type Step3Data = z.infer<typeof step3Schema>;
 export type Step4Data = z.infer<typeof step4Schema>;
 export type TeamMember = z.infer<typeof teamMemberSchema>;
+export type ProgressUpdate = z.infer<typeof progressSchema>;
+export type OnboardingSubmission = z.infer<typeof onboardingSubmissionSchema>;
 
 // Default values for form initialization
 export const defaultOnboardingValues: OnboardingFormData = {

@@ -69,6 +69,17 @@ export default function InvitePage() {
   const handleAcceptInvitation = async () => {
     if (!token || !invitation) return;
 
+    // Check for email mismatch before attempting
+    if (
+      session?.user?.email &&
+      session.user.email.toLowerCase() !== invitation.email.toLowerCase()
+    ) {
+      setError(
+        `This invitation is for ${invitation.email}. You are currently logged in as ${session.user.email}. Please log out and sign in with the correct account.`
+      );
+      return;
+    }
+
     setIsAccepting(true);
     setError(null);
 
@@ -180,45 +191,72 @@ export default function InvitePage() {
               </div>
 
               {session?.user?.email &&
-                session.user.email !== invitation.email && (
-                  <Alert className="mb-4">
+                session.user.email.toLowerCase() !==
+                  invitation.email.toLowerCase() && (
+                  <Alert variant="destructive" className="mb-4">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      You&apos;re logged in as{' '}
-                      <strong>{session.user.email}</strong>. This invitation is
-                      for <strong>{invitation.email}</strong>. You may want to
-                      log out and use the correct account.
+                      <strong>Email mismatch!</strong> You&apos;re logged in as{' '}
+                      <strong>{session.user.email}</strong>, but this invitation
+                      is for <strong>{invitation.email}</strong>.
+                      <br />
+                      <br />
+                      For security reasons, you must log in with the correct
+                      account to accept this invitation.
                     </AlertDescription>
                   </Alert>
                 )}
 
               <div className="space-y-3">
-                <Button
-                  onClick={handleAcceptInvitation}
-                  disabled={isAccepting}
-                  className="w-full"
-                >
-                  {isAccepting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Accepting...
-                    </>
-                  ) : session ? (
-                    'Accept Invitation'
-                  ) : (
-                    'Sign up & Accept'
-                  )}
-                </Button>
-
-                {session && (
+                {session?.user?.email &&
+                session.user.email.toLowerCase() !==
+                  invitation.email.toLowerCase() ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        // Sign out and redirect to login with the invitation email
+                        window.location.href = `/api/auth/signout?callbackUrl=/login?email=${encodeURIComponent(invitation.email)}`;
+                      }}
+                      className="w-full"
+                    >
+                      Switch Account
+                    </Button>
+                    <p className="text-sm text-gray-500 text-center">
+                      You need to switch to {invitation.email} to accept this
+                      invitation
+                    </p>
+                  </>
+                ) : (
                   <Button
-                    variant="outline"
-                    onClick={() => router.push('/dashboard')}
+                    onClick={handleAcceptInvitation}
+                    disabled={isAccepting}
                     className="w-full"
                   >
-                    Cancel
+                    {isAccepting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Accepting...
+                      </>
+                    ) : session ? (
+                      'Accept Invitation'
+                    ) : (
+                      'Sign up & Accept'
+                    )}
                   </Button>
                 )}
+
+                {session &&
+                  session.user.email?.toLowerCase() ===
+                    invitation.email.toLowerCase() && (
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push('/dashboard')}
+                      className="w-full"
+                    >
+                      Cancel
+                    </Button>
+                  )}
               </div>
 
               <p className="text-xs text-gray-500 mt-4">

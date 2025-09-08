@@ -1,70 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UserService } from '@/lib/services/user-service';
-import { signupSchema } from '@/lib/validations/auth';
+import { signupApiSchema } from '@/lib/validations/auth';
 import {
-  emailRateLimit,
-  ipSignupRateLimit,
-  fingerprintSignupRateLimit,
-  checkRateLimit,
-} from '@/lib/auth/rate-limit';
+  withRateLimit,
+  addRateLimitHeaders,
+} from '@/lib/middleware/rate-limit';
 
 export async function POST(request: NextRequest) {
+  // Check rate limit
+  const rateLimitResponse = await withRateLimit(request, { type: 'signup' });
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json();
 
     // Validate the input
-    const validatedData = signupSchema.parse(body);
+    const validatedData = signupApiSchema.parse(body);
     const { email, password, fingerprint } = validatedData;
-
-    // Get IP address for rate limiting
-    const ip =
-      request.headers.get('x-forwarded-for') ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
-
-    // Check rate limits
-    const emailRateCheck = await checkRateLimit(emailRateLimit, email);
-    if (!emailRateCheck.success) {
-      return NextResponse.json(
-        {
-          error:
-            'Too many signup attempts from this email. Please wait before trying again.',
-          retryAfter: emailRateCheck.reset,
-        },
-        { status: 429 }
-      );
-    }
-
-    // Check IP rate limit
-    const ipRateCheck = await checkRateLimit(ipSignupRateLimit, ip as string);
-    if (!ipRateCheck.success) {
-      return NextResponse.json(
-        {
-          error:
-            'Too many accounts created from this location. Please try again later.',
-          retryAfter: ipRateCheck.reset,
-        },
-        { status: 429 }
-      );
-    }
-
-    // Check fingerprint rate limit (if fingerprint provided)
-    if (fingerprint) {
-      const fingerprintRateCheck = await checkRateLimit(
-        fingerprintSignupRateLimit,
-        fingerprint
-      );
-      if (!fingerprintRateCheck.success) {
-        return NextResponse.json(
-          {
-            error:
-              'Too many accounts created from this device. Please try again later.',
-            retryAfter: fingerprintRateCheck.reset,
-          },
-          { status: 429 }
-        );
-      }
-    }
 
     // Create the user using UserService
     const newUser = await UserService.createUser({
@@ -73,7 +25,7 @@ export async function POST(request: NextRequest) {
       fingerprint,
     });
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         message: 'Account created successfully! Please sign in to continue.',
         user: newUser,
@@ -81,6 +33,8 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
+
+    return addRateLimitHeaders(response, request);
   } catch (error: unknown) {
     console.error('Signup error:', error);
 

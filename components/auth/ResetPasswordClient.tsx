@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordStrengthIndicator } from '@/components/auth/PasswordStrengthIndicator';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { Eye, EyeOff } from 'lucide-react';
 
 export function ResetPasswordClient() {
   const searchParams = useSearchParams();
@@ -26,6 +27,7 @@ export function ResetPasswordClient() {
     message: string;
   } | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -201,17 +203,33 @@ export function ResetPasswordClient() {
               {field => (
                 <div className="space-y-2">
                   <Label htmlFor="password">New Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter your new password"
-                    value={field.state.value}
-                    onChange={e => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                    className={
-                      field.state.meta.errors.length > 0 ? 'border-red-500' : ''
-                    }
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Enter your new password"
+                      value={field.state.value}
+                      onChange={e => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      className={`pr-10 ${
+                        field.state.meta.errors.length > 0
+                          ? 'border-red-500'
+                          : ''
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                   {field.state.meta.errors.length > 0 && (
                     <p className="text-sm text-red-600">
                       {String(field.state.meta.errors[0])}

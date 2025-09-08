@@ -57,6 +57,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 409 });
       }
 
+      if (error.message.includes('This invitation is for')) {
+        // Email mismatch error
+        return NextResponse.json({ error: error.message }, { status: 403 });
+      }
+
       if (error.message.includes('not found')) {
         return NextResponse.json({ error: error.message }, { status: 404 });
       }

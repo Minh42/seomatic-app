@@ -13,6 +13,7 @@ import { StepComponentProps } from '@/types/form';
 
 const DISCOVERY_SOURCES = [
   'Google Search',
+  'AI Assistant (ChatGPT, Claude, etc.)',
   'Social Media (Twitter, LinkedIn, etc.)',
   'Friend or Colleague Recommendation',
   'YouTube',
@@ -44,56 +45,58 @@ export function Step4Discovery({ form, isSubmitting }: StepComponentProps) {
       <div className="space-y-4 md:space-y-6">
         <form.Field name="discoverySource">
           {(field: any) => (
-            <div>
-              <Label htmlFor="discovery-source">
-                How did you hear about us?
-              </Label>
-              <Select
-                value={field.state.value || ''}
-                onValueChange={field.handleChange}
-                disabled={isSubmitting}
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Choose an option..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {DISCOVERY_SOURCES.map(source => (
-                    <SelectItem key={source} value={source}>
-                      {source}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {field.state.meta.errors.length > 0 && (
-                <p className="text-sm text-red-600 mt-1">
-                  {field.state.meta.errors[0]}
-                </p>
-              )}
-            </div>
-          )}
-        </form.Field>
-
-        {form.state.values.discoverySource === 'Other' && (
-          <form.Field name="otherDiscoverySource">
-            {(field: any) => (
+            <>
               <div>
-                <Textarea
-                  placeholder="Please specify how you heard about us..."
+                <Label htmlFor="discovery-source">
+                  How did you hear about us?
+                </Label>
+                <Select
                   value={field.state.value || ''}
-                  onChange={e => field.handleChange(e.target.value)}
+                  onValueChange={field.handleChange}
                   disabled={isSubmitting}
-                  className="w-full"
-                  rows={3}
-                />
+                >
+                  <SelectTrigger className="mt-2 w-full">
+                    <SelectValue placeholder="Choose an option..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DISCOVERY_SOURCES.map(source => (
+                      <SelectItem key={source} value={source}>
+                        {source}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {field.state.meta.errors.length > 0 && (
                   <p className="text-sm text-red-600 mt-1">
                     {field.state.meta.errors[0]}
                   </p>
                 )}
               </div>
-            )}
-          </form.Field>
-        )}
+
+              {field.state.value === 'Other' && (
+                <form.Field name="otherDiscoverySource">
+                  {(otherField: any) => (
+                    <div className="mt-4">
+                      <Textarea
+                        placeholder="Please specify how you heard about us..."
+                        value={otherField.state.value || ''}
+                        onChange={e => otherField.handleChange(e.target.value)}
+                        disabled={isSubmitting}
+                        className="w-full"
+                        rows={3}
+                      />
+                      {otherField.state.meta.errors.length > 0 && (
+                        <p className="text-sm text-red-600 mt-1">
+                          {otherField.state.meta.errors[0]}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </form.Field>
+              )}
+            </>
+          )}
+        </form.Field>
 
         <form.Field name="previousAttempts">
           {(field: any) => (

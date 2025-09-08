@@ -44,20 +44,33 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const subdomain = extractSubdomain(request);
 
+  let response: NextResponse;
+
   if (subdomain) {
     // Block access to admin page from subdomains
     if (pathname.startsWith('/admin')) {
-      return NextResponse.redirect(new URL('/', request.url));
+      response = NextResponse.redirect(new URL('/', request.url));
+    } else if (pathname === '/') {
+      // For the root path on a subdomain, rewrite to the subdomain page
+      response = NextResponse.rewrite(new URL(`/s/${subdomain}`, request.url));
+    } else {
+      response = NextResponse.next();
     }
-
-    // For the root path on a subdomain, rewrite to the subdomain page
-    if (pathname === '/') {
-      return NextResponse.rewrite(new URL(`/s/${subdomain}`, request.url));
-    }
+  } else {
+    // On the root domain, allow normal access
+    response = NextResponse.next();
   }
 
-  // On the root domain, allow normal access
-  return NextResponse.next();
+  // Add current pathname to headers for redirect loop detection
+  response.headers.set('x-pathname', pathname);
+
+  // Track redirect count if present in request
+  const redirectCount = request.headers.get('x-redirect-count');
+  if (redirectCount) {
+    response.headers.set('x-redirect-count', redirectCount);
+  }
+
+  return response;
 }
 
 export const config = {

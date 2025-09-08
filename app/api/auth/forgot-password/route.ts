@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { passwordResetRequestSchema } from '@/lib/validations/auth';
 import { AuthService } from '@/lib/services/auth-service';
-import { emailRateLimit, checkRateLimit } from '@/lib/auth/rate-limit';
+import {
+  withRateLimit,
+  addRateLimitHeaders,
+} from '@/lib/middleware/rate-limit';
 
 export async function POST(request: NextRequest) {
+  // Check rate limit
+  const rateLimitResponse = await withRateLimit(request, {
+    type: 'passwordReset',
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json();
 
@@ -11,43 +20,50 @@ export async function POST(request: NextRequest) {
     const validatedData = passwordResetRequestSchema.parse(body);
     const { email } = validatedData;
 
-    // Check rate limit (email-based)
-    const emailRateCheck = await checkRateLimit(emailRateLimit, email);
-    if (!emailRateCheck.success) {
-      return NextResponse.json(
-        {
-          error:
-            'Too many password reset requests. Please wait before trying again.',
-          retryAfter: emailRateCheck.reset,
-        },
-        { status: 429 }
-      );
-    }
-
     // Create password reset using service
-    await AuthService.createPasswordReset({ email });
+    const result = await AuthService.createPasswordReset({ email });
 
-    // Always return success to prevent email enumeration
-    return NextResponse.json(
+    // Return appropriate message based on result
+    const response = NextResponse.json(
       {
-        message:
-          'If an account exists with this email, a password reset link has been sent.',
+        success: result.success,
+        message: result.message,
+        // Include additional hints for legitimate users
+        hints: result.emailSent
+          ? [
+              "Check your spam/junk folder if you don't see the email",
+              'The link will expire in 1 hour',
+              'You can request a new link if this one expires',
+            ]
+          : [
+              'Double-check the email address for typos',
+              "Make sure you're using the email associated with your account",
+              'If you signed up with Google/Facebook/etc, try signing in with that provider',
+            ],
       },
       { status: 200 }
     );
+
+    return addRateLimitHeaders(response, request);
   } catch (error: unknown) {
     console.error('Password reset request error:', error);
 
     // Handle Zod validation errors
     if (error && typeof error === 'object' && 'errors' in error) {
       return NextResponse.json(
-        { error: 'Invalid email address' },
+        {
+          error: 'Invalid email address',
+          hints: ['Please enter a valid email address'],
+        },
         { status: 400 }
       );
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        error: 'Unable to process request. Please try again later.',
+        hints: ['If the problem persists, contact support'],
+      },
       { status: 500 }
     );
   }

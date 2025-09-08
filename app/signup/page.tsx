@@ -36,6 +36,7 @@ export default function SignUpPage() {
       defaultValues: {
         email: '',
         password: '',
+        confirmPassword: '',
         fingerprint: '',
       },
       onSubmit: async values => {

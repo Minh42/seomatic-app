@@ -11,13 +11,20 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle, AlertCircle, Info, Mail } from 'lucide-react';
+import { getEmailSuggestion } from '@/lib/utils/email-suggestions';
 
 export function ForgotPasswordClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{
-    type: 'success' | 'error';
+    type: 'success' | 'error' | 'info';
     message: string;
+    hints?: string[];
   } | null>(null);
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+  const [attemptCount, setAttemptCount] = useState(0);
+  const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
@@ -29,6 +36,8 @@ export function ForgotPasswordClient() {
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       setSubmitMessage(null);
+      setSubmittedEmail(value.email);
+      setAttemptCount(prev => prev + 1);
 
       try {
         const response = await fetch('/api/auth/forgot-password', {
@@ -47,22 +56,35 @@ export function ForgotPasswordClient() {
             message:
               data.error ||
               'Too many requests. Please wait before trying again.',
+            hints: data.hints,
           });
         } else if (response.ok) {
+          // Determine type based on actual email sending
+          const messageType =
+            data.success && data.message.includes('sent') ? 'success' : 'info';
+
           setSubmitMessage({
-            type: 'success',
+            type: messageType,
             message: data.message,
+            hints: data.hints,
           });
+
+          // Clear form on success
+          if (messageType === 'success') {
+            form.reset();
+          }
         } else {
           setSubmitMessage({
             type: 'error',
             message: data.error || 'An error occurred. Please try again.',
+            hints: data.hints,
           });
         }
       } catch (error) {
         setSubmitMessage({
           type: 'error',
           message: 'Network error. Please check your connection and try again.',
+          hints: ['Check your internet connection', 'Try refreshing the page'],
         });
         console.error('Forgot password error:', error);
       } finally {
@@ -97,15 +119,66 @@ export function ForgotPasswordClient() {
         </div>
 
         {submitMessage && (
-          <div
-            className={`mb-6 p-4 rounded-md text-sm ${
+          <Alert
+            className={`mb-6 ${
               submitMessage.type === 'success'
-                ? 'bg-green-50 border border-green-200 text-green-600'
-                : 'bg-red-50 border border-red-200 text-red-600'
+                ? 'border-green-200 bg-green-50'
+                : submitMessage.type === 'error'
+                  ? 'border-red-200 bg-red-50'
+                  : 'border-blue-200 bg-blue-50'
             }`}
           >
-            {submitMessage.message}
-          </div>
+            <div className="flex items-start gap-3">
+              {submitMessage.type === 'success' ? (
+                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+              ) : submitMessage.type === 'error' ? (
+                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+              ) : (
+                <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <AlertDescription
+                  className={
+                    submitMessage.type === 'success'
+                      ? 'text-green-800'
+                      : submitMessage.type === 'error'
+                        ? 'text-red-800'
+                        : 'text-blue-800'
+                  }
+                >
+                  {submitMessage.message}
+
+                  {submittedEmail && submitMessage.type === 'success' && (
+                    <div className="mt-2 flex items-center gap-2 text-green-700">
+                      <Mail className="h-4 w-4" />
+                      <span className="font-medium">{submittedEmail}</span>
+                    </div>
+                  )}
+
+                  {submitMessage.hints && submitMessage.hints.length > 0 && (
+                    <ul className="mt-3 space-y-1 text-sm">
+                      {submitMessage.hints.map((hint, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-gray-400 mt-0.5">•</span>
+                          <span
+                            className={
+                              submitMessage.type === 'success'
+                                ? 'text-green-700'
+                                : submitMessage.type === 'error'
+                                  ? 'text-red-700'
+                                  : 'text-blue-700'
+                            }
+                          >
+                            {hint}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </AlertDescription>
+              </div>
+            </div>
+          </Alert>
         )}
 
         <form
@@ -126,7 +199,18 @@ export function ForgotPasswordClient() {
                     type="email"
                     placeholder="Enter your email address"
                     value={field.state.value}
-                    onChange={e => field.handleChange(e.target.value)}
+                    onChange={e => {
+                      const value = e.target.value;
+                      field.handleChange(value);
+
+                      // Check for email suggestions
+                      if (value && value.includes('@')) {
+                        const suggestion = getEmailSuggestion(value);
+                        setEmailSuggestion(suggestion);
+                      } else {
+                        setEmailSuggestion(null);
+                      }
+                    }}
                     onBlur={field.handleBlur}
                     className={
                       field.state.meta.errors.length > 0 ? 'border-red-500' : ''
@@ -137,17 +221,35 @@ export function ForgotPasswordClient() {
                       {String(field.state.meta.errors[0])}
                     </p>
                   )}
+                  {emailSuggestion && field.state.value !== emailSuggestion && (
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-sm text-blue-800">
+                        Did you mean{' '}
+                        <button
+                          type="button"
+                          className="font-medium underline hover:no-underline"
+                          onClick={() => {
+                            field.handleChange(emailSuggestion);
+                            setEmailSuggestion(null);
+                          }}
+                        >
+                          {emailSuggestion}
+                        </button>
+                        ?
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </form.Field>
           </div>
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isSubmitting || submitMessage?.type === 'success'}
-          >
-            {isSubmitting ? 'Sending...' : 'Send reset link'}
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting
+              ? 'Sending...'
+              : attemptCount > 0 && submitMessage?.type !== 'error'
+                ? 'Resend reset link'
+                : 'Send reset link'}
           </Button>
         </form>
 

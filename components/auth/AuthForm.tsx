@@ -26,6 +26,7 @@ type AuthFormProps = {
   extraLinks?: Array<{
     text: string;
     href: string;
+    onClick?: (e: React.MouseEvent) => void;
   }>;
   children: React.ReactNode;
 };
@@ -195,7 +196,8 @@ export function AuthForm({
             <div key={index}>
               <a
                 href={link.href}
-                className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                onClick={link.onClick}
+                className="text-sm font-medium text-blue-600 hover:text-blue-500 cursor-pointer"
               >
                 {link.text}
               </a>

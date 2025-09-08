@@ -10,6 +10,8 @@ declare module 'next-auth' {
       lastName?: string | null;
       image?: string | null;
     };
+    rememberMe?: boolean;
+    expires: string;
   }
 
   interface User {
@@ -18,6 +20,7 @@ declare module 'next-auth' {
     firstName?: string | null;
     lastName?: string | null;
     image?: string | null;
+    rememberMe?: boolean;
   }
 
   interface Account {
@@ -29,5 +32,7 @@ declare module 'next-auth/jwt' {
   interface JWT {
     sub: string;
     rememberMe?: boolean;
+    exp?: number;
+    iat?: number;
   }
 }

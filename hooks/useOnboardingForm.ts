@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from '@tanstack/react-form';
 import { toast } from 'sonner';
@@ -29,26 +29,96 @@ export interface UseOnboardingFormReturn {
   canGoPrevious: boolean;
   canSkip: boolean;
   retrySubmission: () => Promise<void>;
+  retryWorkspaceCreation: (newName: string) => Promise<void>;
+  clearWorkspaceError: () => void;
   isLoadingProgress: boolean;
+  workspaceId: string | null;
 }
 
 const MAX_STEPS = 4;
 const SKIPPABLE_STEPS = [3]; // Only team members step is skippable
 
-export function useOnboardingForm(): UseOnboardingFormReturn {
+class OnboardingError extends Error {
+  field?: string;
+  code?: string;
+
+  constructor(message: string, field?: string, code?: string) {
+    super(message);
+    this.field = field;
+    this.code = code;
+  }
+}
+
+interface InitialData {
+  onboardingData: {
+    currentStep: number;
+    useCases: string[];
+    otherUseCase: string;
+    professionalRole: string;
+    otherProfessionalRole: string;
+    companySize: string;
+    industry: string;
+    otherIndustry: string;
+    discoverySource: string;
+    otherDiscoverySource: string;
+    previousAttempts: string;
+    teamMembers: any[];
+    workspaceName?: string;
+  };
+  workspaceId: string | null;
+  workspaceName: string;
+}
+
+export function useOnboardingForm(
+  initialData?: InitialData
+): UseOnboardingFormReturn {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(1);
+
+  // Use initial data if provided (server-side), otherwise defaults
+  const [currentStep, setCurrentStep] = useState(
+    initialData?.onboardingData?.currentStep || 1
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState<OnboardingErrorData | null>(null);
   const [lastSubmissionData, setLastSubmissionData] =
     useState<OnboardingFormData | null>(null);
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
-  const [isLoadingProgress, setIsLoadingProgress] = useState(true);
-  const [initialValues] = useState<OnboardingFormData>(defaultOnboardingValues);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(
+    initialData?.workspaceId || null
+  );
+  const [isLoadingProgress] = useState(false); // Start with false for optimistic UI
+  const hasLoadedProgress = useRef(false);
+  const [, forceUpdate] = useState({});
+
+  // Merge initial data with defaults
+  const formDefaults = initialData
+    ? {
+        useCases: initialData.onboardingData.useCases || [],
+        otherUseCase: initialData.onboardingData.otherUseCase || '',
+        workspaceName:
+          initialData.onboardingData.workspaceName ||
+          initialData.workspaceName ||
+          '',
+        professionalRole: initialData.onboardingData.professionalRole || '',
+        otherProfessionalRole:
+          initialData.onboardingData.otherProfessionalRole || '',
+        companySize: initialData.onboardingData.companySize || '',
+        industry: initialData.onboardingData.industry || '',
+        otherIndustry: initialData.onboardingData.otherIndustry || '',
+        teamMembers: initialData.onboardingData.teamMembers || [],
+        discoverySource: initialData.onboardingData.discoverySource || '',
+        otherDiscoverySource:
+          initialData.onboardingData.otherDiscoverySource || '',
+        previousAttempts: initialData.onboardingData.previousAttempts || '',
+      }
+    : defaultOnboardingValues;
 
   const form = useForm({
-    defaultValues: initialValues,
+    defaultValues: formDefaults,
+    onFieldChange: () => {
+      // Force re-render when any field changes
+      forceUpdate({});
+    },
     onSubmit: async ({ value }: { value: OnboardingFormData }) => {
       setIsSubmitting(true);
       setError(null);
@@ -61,6 +131,7 @@ export function useOnboardingForm(): UseOnboardingFormReturn {
           workspaceId,
         };
 
+        // Use the main onboarding endpoint for completion
         const response = await fetch('/api/onboarding', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -130,70 +201,92 @@ export function useOnboardingForm(): UseOnboardingFormReturn {
     },
   });
 
-  // Load any existing onboarding progress on mount
+  // Load progress in the background without blocking UI (only if no initial data)
   useEffect(() => {
+    // Skip if initial data was provided (server-side rendered)
+    if (initialData || hasLoadedProgress.current) return;
+    hasLoadedProgress.current = true;
+
     const loadProgress = async () => {
       try {
+        // Use the unified progress endpoint
         const response = await fetch('/api/onboarding/progress');
         if (response.ok) {
           const data = await response.json();
 
           // If onboarding is already completed, redirect
-          if (data.onboardingCompleted) {
+          if (data.completed) {
             router.push('/dashboard');
             return;
           }
 
-          // Load any saved onboarding data
-          if (
-            data.onboardingData &&
-            Object.keys(data.onboardingData).length > 0
-          ) {
-            // Merge saved data with defaults, with validation
-            const savedData = {
-              ...defaultOnboardingValues,
-              ...data.onboardingData,
-              // Ensure arrays are actually arrays
-              useCases: Array.isArray(data.onboardingData.useCases)
-                ? data.onboardingData.useCases
-                : [],
-              teamMembers: Array.isArray(data.onboardingData.teamMembers)
-                ? data.onboardingData.teamMembers
-                : [],
-            };
+          // Apply saved data if available
+          if (data.data) {
+            const savedData = data.data;
 
-            // Update form state by setting each field individually
-            Object.keys(savedData).forEach(key => {
-              if (savedData[key] !== undefined && savedData[key] !== null) {
-                form.setFieldValue(key, savedData[key]);
+            // Set current step
+            if (
+              savedData.currentStep &&
+              savedData.currentStep >= 1 &&
+              savedData.currentStep <= 4
+            ) {
+              setCurrentStep(savedData.currentStep);
+            }
+
+            // Set workspace info
+            if (savedData.workspaceId) {
+              setWorkspaceId(savedData.workspaceId);
+            }
+
+            // Update form values
+            const formData: Partial<OnboardingFormData> = {};
+
+            // Step 1 data
+            if (savedData.useCases) formData.useCases = savedData.useCases;
+            if (savedData.otherUseCase)
+              formData.otherUseCase = savedData.otherUseCase;
+
+            // Step 2 data
+            if (savedData.workspaceName)
+              formData.workspaceName = savedData.workspaceName;
+            if (savedData.professionalRole)
+              formData.professionalRole = savedData.professionalRole;
+            if (savedData.otherProfessionalRole)
+              formData.otherProfessionalRole = savedData.otherProfessionalRole;
+            if (savedData.companySize)
+              formData.companySize = savedData.companySize;
+            if (savedData.industry) formData.industry = savedData.industry;
+            if (savedData.otherIndustry)
+              formData.otherIndustry = savedData.otherIndustry;
+
+            // Step 3 data (team members)
+            if (savedData.teamMembers)
+              formData.teamMembers = savedData.teamMembers;
+
+            // Step 4 data
+            if (savedData.discoverySource)
+              formData.discoverySource = savedData.discoverySource;
+            if (savedData.otherDiscoverySource)
+              formData.otherDiscoverySource = savedData.otherDiscoverySource;
+            if (savedData.previousAttempts)
+              formData.previousAttempts = savedData.previousAttempts;
+
+            // Apply all form values at once
+            Object.entries(formData).forEach(([key, value]) => {
+              if (value !== undefined && value !== null) {
+                form.setFieldValue(key, value);
               }
             });
-
-            // Set step based on current step from database
-            const savedStep = data.onboardingData.currentStep;
-            if (savedStep && savedStep >= 1 && savedStep <= 4) {
-              setCurrentStep(savedStep);
-            }
-          }
-
-          // If they have a workspace, they've at least completed step 2
-          if (data.workspaceId) {
-            setWorkspaceId(data.workspaceId);
-            // Set workspace name in form if available
-            if (data.workspaceName) {
-              form.setFieldValue('workspaceName', data.workspaceName);
-            }
           }
         }
       } catch (error) {
         console.error('Failed to load progress:', error);
-      } finally {
-        setIsLoadingProgress(false);
       }
     };
 
+    // Load progress without blocking UI
     loadProgress();
-  }, [router, form]);
+  }, [router, form, initialData]);
 
   const validateCurrentStep = useCallback(async (): Promise<boolean> => {
     setIsValidating(true);
@@ -258,7 +351,7 @@ export function useOnboardingForm(): UseOnboardingFormReturn {
 
   const saveStepProgress = useCallback(async (step: number, stepData: any) => {
     try {
-      const response = await fetch('/api/onboarding/save-progress', {
+      const response = await fetch('/api/onboarding/progress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step, data: stepData }),
@@ -274,7 +367,7 @@ export function useOnboardingForm(): UseOnboardingFormReturn {
 
   const updateSavedStep = useCallback(async (newStep: number) => {
     try {
-      await fetch('/api/onboarding/save-progress', {
+      await fetch('/api/onboarding/progress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step: newStep }), // No data = step update only
@@ -352,7 +445,7 @@ export function useOnboardingForm(): UseOnboardingFormReturn {
           otherIndustry: values.otherIndustry || '',
         });
 
-        toast.success('Workspace created successfully!');
+        // Removed success toast - just progress smoothly
         const nextStep = Math.min(currentStep + 1, MAX_STEPS);
         setCurrentStep(nextStep);
         await updateSavedStep(nextStep);
@@ -378,16 +471,56 @@ export function useOnboardingForm(): UseOnboardingFormReturn {
       }
       return; // Exit early on workspace creation error
     }
-    // Step 3: Team members - save the current state
+    // Step 3: Team members - send invitations immediately
     else if (currentStep === 3) {
-      // Save team members temporarily (will be processed in final submission)
-      await saveStepProgress(3, {
-        teamMembers: values.teamMembers || [],
-        teamMembersCompleted: true,
-      });
-      const nextStep = Math.min(currentStep + 1, MAX_STEPS);
-      setCurrentStep(nextStep);
-      await updateSavedStep(nextStep);
+      setIsSubmitting(true);
+      try {
+        // Always call the API to handle both sending new invitations and deleting removed ones
+        // Even if teamMembers is empty, we need to delete any existing invitations
+        const response = await fetch('/api/team/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ teamMembers: values.teamMembers || [] }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          toast.error(data.error || 'Failed to process team members');
+          // Don't proceed if the request failed
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Only show error toasts - success/info toasts are too disruptive during onboarding
+        if (data.invitations) {
+          const failCount =
+            data.invitations?.filter(
+              (i: { status: string }) => i.status === 'failed'
+            ).length || 0;
+
+          if (failCount > 0) {
+            toast.error(
+              `${failCount} invitation${failCount !== 1 ? 's' : ''} failed to send`
+            );
+          }
+        }
+
+        // Save team members data
+        await saveStepProgress(3, {
+          teamMembers: values.teamMembers || [],
+        });
+
+        const nextStep = Math.min(currentStep + 1, MAX_STEPS);
+        setCurrentStep(nextStep);
+        await updateSavedStep(nextStep);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to send invitations';
+        toast.error(errorMessage);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
     // Step 4: Final submission
     else if (currentStep === MAX_STEPS) {
@@ -418,6 +551,13 @@ export function useOnboardingForm(): UseOnboardingFormReturn {
 
     try {
       switch (currentStep) {
+        case 1:
+          // Save Step 1 data before going back (shouldn't happen but just in case)
+          await saveStepProgress(1, {
+            useCases: values.useCases || [],
+            otherUseCase: values.otherUseCase || '',
+          });
+          break;
         case 2:
           // Save Step 2 data before going back
           await saveStepProgress(2, {
@@ -480,6 +620,7 @@ export function useOnboardingForm(): UseOnboardingFormReturn {
         workspaceId,
       };
 
+      // Use the main onboarding endpoint for completion
       const response = await fetch('/api/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -511,6 +652,147 @@ export function useOnboardingForm(): UseOnboardingFormReturn {
     }
   }, [lastSubmissionData, isSubmitting, workspaceId, router]);
 
+  const retryWorkspaceCreation = useCallback(
+    async (newName: string) => {
+      if (isSubmitting) return;
+
+      setIsSubmitting(true);
+      setError(null);
+
+      try {
+        // Update the form value with the new name
+        form.setFieldValue('workspaceName', newName);
+
+        const response = await fetch('/api/workspace', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          // Handle duplicate workspace name
+          if (response.status === 409) {
+            throw new OnboardingError(
+              'A workspace with this name already exists. Please choose a different name.',
+              'workspaceName',
+              'DUPLICATE_WORKSPACE'
+            );
+          }
+          throw new OnboardingError(
+            data.error || 'Failed to create workspace',
+            'workspaceName',
+            'WORKSPACE_ERROR'
+          );
+        }
+
+        // Store workspace ID for final submission
+        setWorkspaceId(data.workspace.id);
+
+        // Save the workspace data and other Step 2 form data
+        const values = form.state.values;
+        await saveStepProgress(2, {
+          professionalRole: values.professionalRole || '',
+          otherProfessionalRole: values.otherProfessionalRole || '',
+          companySize: values.companySize || '',
+          industry: values.industry || '',
+          otherIndustry: values.otherIndustry || '',
+        });
+
+        // Removed success toast - just progress smoothly
+
+        // Clear error and move to next step
+        setError(null);
+        const nextStep = Math.min(currentStep + 1, MAX_STEPS);
+        setCurrentStep(nextStep);
+        await updateSavedStep(nextStep);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to create workspace';
+
+        // Set error state for display in UI
+        setError(
+          err instanceof OnboardingError
+            ? err
+            : {
+                message: errorMessage,
+                code: 'WORKSPACE_ERROR',
+                field: 'workspaceName',
+              }
+        );
+
+        toast.error(errorMessage);
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [isSubmitting, form, currentStep, saveStepProgress, updateSavedStep]
+  );
+
+  const clearWorkspaceError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  // Check if current step has valid data for enabling Next button
+  // Using form.state.values directly for reactivity
+  const isStepValid = () => {
+    const values = form.state.values;
+
+    switch (currentStep) {
+      case 1:
+        // Step 1: Must have at least one use case selected
+        const hasUseCases =
+          values.useCases &&
+          Array.isArray(values.useCases) &&
+          values.useCases.length > 0;
+        if (!hasUseCases) return false;
+        // If "other" is selected, must have description
+        if (values.useCases.includes('other') && !values.otherUseCase?.trim())
+          return false;
+        return true;
+
+      case 2:
+        // Step 2: Must have all required fields
+        if (!values.workspaceName?.trim()) return false;
+        if (!values.professionalRole) return false;
+        if (
+          values.professionalRole === 'Other' &&
+          !values.otherProfessionalRole?.trim()
+        )
+          return false;
+        if (!values.companySize) return false;
+        if (!values.industry) return false;
+        if (values.industry === 'Other' && !values.otherIndustry?.trim())
+          return false;
+        return true;
+
+      case 3:
+        // Step 3: Team members is optional (skippable)
+        return true;
+
+      case 4:
+        // Step 4: Must have discovery source
+        if (!values.discoverySource) return false;
+        if (
+          values.discoverySource === 'Other' &&
+          !values.otherDiscoverySource?.trim()
+        )
+          return false;
+        return true;
+
+      default:
+        return true;
+    }
+  };
+
+  // Make these functions so they re-evaluate on each render
+  const getCanGoNext = () => !isSubmitting && !isValidating && isStepValid();
+  const getCanGoPrevious = () =>
+    currentStep > 1 && !isSubmitting && !isValidating;
+  const getCanSkip = () =>
+    SKIPPABLE_STEPS.includes(currentStep) && !isSubmitting && !isValidating;
+
   return {
     form,
     currentStep,
@@ -520,22 +802,13 @@ export function useOnboardingForm(): UseOnboardingFormReturn {
     handleNextStep,
     handlePreviousStep,
     handleSkipStep,
-    canGoNext: !isSubmitting && !isValidating && !isLoadingProgress,
-    canGoPrevious: currentStep > 1 && !isSubmitting,
-    canSkip: SKIPPABLE_STEPS.includes(currentStep) && !isSubmitting,
+    canGoNext: getCanGoNext(),
+    canGoPrevious: getCanGoPrevious(),
+    canSkip: getCanSkip(),
     retrySubmission,
+    retryWorkspaceCreation,
+    clearWorkspaceError,
     isLoadingProgress,
+    workspaceId,
   };
-}
-
-// Custom error class for better error handling
-class OnboardingError extends Error {
-  constructor(
-    message: string,
-    public field?: string,
-    public code?: string
-  ) {
-    super(message);
-    this.name = 'OnboardingError';
-  }
 }

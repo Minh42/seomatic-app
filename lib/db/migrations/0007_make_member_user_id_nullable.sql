@@ -1,0 +1,1 @@
+ALTER TABLE "team_members" ALTER COLUMN "member_user_id" DROP NOT NULL;

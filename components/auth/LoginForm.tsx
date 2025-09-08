@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { loginSchema } from '@/lib/validations/auth';
 import { useFieldValidation } from '@/hooks/useFieldValidation';
+import { Eye, EyeOff } from 'lucide-react';
 
 interface LoginFormProps {
   form: any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -19,6 +21,7 @@ export function LoginForm({
   passwordError,
   onSubmit,
 }: LoginFormProps) {
+  const [showPassword, setShowPassword] = useState(false);
   const emailValidation = useFieldValidation(loginSchema, 'email');
   const passwordValidation = useFieldValidation(loginSchema, 'password');
 
@@ -55,15 +58,30 @@ export function LoginForm({
         ) => (
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••••"
-              value={field.state.value}
-              onChange={e => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              disabled={isLoading}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••••"
+                value={field.state.value}
+                onChange={e => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+                disabled={isLoading}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {field.state.meta.errors.length > 0 && (
               <p className="text-sm text-red-600">
                 {field.state.meta.errors[0]}

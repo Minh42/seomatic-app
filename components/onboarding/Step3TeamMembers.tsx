@@ -11,9 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { StepComponentProps } from '@/types/form';
-import { TeamMember } from '@/lib/validations/onboarding';
+import { TeamMember, teamMemberSchema } from '@/lib/validations/onboarding';
+import { z } from 'zod';
+import { validateWorkEmail } from '@/lib/utils/email-validation';
 
 // Display labels for roles
 const ROLE_DISPLAY_MAP = {
@@ -28,6 +30,92 @@ export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<TeamMember['role']>('viewer');
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(
+    null
+  );
+  const [emailAvailable, setEmailAvailable] = useState(false);
+
+  const checkEmailUniqueness = async (email: string) => {
+    if (!email || !email.includes('@')) return;
+
+    setIsCheckingEmail(true);
+    try {
+      const response = await fetch('/api/team/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (data.available) {
+        setEmailAvailable(true);
+        setEmailError(null);
+      } else {
+        setEmailAvailable(false);
+        if (data.error) {
+          setEmailError(data.error);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check email uniqueness:', error);
+      setEmailAvailable(false);
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+
+  const validateEmailAfterTyping = (value: string) => {
+    if (!value.trim()) {
+      setEmailError(null);
+      setEmailAvailable(false);
+      return;
+    }
+
+    const normalizedEmail = value.trim().toLowerCase();
+
+    try {
+      // Basic Zod validation first
+      teamMemberSchema.shape.email.parse(normalizedEmail);
+
+      // Check if already added to the list
+      const field = form.getFieldValue('teamMembers') || [];
+      if (
+        field.some(
+          (member: TeamMember) => member.email.toLowerCase() === normalizedEmail
+        )
+      ) {
+        setEmailError('This team member has already been added');
+        setEmailAvailable(false);
+        return;
+      }
+
+      // Then check for disposable emails and typos
+      const validation = validateWorkEmail(value);
+      if (!validation.isValid) {
+        setEmailError(validation.error || 'Invalid email address');
+        setEmailAvailable(false);
+      } else {
+        setEmailError(null);
+        // Check uniqueness against database
+        checkEmailUniqueness(normalizedEmail);
+      }
+    } catch (error) {
+      setEmailAvailable(false);
+      if (
+        error instanceof z.ZodError &&
+        error.errors &&
+        error.errors.length > 0
+      ) {
+        setEmailError(error.errors[0].message);
+      } else {
+        setEmailError('Please enter a valid email address');
+      }
+    }
+  };
 
   return (
     <div>
@@ -49,34 +137,57 @@ export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
           const addTeamMember = () => {
             setEmailError(null);
 
-            // Validate email
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(newEmail)) {
-              setEmailError('Please enter a valid email address');
-              return;
+            // Trim and lowercase the email
+            const trimmedEmail = newEmail.trim().toLowerCase();
+
+            // Validate using Zod schema
+            try {
+              const validatedMember = teamMemberSchema.parse({
+                email: trimmedEmail,
+                role: newRole,
+              });
+
+              // Duplicate check is already done in validateEmailAfterTyping
+              // Just double-check here for safety
+              if (
+                field.state.value.some(
+                  (member: TeamMember) =>
+                    member.email.toLowerCase() === validatedMember.email
+                )
+              ) {
+                setEmailError('This team member has already been added');
+                return;
+              }
+
+              // Check for disposable emails and typos
+              const validation = validateWorkEmail(validatedMember.email);
+              if (!validation.isValid) {
+                setEmailError(validation.error || 'Invalid email address');
+                return;
+              }
+
+              // Add team member with validated email
+              const teamMembers = field.state.value as TeamMember[];
+              field.handleChange([...teamMembers, validatedMember]);
+
+              // Reset form
+              setNewEmail('');
+              setNewRole('viewer');
+              setEmailTouched(false);
+              setIsTyping(false);
+              setEmailError(null);
+              setEmailAvailable(false);
+            } catch (error) {
+              if (
+                error instanceof z.ZodError &&
+                error.errors &&
+                error.errors.length > 0
+              ) {
+                setEmailError(error.errors[0].message);
+              } else {
+                setEmailError('Please enter a valid email address');
+              }
             }
-
-            // Check for duplicates
-            if (
-              field.state.value.some(
-                (member: TeamMember) =>
-                  member.email.toLowerCase() === newEmail.toLowerCase()
-              )
-            ) {
-              setEmailError('This team member has already been added');
-              return;
-            }
-
-            // Add team member with correct role value
-            const teamMembers = field.state.value as TeamMember[];
-            field.handleChange([
-              ...teamMembers,
-              { email: newEmail, role: newRole },
-            ]);
-
-            // Reset form
-            setNewEmail('');
-            setNewRole('viewer');
           };
 
           const removeTeamMember = (index: number) => {
@@ -93,21 +204,96 @@ export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
                 </h3>
                 <div className="space-y-3 md:space-y-4">
                   <div>
-                    <Label htmlFor="member-email">Email address</Label>
-                    <Input
-                      id="member-email"
-                      type="email"
-                      placeholder="user@example.com"
-                      value={newEmail}
-                      onChange={e => {
-                        setNewEmail(e.target.value);
-                        setEmailError(null);
-                      }}
-                      className={`mt-2 ${emailError ? 'border-red-500' : ''}`}
-                    />
-                    {emailError && (
-                      <p className="text-sm text-red-600 mt-1">{emailError}</p>
-                    )}
+                    <Label htmlFor="member-email">Work Email</Label>
+                    <div className="relative">
+                      <Input
+                        id="member-email"
+                        type="email"
+                        placeholder="colleague@company.com"
+                        value={newEmail}
+                        onChange={e => {
+                          const value = e.target.value;
+                          setNewEmail(value);
+                          setEmailTouched(true);
+                          setIsTyping(true);
+
+                          // Clear any existing error and availability while typing
+                          setEmailError(null);
+                          setEmailAvailable(false);
+
+                          // Clear previous timeouts
+                          if (typingTimeout) {
+                            clearTimeout(typingTimeout);
+                          }
+                          if (checkEmailTimeout) {
+                            clearTimeout(checkEmailTimeout);
+                          }
+
+                          // Set a timeout to validate after user stops typing (500ms)
+                          const timeout = setTimeout(() => {
+                            setIsTyping(false);
+                            validateEmailAfterTyping(value);
+                          }, 500);
+                          setTypingTimeout(timeout);
+                        }}
+                        onBlur={() => {
+                          setEmailTouched(true);
+                          setIsTyping(false);
+
+                          // Clear any pending validation timeout
+                          if (typingTimeout) {
+                            clearTimeout(typingTimeout);
+                          }
+
+                          // Validate immediately on blur
+                          validateEmailAfterTyping(newEmail);
+                        }}
+                        className={`mt-2 pr-10 ${
+                          emailTouched && !isTyping && emailError
+                            ? 'border-red-500'
+                            : emailTouched &&
+                                !isTyping &&
+                                emailAvailable &&
+                                !isCheckingEmail
+                              ? 'border-green-500'
+                              : ''
+                        }`}
+                        disabled={isSubmitting}
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 mt-1">
+                        {isCheckingEmail && (
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                        )}
+                        {!isCheckingEmail &&
+                          emailTouched &&
+                          !isTyping &&
+                          emailAvailable &&
+                          newEmail.trim() && (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          )}
+                        {!isCheckingEmail &&
+                          emailTouched &&
+                          !isTyping &&
+                          emailError && (
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          )}
+                      </div>
+                    </div>
+                    {(emailTouched && !isTyping && emailError) ||
+                    (emailTouched &&
+                      !isTyping &&
+                      emailAvailable &&
+                      newEmail.trim()) ? (
+                      <p className="text-sm mt-1">
+                        {emailError ? (
+                          <span className="text-red-600">{emailError}</span>
+                        ) : (
+                          <span className="text-green-600">
+                            Email address is valid
+                          </span>
+                        )}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div>
@@ -119,7 +305,7 @@ export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
                       }
                       disabled={isSubmitting}
                     >
-                      <SelectTrigger className="mt-2">
+                      <SelectTrigger className="mt-2 w-full">
                         <SelectValue placeholder="Choose a role..." />
                       </SelectTrigger>
                       <SelectContent>

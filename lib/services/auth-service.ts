@@ -15,26 +15,52 @@ export interface ResetPasswordParams {
   newPassword: string;
 }
 
-export interface VerifyEmailParams {
-  token: string;
-  email: string;
-}
-
 export class AuthService {
   /**
    * Create a password reset token and trigger email
    */
   static async createPasswordReset({ email }: CreatePasswordResetParams) {
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Check if user exists
     const [user] = await db
       .select()
       .from(users)
-      .where(eq(users.email, email))
+      .where(eq(users.email, normalizedEmail))
       .limit(1);
 
     if (!user) {
-      // Return success anyway to prevent email enumeration
-      return { success: true };
+      // Return success with hint that helps legitimate users
+      return {
+        success: true,
+        emailSent: false,
+        message:
+          'If an account exists with this email, a password reset link has been sent. Please check your inbox and spam folder.',
+      };
+    }
+
+    // Check if user has set a password (OAuth users might not have one)
+    if (!user.passwordHash) {
+      // User signed up with OAuth, send different email
+      await EmailService.sendOAuthPasswordResetEmail({
+        email: normalizedEmail,
+        provider: user.googleId
+          ? 'Google'
+          : user.facebookId
+            ? 'Facebook'
+            : user.linkedinId
+              ? 'LinkedIn'
+              : user.twitterId
+                ? 'Twitter'
+                : 'OAuth',
+      });
+
+      return {
+        success: true,
+        emailSent: true,
+        message: 'Check your email for instructions on accessing your account.',
+      };
     }
 
     // Delete any existing password reset tokens
@@ -42,7 +68,7 @@ export class AuthService {
       .delete(verificationTokens)
       .where(
         and(
-          eq(verificationTokens.identifier, email),
+          eq(verificationTokens.identifier, normalizedEmail),
           eq(verificationTokens.type, 'password_reset')
         )
       );
@@ -53,7 +79,7 @@ export class AuthService {
 
     // Store token
     await db.insert(verificationTokens).values({
-      identifier: email,
+      identifier: normalizedEmail,
       token,
       expires,
       type: 'password_reset',
@@ -61,16 +87,37 @@ export class AuthService {
 
     // Send password reset email
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    const resetUrl = `${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+    const resetUrl = `${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`;
 
-    await EmailService.sendPasswordResetEmail({
-      email,
-      resetUrl,
-      token,
-      expiresAt: expires,
-    });
+    try {
+      await EmailService.sendPasswordResetEmail({
+        email: normalizedEmail,
+        resetUrl,
+        token,
+        expiresAt: expires,
+      });
 
-    return { success: true, token };
+      return {
+        success: true,
+        emailSent: true,
+        token,
+        message:
+          'Password reset link sent! Check your email inbox. The link will expire in 1 hour.',
+      };
+    } catch (error) {
+      console.error('Failed to send password reset email:', error);
+
+      // Clean up token if email failed
+      await db
+        .delete(verificationTokens)
+        .where(eq(verificationTokens.token, token));
+
+      return {
+        success: false,
+        emailSent: false,
+        message: 'Failed to send email. Please try again later.',
+      };
+    }
   }
 
   /**
@@ -155,100 +202,5 @@ export class AuthService {
       // Log but don't throw - this is a cleanup operation
       console.error('Failed to cleanup expired tokens:', error);
     }
-  }
-
-  /**
-   * Create email verification token
-   */
-  static async createEmailVerification(email: string) {
-    // Delete any existing verification tokens
-    await db
-      .delete(verificationTokens)
-      .where(
-        and(
-          eq(verificationTokens.identifier, email),
-          eq(verificationTokens.type, 'email')
-        )
-      );
-
-    // Generate new token
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    // Store token
-    await db.insert(verificationTokens).values({
-      identifier: email,
-      token,
-      expires,
-      type: 'email',
-    });
-
-    // Send verification email
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    const verifyUrl = `${baseUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
-
-    await EmailService.sendEmailVerification({
-      email,
-      verificationUrl: verifyUrl,
-      token,
-      expiresAt: expires,
-    });
-
-    return { success: true, token };
-  }
-
-  /**
-   * Verify email using token
-   */
-  static async verifyEmail({ token, email }: VerifyEmailParams) {
-    // Verify token
-    const [validToken] = await db
-      .select()
-      .from(verificationTokens)
-      .where(
-        and(
-          eq(verificationTokens.identifier, email),
-          eq(verificationTokens.token, token),
-          eq(verificationTokens.type, 'email')
-        )
-      )
-      .limit(1);
-
-    if (!validToken) {
-      throw new Error('Invalid verification token');
-    }
-
-    // Check if token is expired
-    if (validToken.expires < new Date()) {
-      // Clean up expired token
-      await db
-        .delete(verificationTokens)
-        .where(eq(verificationTokens.token, token));
-      throw new Error('Verification token has expired');
-    }
-
-    // Mark email as verified
-    const [updated] = await db
-      .update(users)
-      .set({
-        emailVerified: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(users.email, email))
-      .returning();
-
-    if (!updated) {
-      throw new Error('User not found');
-    }
-
-    // Delete used token
-    await db
-      .delete(verificationTokens)
-      .where(eq(verificationTokens.token, token));
-
-    // Track email verification
-    await EmailService.sendEmailVerifiedNotification(email);
-
-    return { success: true };
   }
 }

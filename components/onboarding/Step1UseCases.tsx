@@ -76,18 +76,21 @@ export function Step1UseCases({ form, isSubmitting }: StepComponentProps) {
                 <div className="flex items-start space-x-3">
                   <Checkbox
                     id={useCase.id}
-                    checked={(field.state.value as string[]).includes(
-                      useCase.id
-                    )}
+                    checked={
+                      Array.isArray(field.state.value) &&
+                      field.state.value.includes(useCase.id)
+                    }
                     onCheckedChange={checked => {
-                      const useCases = field.state.value as string[];
-                      if (checked) {
-                        field.handleChange([...useCases, useCase.id]);
-                      } else {
-                        field.handleChange(
-                          useCases.filter(id => id !== useCase.id)
-                        );
-                      }
+                      const currentUseCases = Array.isArray(field.state.value)
+                        ? field.state.value
+                        : [];
+                      const newUseCases = checked
+                        ? [...currentUseCases, useCase.id]
+                        : currentUseCases.filter(
+                            (id: string) => id !== useCase.id
+                          );
+
+                      field.handleChange(newUseCases);
                     }}
                     disabled={isSubmitting}
                     className="mt-1"

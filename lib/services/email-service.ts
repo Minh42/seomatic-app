@@ -13,13 +13,6 @@ export interface PasswordResetEmailParams {
   expiresAt: Date;
 }
 
-export interface EmailVerificationParams {
-  email: string;
-  verificationUrl: string;
-  token: string;
-  expiresAt: Date;
-}
-
 export interface WelcomeEmailParams {
   email: string;
   userId: string;
@@ -82,6 +75,36 @@ export class EmailService {
   }
 
   /**
+   * Send OAuth account notification when user tries to reset password
+   */
+  static async sendOAuthPasswordResetEmail({
+    email,
+    provider,
+  }: {
+    email: string;
+    provider: string;
+  }): Promise<boolean> {
+    const bentoClient = getBentoClient();
+    if (!bentoClient) return false;
+
+    try {
+      await bentoClient.triggerEvent({
+        email,
+        type: '$oauth_account_reminder',
+        fields: {
+          provider,
+          login_url: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/login`,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to send OAuth account reminder email:', error);
+      return false;
+    }
+  }
+
+  /**
    * Send password reset completion notification
    */
   static async sendPasswordResetCompletedEmail(
@@ -101,57 +124,6 @@ export class EmailService {
       return true;
     } catch (error) {
       console.error('Failed to send password reset completed email:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Send email verification
-   */
-  static async sendEmailVerification({
-    email,
-    verificationUrl,
-    token,
-    expiresAt,
-  }: EmailVerificationParams): Promise<boolean> {
-    const bentoClient = getBentoClient();
-    if (!bentoClient) return false;
-
-    try {
-      await bentoClient.triggerEvent({
-        email,
-        type: '$email_verification_requested',
-        fields: {
-          verification_url: verificationUrl,
-          token,
-          expires_at: expiresAt.toISOString(),
-        },
-      });
-      return true;
-    } catch (error) {
-      console.error('Failed to send email verification:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Send email verified notification
-   */
-  static async sendEmailVerifiedNotification(email: string): Promise<boolean> {
-    const bentoClient = getBentoClient();
-    if (!bentoClient) return false;
-
-    try {
-      await bentoClient.triggerEvent({
-        email,
-        type: '$email_verified',
-        fields: {
-          verified_at: new Date().toISOString(),
-        },
-      });
-      return true;
-    } catch (error) {
-      console.error('Failed to send email verified notification:', error);
       return false;
     }
   }

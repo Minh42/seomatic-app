@@ -4,7 +4,6 @@ import {
   teamInvitations,
   users,
   workspaces,
-  workspaceMembers,
 } from '@/lib/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -27,6 +26,82 @@ export interface UpdateMemberRoleParams {
 }
 
 export class TeamService {
+  /**
+   * Get all pending invitations sent by a user
+   */
+  static async getPendingInvitations(userId: string) {
+    const result = await db
+      .select()
+      .from(teamMembers)
+      .innerJoin(
+        teamInvitations,
+        eq(teamInvitations.teamMemberId, teamMembers.id)
+      )
+      .where(
+        and(eq(teamMembers.userId, userId), eq(teamMembers.status, 'pending'))
+      );
+
+    // Map the results to include the correct field names
+    const invitations = result.map(row => ({
+      teamMemberId: row.team_members.id,
+      email: row.team_invitations.email,
+      role: row.team_members.role,
+    }));
+
+    return invitations;
+  }
+
+  /**
+   * Delete a team invitation and its associated team member record
+   */
+  static async deleteInvitation(teamMemberId: string, userId: string) {
+    if (!teamMemberId) {
+      throw new Error('Team member ID is required for deletion');
+    }
+
+    // Verify ownership before deletion
+    const [member] = await db
+      .select({ userId: teamMembers.userId })
+      .from(teamMembers)
+      .where(eq(teamMembers.id, teamMemberId))
+      .limit(1);
+
+    if (!member || member.userId !== userId) {
+      throw new Error('Unauthorized to delete this invitation');
+    }
+
+    // Delete invitation first (foreign key constraint)
+    await db
+      .delete(teamInvitations)
+      .where(eq(teamInvitations.teamMemberId, teamMemberId));
+
+    // Then delete team member
+    await db.delete(teamMembers).where(eq(teamMembers.id, teamMemberId));
+  }
+
+  /**
+   * Check if an invitation already exists for an email from a specific user
+   */
+  static async checkExistingInvitation(
+    email: string,
+    invitedBy: string
+  ): Promise<boolean> {
+    const existingInvite = await db
+      .select()
+      .from(teamInvitations)
+      .innerJoin(teamMembers, eq(teamInvitations.teamMemberId, teamMembers.id))
+      .where(
+        and(
+          eq(teamInvitations.email, email.toLowerCase()),
+          eq(teamMembers.userId, invitedBy),
+          eq(teamMembers.status, 'pending')
+        )
+      )
+      .limit(1);
+
+    return existingInvite.length > 0;
+  }
+
   /**
    * Invite a team member
    */
@@ -68,10 +143,10 @@ export class TeamService {
       .insert(teamMembers)
       .values({
         userId: invitedBy, // plan owner
-        memberUserId: invitedBy, // placeholder, will be updated when accepted
         invitedBy,
         role,
         status: 'pending',
+        // memberUserId is intentionally omitted - it will be null for pending invitations
       })
       .returning();
 
@@ -210,26 +285,6 @@ export class TeamService {
       );
 
     return members;
-  }
-
-  /**
-   * Get pending invitations
-   */
-  static async getPendingInvitations(userId: string) {
-    const invitations = await db
-      .select({
-        id: teamInvitations.id,
-        email: teamInvitations.email,
-        expiresAt: teamInvitations.expiresAt,
-        role: teamMembers.role,
-      })
-      .from(teamInvitations)
-      .innerJoin(teamMembers, eq(teamMembers.id, teamInvitations.teamMemberId))
-      .where(
-        and(eq(teamMembers.userId, userId), eq(teamMembers.status, 'pending'))
-      );
-
-    return invitations;
   }
 
   /**
@@ -514,21 +569,22 @@ export class TeamService {
         throw new Error('User not found');
       }
 
-      // Warning: Email mismatch but allow to continue
+      // Strict email verification - must match exactly
       if (currentUser.email.toLowerCase() !== invitation.email.toLowerCase()) {
-        console.warn(
-          `Email mismatch: User ${currentUser.email} accepting invitation for ${invitation.email}`
+        throw new Error(
+          `This invitation is for ${invitation.email}. You are currently logged in as ${currentUser.email}. Please log in with the correct account to accept this invitation.`
         );
       }
 
-      // Check if user is already a member of this workspace
+      // Check if user is already a member of this workspace through teamMembers
       const [existingMember] = await tx
         .select()
-        .from(workspaceMembers)
+        .from(teamMembers)
         .where(
           and(
-            eq(workspaceMembers.workspaceId, workspace.id),
-            eq(workspaceMembers.userId, userId)
+            eq(teamMembers.userId, workspace.ownerId),
+            eq(teamMembers.memberUserId, userId),
+            eq(teamMembers.status, 'active')
           )
         )
         .limit(1);
@@ -547,13 +603,9 @@ export class TeamService {
         })
         .where(eq(teamMembers.id, teamMember.id));
 
-      // Add user to workspace_members table
-      await tx.insert(workspaceMembers).values({
-        workspaceId: workspace.id,
-        userId,
-        role: teamMember.role,
-        joinedAt: new Date(),
-      });
+      // The team member record is already updated above with memberUserId and status
+      // No need to insert into a separate workspace_members table
+      // The joinedAt is handled by the updatedAt field in teamMembers
 
       // Delete the invitation as it's been used
       await tx
@@ -592,11 +644,23 @@ export class TeamService {
    * Get workspace members
    */
   static async getWorkspaceMembers(workspaceId: string) {
+    // Get workspace owner first
+    const [workspace] = await db
+      .select({ ownerId: workspaces.ownerId })
+      .from(workspaces)
+      .where(eq(workspaces.id, workspaceId))
+      .limit(1);
+
+    if (!workspace) {
+      throw new Error('Workspace not found');
+    }
+
+    // Get all team members for this workspace owner
     const members = await db
       .select({
-        id: workspaceMembers.id,
-        role: workspaceMembers.role,
-        joinedAt: workspaceMembers.joinedAt,
+        id: teamMembers.id,
+        role: teamMembers.role,
+        joinedAt: teamMembers.updatedAt, // Using updatedAt as joinedAt
         user: {
           id: users.id,
           email: users.email,
@@ -605,9 +669,14 @@ export class TeamService {
           profileImage: users.profileImage,
         },
       })
-      .from(workspaceMembers)
-      .innerJoin(users, eq(users.id, workspaceMembers.userId))
-      .where(eq(workspaceMembers.workspaceId, workspaceId));
+      .from(teamMembers)
+      .innerJoin(users, eq(users.id, teamMembers.memberUserId))
+      .where(
+        and(
+          eq(teamMembers.userId, workspace.ownerId),
+          eq(teamMembers.status, 'active')
+        )
+      );
 
     return members;
   }
@@ -620,32 +689,36 @@ export class TeamService {
     userId: string,
     role: 'viewer' | 'member' | 'admin'
   ) {
+    // Get workspace owner first
+    const [workspace] = await db
+      .select({ ownerId: workspaces.ownerId })
+      .from(workspaces)
+      .where(eq(workspaces.id, workspaceId))
+      .limit(1);
+
+    if (!workspace) {
+      throw new Error('Workspace not found');
+    }
+
+    // Update the team member's role
     const [updated] = await db
-      .update(workspaceMembers)
+      .update(teamMembers)
       .set({
         role,
         updatedAt: new Date(),
       })
       .where(
         and(
-          eq(workspaceMembers.workspaceId, workspaceId),
-          eq(workspaceMembers.userId, userId)
+          eq(teamMembers.userId, workspace.ownerId),
+          eq(teamMembers.memberUserId, userId),
+          eq(teamMembers.status, 'active')
         )
       )
       .returning();
 
     if (!updated) {
-      throw new Error('Workspace member not found');
+      throw new Error('Team member not found');
     }
-
-    // Also update in teamMembers if exists
-    await db
-      .update(teamMembers)
-      .set({
-        role,
-        updatedAt: new Date(),
-      })
-      .where(eq(teamMembers.memberUserId, userId));
 
     return updated;
   }
@@ -654,29 +727,32 @@ export class TeamService {
    * Remove workspace member
    */
   static async removeWorkspaceMember(workspaceId: string, userId: string) {
-    // Remove from workspace_members
-    const [deleted] = await db
-      .delete(workspaceMembers)
-      .where(
-        and(
-          eq(workspaceMembers.workspaceId, workspaceId),
-          eq(workspaceMembers.userId, userId)
-        )
-      )
-      .returning();
+    // Get workspace owner first
+    const [workspace] = await db
+      .select({ ownerId: workspaces.ownerId })
+      .from(workspaces)
+      .where(eq(workspaces.id, workspaceId))
+      .limit(1);
 
-    if (!deleted) {
-      throw new Error('Workspace member not found');
+    if (!workspace) {
+      throw new Error('Workspace not found');
     }
 
-    // Also update teamMembers status to removed
-    await db
+    // Update teamMembers status to removed
+    const [deleted] = await db
       .update(teamMembers)
       .set({
         status: 'removed',
         updatedAt: new Date(),
       })
-      .where(eq(teamMembers.memberUserId, userId));
+      .where(
+        and(
+          eq(teamMembers.userId, workspace.ownerId),
+          eq(teamMembers.memberUserId, userId),
+          eq(teamMembers.status, 'active')
+        )
+      )
+      .returning();
 
     return { success: true, deleted };
   }
@@ -685,13 +761,26 @@ export class TeamService {
    * Check if user is workspace member
    */
   static async isWorkspaceMember(workspaceId: string, userId: string) {
+    // Get workspace owner first
+    const [workspace] = await db
+      .select({ ownerId: workspaces.ownerId })
+      .from(workspaces)
+      .where(eq(workspaces.id, workspaceId))
+      .limit(1);
+
+    if (!workspace) {
+      return false;
+    }
+
+    // Check if user is a team member
     const [member] = await db
       .select()
-      .from(workspaceMembers)
+      .from(teamMembers)
       .where(
         and(
-          eq(workspaceMembers.workspaceId, workspaceId),
-          eq(workspaceMembers.userId, userId)
+          eq(teamMembers.userId, workspace.ownerId),
+          eq(teamMembers.memberUserId, userId),
+          eq(teamMembers.status, 'active')
         )
       )
       .limit(1);
