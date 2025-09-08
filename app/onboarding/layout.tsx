@@ -112,7 +112,12 @@ export default async function OnboardingLayout({
 
     // User is authenticated and hasn't completed onboarding
     return <>{children}</>;
-  } catch (error) {
+  } catch (error: any) {
+    // Don't catch Next.js redirect errors - let them bubble up
+    if (error?.digest?.includes('NEXT_REDIRECT')) {
+      throw error;
+    }
+
     console.error('OnboardingLayout error:', error);
     // On unexpected error, show error page
     return (

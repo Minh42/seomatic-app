@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { OnboardingTestimonial } from '@/components/common/OnboardingTestimonial';
 import { SocialProof } from '@/components/common/SocialProof';
@@ -12,6 +13,10 @@ import { Step5Discovery } from '@/components/onboarding/Step5Discovery';
 import { ProgressBar } from '@/components/onboarding/ProgressBar';
 import { ErrorDisplay } from '@/components/onboarding/ErrorDisplay';
 import { useOnboardingForm } from '@/hooks/useOnboardingForm';
+import { useWindowDimensions } from '@/hooks/useWindowDimensions';
+
+// Dynamically import Confetti to avoid SSR issues
+const Confetti = dynamic(() => import('react-confetti'), { ssr: false });
 
 interface OnboardingPageClientProps {
   initialData: {
@@ -49,16 +54,40 @@ export function OnboardingPageClient({
     handleNextStep,
     handlePreviousStep,
     handleSkipStep,
+    canGoNext,
     canGoPrevious,
     canSkip,
     retrySubmission,
     retryWorkspaceCreation,
     clearWorkspaceError,
     workspaceId,
+    showConfetti,
   } = useOnboardingForm(initialData);
+
+  // Use the extracted hook for window dimensions
+  const windowDimensions = useWindowDimensions();
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
+      {/* Confetti celebration */}
+      {showConfetti && windowDimensions.width > 0 && (
+        <Confetti
+          width={windowDimensions.width}
+          height={windowDimensions.height}
+          recycle={false}
+          numberOfPieces={500}
+          gravity={0.15}
+          colors={[
+            '#3B82F6',
+            '#10B981',
+            '#F59E0B',
+            '#EF4444',
+            '#8B5CF6',
+            '#EC4899',
+          ]}
+        />
+      )}
+
       {/* Left side - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center px-4 py-6 sm:px-6 md:px-8 lg:py-12 lg:px-16 xl:px-20 2xl:px-24">
         <div className="w-full max-w-2xl">
@@ -142,97 +171,19 @@ export function OnboardingPageClient({
                   Skip for now
                 </button>
               )}
-              <form.Subscribe
-                selector={(state: { values: Record<string, unknown> }) => [
-                  state.values,
-                ]}
+              <Button
+                onClick={handleNextStep}
+                disabled={!canGoNext}
+                className="px-6 md:px-8 h-10 md:h-12 text-sm md:text-base font-medium cursor-pointer disabled:cursor-not-allowed"
               >
-                {(formState: [Record<string, unknown>]) => {
-                  // Check if current step has valid data for enabling Next button
-                  const values = formState[0];
-                  let isStepValid = false;
-
-                  switch (currentStep) {
-                    case 1:
-                      // Step 1: Must have at least one use case selected
-                      const hasUseCases =
-                        values.useCases &&
-                        Array.isArray(values.useCases) &&
-                        values.useCases.length > 0;
-                      if (hasUseCases) {
-                        // If "other" is selected, must have description
-                        if (
-                          values.useCases.includes('other') &&
-                          !values.otherUseCase?.trim()
-                        ) {
-                          isStepValid = false;
-                        } else {
-                          isStepValid = true;
-                        }
-                      }
-                      break;
-
-                    case 2:
-                      // Step 2: Must have all required fields
-                      isStepValid = !!(
-                        values.workspaceName?.trim() &&
-                        values.professionalRole &&
-                        (values.professionalRole !== 'Other' ||
-                          values.otherProfessionalRole?.trim()) &&
-                        values.companySize &&
-                        values.industry &&
-                        (values.industry !== 'Other' ||
-                          values.otherIndustry?.trim())
-                      );
-                      break;
-
-                    case 3:
-                      // Step 3: Must have CMS integration selected
-                      isStepValid = !!(
-                        values.cmsIntegration &&
-                        (values.cmsIntegration !== 'other' ||
-                          values.otherCms?.trim())
-                      );
-                      break;
-
-                    case 4:
-                      // Step 4: Team members is optional (skippable)
-                      isStepValid = true;
-                      break;
-
-                    case 5:
-                      // Step 5: Must have discovery source
-                      isStepValid = !!(
-                        values.discoverySource &&
-                        (values.discoverySource !== 'Other' ||
-                          values.otherDiscoverySource?.trim())
-                      );
-                      break;
-
-                    default:
-                      isStepValid = true;
-                  }
-
-                  const canProceed =
-                    !isSubmitting && !isValidating && isStepValid;
-
-                  return (
-                    <Button
-                      onClick={handleNextStep}
-                      disabled={!canProceed}
-                      className="px-6 md:px-8 h-10 md:h-12 text-sm md:text-base font-medium cursor-pointer disabled:cursor-not-allowed"
-                    >
-                      {isSubmitting
-                        ? 'Processing...'
-                        : isValidating
-                          ? 'Validating...'
-                          : currentStep === 5
-                            ? 'Complete'
-                            : 'Next →'}
-                    </Button>
-                  );
-                }}
-              </form.Subscribe>
+                {isSubmitting
+                  ? 'Processing...'
+                  : isValidating
+                    ? 'Validating...'
+                    : currentStep === 5
+                      ? 'Complete'
+                      : 'Next →'}
+              </Button>
             </div>
           </div>
         </div>

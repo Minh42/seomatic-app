@@ -77,16 +77,29 @@ export function Step3CMSIntegration({
   form,
   isSubmitting,
 }: StepComponentProps) {
-  const initialValue = form.state.values.cmsIntegration || '';
+  const initialCmsValue = form.state.values.cmsIntegration || '';
+  const initialOtherValue = form.state.values.otherCms || '';
 
-  // Check if the initial value is one of the main platforms
-  const isMainPlatform = MAIN_PLATFORMS.some(p => p.id === initialValue);
-  const isOtherPlatform = !isMainPlatform && initialValue !== '';
+  // Check if the initial CMS value is one of the main platforms
+  const isMainPlatform = MAIN_PLATFORMS.some(p => p.id === initialCmsValue);
 
-  const [selectedPlatform, setSelectedPlatform] = useState(initialValue);
-  const [otherPlatformSelection, setOtherPlatformSelection] = useState(
-    isOtherPlatform ? initialValue : ''
+  // Initialize selected platform (main card selection)
+  const [selectedPlatform, setSelectedPlatform] = useState(
+    isMainPlatform ? initialCmsValue : ''
   );
+
+  // Initialize dropdown selection
+  // If they have an otherCms value, check if it's in the dropdown or is custom text
+  const [otherPlatformSelection, setOtherPlatformSelection] = useState(() => {
+    if (!initialOtherValue) return '';
+    // Check if it's one of the dropdown options
+    const isDropdownOption = OTHER_PLATFORMS.some(
+      p => p.value === initialOtherValue
+    );
+    if (isDropdownOption) return initialOtherValue;
+    // If there's text but it's not a dropdown option, they must have selected "other"
+    return initialOtherValue ? 'other' : '';
+  });
 
   const handlePlatformSelect = (platformId: string) => {
     // If clicking the already selected platform, deselect it
@@ -98,26 +111,22 @@ export function Step3CMSIntegration({
       form.setFieldValue('cmsIntegration', platformId);
     }
 
-    // Reset other selections when selecting a main platform
-    setOtherPlatformSelection('');
-    form.setFieldValue('otherCms', '');
+    // Don't reset the dropdown selection - they can have both
   };
 
   const handleOtherDropdownChange = (value: string) => {
     // If selecting the same value, deselect it
     if (otherPlatformSelection === value) {
       setOtherPlatformSelection('');
-      setSelectedPlatform('');
-      form.setFieldValue('cmsIntegration', '');
       form.setFieldValue('otherCms', '');
     } else {
       setOtherPlatformSelection(value);
-      setSelectedPlatform(value);
-      form.setFieldValue('cmsIntegration', value);
 
-      // Clear the text field if not selecting "other"
+      // Store the dropdown selection in otherCms field
+      // If they selected "other", they'll fill in the text field
+      // Otherwise, store the platform name they selected
       if (value !== 'other') {
-        form.setFieldValue('otherCms', '');
+        form.setFieldValue('otherCms', value);
       }
     }
   };
@@ -159,7 +168,7 @@ export function Step3CMSIntegration({
                   'hover:shadow-md hover:border-gray-400',
                   'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500',
                   'disabled:opacity-50 disabled:cursor-not-allowed',
-                  selectedPlatform === platform.id && !otherPlatformSelection
+                  selectedPlatform === platform.id
                     ? 'border-blue-500 bg-blue-50 shadow-sm'
                     : 'border-gray-200 bg-white'
                 )}
@@ -195,24 +204,23 @@ export function Step3CMSIntegration({
                   </div>
 
                   {/* Selected Indicator */}
-                  {selectedPlatform === platform.id &&
-                    !otherPlatformSelection && (
-                      <div className="absolute top-2 left-2">
-                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                          <svg
-                            className="w-3 h-3 text-white"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </div>
+                  {selectedPlatform === platform.id && (
+                    <div className="absolute top-2 left-2">
+                      <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                        <svg
+                          className="w-3 h-3 text-white"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
                       </div>
-                    )}
+                    </div>
+                  )}
                 </div>
               </button>
             ))}

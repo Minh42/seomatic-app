@@ -33,6 +33,7 @@ export interface UseOnboardingFormReturn {
   clearWorkspaceError: () => void;
   isLoadingProgress: boolean;
   workspaceId: string | null;
+  showConfetti: boolean;
 }
 
 const MAX_STEPS = 5;
@@ -91,6 +92,7 @@ export function useOnboardingForm(
   const [isLoadingProgress] = useState(false); // Start with false for optimistic UI
   const hasLoadedProgress = useRef(false);
   const [, forceUpdate] = useState({});
+  const [showConfetti, setShowConfetti] = useState(false);
 
   // Merge initial data with defaults
   const formDefaults = initialData
@@ -178,8 +180,14 @@ export function useOnboardingForm(
           }
         }
 
+        // Show confetti and success message
+        setShowConfetti(true);
         toast.success('Welcome! Your account setup is complete.');
-        router.push('/dashboard');
+
+        // Redirect after a short delay to let users enjoy the confetti
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 3000);
       } catch (err) {
         const errorMessage =
           err instanceof OnboardingError
@@ -668,8 +676,14 @@ export function useOnboardingForm(
         );
       }
 
+      // Show confetti and success message
+      setShowConfetti(true);
       toast.success('Welcome! Your account setup is complete.');
-      router.push('/dashboard');
+
+      // Redirect after a short delay to let users enjoy the confetti
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 3000);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to complete onboarding';
@@ -802,8 +816,7 @@ export function useOnboardingForm(
       case 3:
         // Step 3: Must have CMS integration selected
         if (!values.cmsIntegration) return false;
-        if (values.cmsIntegration === 'other' && !values.otherCms?.trim())
-          return false;
+        // otherCms is now optional - users can select both a main CMS and additional platforms
         return true;
 
       case 4:
@@ -849,5 +862,6 @@ export function useOnboardingForm(
     clearWorkspaceError,
     isLoadingProgress,
     workspaceId,
+    showConfetti,
   };
 }

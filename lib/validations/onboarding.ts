@@ -129,23 +129,10 @@ export const teamMemberSchema = z.object({
 });
 
 // Step 3: CMS Integration
-export const step3Schema = z
-  .object({
-    cmsIntegration: z.string().min(1, 'Please select your CMS platform'),
-    otherCms: z.string().optional(),
-  })
-  .refine(
-    data => {
-      if (data.cmsIntegration === 'Other' && !data.otherCms?.trim()) {
-        return false;
-      }
-      return true;
-    },
-    {
-      message: 'Please provide details about your platform',
-      path: ['otherCms'],
-    }
-  );
+export const step3Schema = z.object({
+  cmsIntegration: z.string().min(1, 'Please select your CMS platform'),
+  otherCms: z.string().optional(), // Can be a dropdown selection or custom text
+});
 
 // Step 4: Team Collaboration (was Step 3)
 export const step4Schema = z.object({
