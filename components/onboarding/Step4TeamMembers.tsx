@@ -26,7 +26,7 @@ const ROLE_DISPLAY_MAP = {
 
 const TEAM_ROLES: TeamMember['role'][] = ['viewer', 'member', 'admin'];
 
-export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
+export function Step4TeamMembers({ form, isSubmitting }: StepComponentProps) {
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<TeamMember['role']>('viewer');
   const [emailError, setEmailError] = useState<string | null>(null);

@@ -6,8 +6,9 @@ import { OnboardingTestimonial } from '@/components/common/OnboardingTestimonial
 import { SocialProof } from '@/components/common/SocialProof';
 import { Step1UseCases } from '@/components/onboarding/Step1UseCases';
 import { Step2WorkspaceInfo } from '@/components/onboarding/Step2WorkspaceInfo';
-import { Step3TeamMembers } from '@/components/onboarding/Step3TeamMembers';
-import { Step4Discovery } from '@/components/onboarding/Step4Discovery';
+import { Step3CMSIntegration } from '@/components/onboarding/Step3CMSIntegration';
+import { Step4TeamMembers } from '@/components/onboarding/Step4TeamMembers';
+import { Step5Discovery } from '@/components/onboarding/Step5Discovery';
 import { ProgressBar } from '@/components/onboarding/ProgressBar';
 import { ErrorDisplay } from '@/components/onboarding/ErrorDisplay';
 import { useOnboardingForm } from '@/hooks/useOnboardingForm';
@@ -23,6 +24,8 @@ interface OnboardingPageClientProps {
       companySize: string;
       industry: string;
       otherIndustry: string;
+      cmsIntegration: string;
+      otherCms: string;
       discoverySource: string;
       otherDiscoverySource: string;
       previousAttempts: string;
@@ -73,7 +76,7 @@ export function OnboardingPageClient({
             </span>
           </div>
 
-          <ProgressBar currentStep={currentStep} totalSteps={4} />
+          <ProgressBar currentStep={currentStep} totalSteps={5} />
 
           {/* Error Display - Hide workspace errors in Step 2 as they're handled by WorkspaceRecovery */}
           {!(
@@ -86,7 +89,7 @@ export function OnboardingPageClient({
             <ErrorDisplay
               error={error}
               onRetry={retrySubmission}
-              canRetry={!isSubmitting && currentStep === 4}
+              canRetry={!isSubmitting && currentStep === 5}
             />
           )}
 
@@ -105,10 +108,13 @@ export function OnboardingPageClient({
             />
           )}
           {currentStep === 3 && (
-            <Step3TeamMembers form={form} isSubmitting={isSubmitting} />
+            <Step3CMSIntegration form={form} isSubmitting={isSubmitting} />
           )}
           {currentStep === 4 && (
-            <Step4Discovery form={form} isSubmitting={isSubmitting} />
+            <Step4TeamMembers form={form} isSubmitting={isSubmitting} />
+          )}
+          {currentStep === 5 && (
+            <Step5Discovery form={form} isSubmitting={isSubmitting} />
           )}
 
           {/* Navigation Buttons */}
@@ -181,12 +187,21 @@ export function OnboardingPageClient({
                       break;
 
                     case 3:
-                      // Step 3: Team members is optional (skippable)
-                      isStepValid = true;
+                      // Step 3: Must have CMS integration selected
+                      isStepValid = !!(
+                        values.cmsIntegration &&
+                        (values.cmsIntegration !== 'other' ||
+                          values.otherCms?.trim())
+                      );
                       break;
 
                     case 4:
-                      // Step 4: Must have discovery source
+                      // Step 4: Team members is optional (skippable)
+                      isStepValid = true;
+                      break;
+
+                    case 5:
+                      // Step 5: Must have discovery source
                       isStepValid = !!(
                         values.discoverySource &&
                         (values.discoverySource !== 'Other' ||
@@ -211,7 +226,7 @@ export function OnboardingPageClient({
                         ? 'Processing...'
                         : isValidating
                           ? 'Validating...'
-                          : currentStep === 4
+                          : currentStep === 5
                             ? 'Complete'
                             : 'Next →'}
                     </Button>

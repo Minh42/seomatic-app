@@ -37,6 +37,8 @@ export default async function OnboardingPage() {
       companySize: '',
       industry: '',
       otherIndustry: '',
+      cmsIntegration: '',
+      otherCms: '',
       discoverySource: '',
       otherDiscoverySource: '',
       previousAttempts: '',

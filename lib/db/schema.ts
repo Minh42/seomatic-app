@@ -92,7 +92,11 @@ export const users = pgTable('users', {
   industry: varchar('industry'),
   otherIndustry: varchar('other_industry'),
 
-  // Step 4: Discovery
+  // Step 3: CMS Integration
+  cmsIntegration: varchar('cms_integration'),
+  otherCms: text('other_cms'),
+
+  // Step 5: Discovery (was Step 4)
   discoverySource: varchar('discovery_source'),
   otherDiscoverySource: varchar('other_discovery_source'),
   previousAttempts: text('previous_attempts'),

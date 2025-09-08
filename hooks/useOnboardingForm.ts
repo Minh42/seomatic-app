@@ -35,8 +35,8 @@ export interface UseOnboardingFormReturn {
   workspaceId: string | null;
 }
 
-const MAX_STEPS = 4;
-const SKIPPABLE_STEPS = [3]; // Only team members step is skippable
+const MAX_STEPS = 5;
+const SKIPPABLE_STEPS = [4]; // Only team members step is skippable
 
 class OnboardingError extends Error {
   field?: string;
@@ -59,6 +59,8 @@ interface InitialData {
     companySize: string;
     industry: string;
     otherIndustry: string;
+    cmsIntegration: string;
+    otherCms: string;
     discoverySource: string;
     otherDiscoverySource: string;
     previousAttempts: string;
@@ -105,6 +107,8 @@ export function useOnboardingForm(
         companySize: initialData.onboardingData.companySize || '',
         industry: initialData.onboardingData.industry || '',
         otherIndustry: initialData.onboardingData.otherIndustry || '',
+        cmsIntegration: initialData.onboardingData.cmsIntegration || '',
+        otherCms: initialData.onboardingData.otherCms || '',
         teamMembers: initialData.onboardingData.teamMembers || [],
         discoverySource: initialData.onboardingData.discoverySource || '',
         otherDiscoverySource:
@@ -259,11 +263,16 @@ export function useOnboardingForm(
             if (savedData.otherIndustry)
               formData.otherIndustry = savedData.otherIndustry;
 
-            // Step 3 data (team members)
+            // Step 3 data (CMS integration)
+            if (savedData.cmsIntegration)
+              formData.cmsIntegration = savedData.cmsIntegration;
+            if (savedData.otherCms) formData.otherCms = savedData.otherCms;
+
+            // Step 4 data (team members)
             if (savedData.teamMembers)
               formData.teamMembers = savedData.teamMembers;
 
-            // Step 4 data
+            // Step 5 data
             if (savedData.discoverySource)
               formData.discoverySource = savedData.discoverySource;
             if (savedData.otherDiscoverySource)
@@ -318,10 +327,16 @@ export function useOnboardingForm(
           break;
         case 3:
           stepValues = {
-            teamMembers: values.teamMembers,
+            cmsIntegration: values.cmsIntegration,
+            otherCms: values.otherCms,
           };
           break;
         case 4:
+          stepValues = {
+            teamMembers: values.teamMembers,
+          };
+          break;
+        case 5:
           stepValues = {
             discoverySource: values.discoverySource,
             otherDiscoverySource: values.otherDiscoverySource,
@@ -471,8 +486,18 @@ export function useOnboardingForm(
       }
       return; // Exit early on workspace creation error
     }
-    // Step 3: Team members - send invitations immediately
+    // Step 3: CMS Integration - save data
     else if (currentStep === 3) {
+      await saveStepProgress(3, {
+        cmsIntegration: values.cmsIntegration || '',
+        otherCms: values.otherCms || '',
+      });
+      const nextStep = Math.min(currentStep + 1, MAX_STEPS);
+      setCurrentStep(nextStep);
+      await updateSavedStep(nextStep);
+    }
+    // Step 4: Team members - send invitations immediately
+    else if (currentStep === 4) {
       setIsSubmitting(true);
       try {
         // Always call the API to handle both sending new invitations and deleting removed ones
@@ -507,7 +532,7 @@ export function useOnboardingForm(
         }
 
         // Save team members data
-        await saveStepProgress(3, {
+        await saveStepProgress(4, {
           teamMembers: values.teamMembers || [],
         });
 
@@ -522,10 +547,10 @@ export function useOnboardingForm(
         setIsSubmitting(false);
       }
     }
-    // Step 4: Final submission
+    // Step 5: Final submission
     else if (currentStep === MAX_STEPS) {
-      // Save Step 4 data before final submission
-      await saveStepProgress(4, {
+      // Save Step 5 data before final submission
+      await saveStepProgress(5, {
         discoverySource: values.discoverySource || '',
         otherDiscoverySource: values.otherDiscoverySource || '',
         previousAttempts: values.previousAttempts || '',
@@ -571,12 +596,19 @@ export function useOnboardingForm(
         case 3:
           // Save Step 3 data before going back
           await saveStepProgress(3, {
-            teamMembers: values.teamMembers || [],
+            cmsIntegration: values.cmsIntegration || '',
+            otherCms: values.otherCms || '',
           });
           break;
         case 4:
           // Save Step 4 data before going back
           await saveStepProgress(4, {
+            teamMembers: values.teamMembers || [],
+          });
+          break;
+        case 5:
+          // Save Step 5 data before going back
+          await saveStepProgress(5, {
             discoverySource: values.discoverySource || '',
             otherDiscoverySource: values.otherDiscoverySource || '',
             previousAttempts: values.previousAttempts || '',
@@ -768,11 +800,18 @@ export function useOnboardingForm(
         return true;
 
       case 3:
-        // Step 3: Team members is optional (skippable)
+        // Step 3: Must have CMS integration selected
+        if (!values.cmsIntegration) return false;
+        if (values.cmsIntegration === 'other' && !values.otherCms?.trim())
+          return false;
         return true;
 
       case 4:
-        // Step 4: Must have discovery source
+        // Step 4: Team members is optional (skippable)
+        return true;
+
+      case 5:
+        // Step 5: Must have discovery source
         if (!values.discoverySource) return false;
         if (
           values.discoverySource === 'Other' &&

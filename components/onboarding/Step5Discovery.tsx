@@ -26,7 +26,7 @@ const DISCOVERY_SOURCES = [
   'Other',
 ];
 
-export function Step4Discovery({ form, isSubmitting }: StepComponentProps) {
+export function Step5Discovery({ form, isSubmitting }: StepComponentProps) {
   return (
     <div>
       <div className="mb-6 md:mb-8">

@@ -128,13 +128,32 @@ export const teamMemberSchema = z.object({
   role: z.enum(['viewer', 'member', 'admin']),
 });
 
-// Step 3: Team Collaboration
-export const step3Schema = z.object({
+// Step 3: CMS Integration
+export const step3Schema = z
+  .object({
+    cmsIntegration: z.string().min(1, 'Please select your CMS platform'),
+    otherCms: z.string().optional(),
+  })
+  .refine(
+    data => {
+      if (data.cmsIntegration === 'Other' && !data.otherCms?.trim()) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Please provide details about your platform',
+      path: ['otherCms'],
+    }
+  );
+
+// Step 4: Team Collaboration (was Step 3)
+export const step4Schema = z.object({
   teamMembers: z.array(teamMemberSchema).default([]),
 });
 
-// Step 4: Discovery
-export const step4Schema = z
+// Step 5: Discovery (was Step 4)
+export const step5Schema = z
   .object({
     discoverySource: z.string().min(1, 'Please tell us how you heard about us'),
     otherDiscoverySource: z.string().optional(),
@@ -171,9 +190,13 @@ export const onboardingSchema = z.object({
   otherIndustry: z.string().optional(),
 
   // Step 3
-  teamMembers: z.array(teamMemberSchema).default([]),
+  cmsIntegration: z.string().min(1, 'Please select your CMS platform'),
+  otherCms: z.string().optional(),
 
   // Step 4
+  teamMembers: z.array(teamMemberSchema).default([]),
+
+  // Step 5
   discoverySource: z.string().min(1, 'Please tell us how you heard about us'),
   otherDiscoverySource: z.string().optional(),
   previousAttempts: z.string().optional(),
@@ -181,7 +204,7 @@ export const onboardingSchema = z.object({
 
 // Progress update schema - for saving step progress
 export const progressSchema = z.object({
-  step: z.number().min(1).max(4),
+  step: z.number().min(1).max(5),
   data: z.any().optional(), // Data is optional for step-only updates
   complete: z.boolean().optional(), // Flag to indicate final completion
 });
@@ -196,6 +219,7 @@ export type Step1Data = z.infer<typeof step1Schema>;
 export type Step2Data = z.infer<typeof step2Schema>;
 export type Step3Data = z.infer<typeof step3Schema>;
 export type Step4Data = z.infer<typeof step4Schema>;
+export type Step5Data = z.infer<typeof step5Schema>;
 export type TeamMember = z.infer<typeof teamMemberSchema>;
 export type ProgressUpdate = z.infer<typeof progressSchema>;
 export type OnboardingSubmission = z.infer<typeof onboardingSubmissionSchema>;
@@ -210,6 +234,8 @@ export const defaultOnboardingValues: OnboardingFormData = {
   companySize: '',
   industry: '',
   otherIndustry: '',
+  cmsIntegration: '',
+  otherCms: '',
   teamMembers: [],
   discoverySource: '',
   otherDiscoverySource: '',
@@ -222,4 +248,5 @@ export const stepSchemas = {
   2: step2Schema,
   3: step3Schema,
   4: step4Schema,
+  5: step5Schema,
 } as const;

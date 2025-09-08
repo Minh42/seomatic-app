@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,6 +6,7 @@ import { PasswordStrengthIndicator } from '@/components/auth/PasswordStrengthInd
 import { signupSchema } from '@/lib/validations/auth';
 import { useFieldValidation } from '@/hooks/useFieldValidation';
 import { Eye, EyeOff } from 'lucide-react';
+import { isDisposableEmailDomain } from 'disposable-email-domains-js';
 
 interface SignupFormProps {
   form: any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -24,12 +25,55 @@ export function SignupForm({
 }: SignupFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [disposableEmailError, setDisposableEmailError] = useState<
+    string | null
+  >(null);
+  const [emailCheckTimer, setEmailCheckTimer] = useState<NodeJS.Timeout | null>(
+    null
+  );
   const emailValidation = useFieldValidation(signupSchema, 'email');
   const passwordValidation = useFieldValidation(signupSchema, 'password');
   const confirmPasswordValidation = useFieldValidation(
     signupSchema,
     'confirmPassword'
   );
+
+  // Check for disposable email with debounce
+  const checkDisposableEmail = (email: string) => {
+    // Clear any existing timer
+    if (emailCheckTimer) {
+      clearTimeout(emailCheckTimer);
+    }
+
+    // Only check if email has @ symbol
+    if (!email || !email.includes('@')) {
+      setDisposableEmailError(null);
+      return;
+    }
+
+    // Set a timer to check after 500ms of no typing
+    const timer = setTimeout(() => {
+      const domain = email.split('@')[1]?.toLowerCase();
+      if (domain && isDisposableEmailDomain(domain)) {
+        setDisposableEmailError(
+          'Disposable email addresses are not allowed. Please use a permanent work email address.'
+        );
+      } else {
+        setDisposableEmailError(null);
+      }
+    }, 500);
+
+    setEmailCheckTimer(timer);
+  };
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (emailCheckTimer) {
+        clearTimeout(emailCheckTimer);
+      }
+    };
+  }, [emailCheckTimer]);
 
   return (
     <form className="space-y-4 md:space-y-6" onSubmit={onSubmit}>
@@ -44,11 +88,17 @@ export function SignupForm({
               type="email"
               placeholder="rand.fishkin@company.com"
               value={field.state.value}
-              onChange={e => field.handleChange(e.target.value)}
+              onChange={e => {
+                const newValue = e.target.value;
+                field.handleChange(newValue);
+                checkDisposableEmail(newValue);
+              }}
               onBlur={field.handleBlur}
               disabled={isLoading}
               className={
-                field.state.meta.errors.length > 0 || emailError
+                field.state.meta.errors.length > 0 ||
+                emailError ||
+                disposableEmailError
                   ? 'border-red-500'
                   : ''
               }
@@ -58,7 +108,12 @@ export function SignupForm({
                 {field.state.meta.errors[0]}
               </p>
             )}
-            {emailError && <p className="text-sm text-red-600">{emailError}</p>}
+            {disposableEmailError && (
+              <p className="text-sm text-red-600">{disposableEmailError}</p>
+            )}
+            {emailError && !disposableEmailError && (
+              <p className="text-sm text-red-600">{emailError}</p>
+            )}
           </div>
         )}
       </form.Field>

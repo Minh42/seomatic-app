@@ -33,7 +33,10 @@ export class OnboardingService {
         companySize: users.companySize,
         industry: users.industry,
         otherIndustry: users.otherIndustry,
-        // Step 4
+        // Step 3
+        cmsIntegration: users.cmsIntegration,
+        otherCms: users.otherCms,
+        // Step 5
         discoverySource: users.discoverySource,
         otherDiscoverySource: users.otherDiscoverySource,
         previousAttempts: users.previousAttempts,
@@ -71,6 +74,8 @@ export class OnboardingService {
       companySize: user.companySize || '',
       industry: user.industry || '',
       otherIndustry: user.otherIndustry || '',
+      cmsIntegration: user.cmsIntegration || '',
+      otherCms: user.otherCms || '',
       discoverySource: user.discoverySource || '',
       otherDiscoverySource: user.otherDiscoverySource || '',
       previousAttempts: user.previousAttempts || '',
@@ -119,12 +124,15 @@ export class OnboardingService {
         companySize: data.companySize,
         industry: data.industry,
         otherIndustry: data.otherIndustry || null,
-        // Step 4 fields
+        // Step 3 fields
+        cmsIntegration: data.cmsIntegration,
+        otherCms: data.otherCms || null,
+        // Step 5 fields
         discoverySource: data.discoverySource,
         otherDiscoverySource: data.otherDiscoverySource || null,
         previousAttempts: data.previousAttempts || null,
         // Completion tracking
-        onboardingCurrentStep: 4,
+        onboardingCurrentStep: 5,
         onboardingCompleted: true,
         onboardingCompletedAt: new Date(),
         updatedAt: new Date(),
@@ -211,11 +219,18 @@ export class OnboardingService {
           break;
 
         case 3:
-          // Step 3: Team members - handled separately
+          // Step 3: CMS Integration
+          if (data.cmsIntegration !== undefined)
+            updateData.cmsIntegration = data.cmsIntegration;
+          if (data.otherCms !== undefined) updateData.otherCms = data.otherCms;
           break;
 
         case 4:
-          // Step 4: Discovery
+          // Step 4: Team members - handled separately
+          break;
+
+        case 5:
+          // Step 5: Discovery
           if (data.discoverySource !== undefined)
             updateData.discoverySource = data.discoverySource;
           if (data.otherDiscoverySource !== undefined)
