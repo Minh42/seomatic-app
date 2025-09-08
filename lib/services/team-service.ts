@@ -174,6 +174,13 @@ export class TeamService {
         ? `${inviter.firstName} ${inviter.lastName}`
         : inviter?.email || 'A team member';
 
+    // Get workspace name
+    const [workspace] = await db
+      .select({ name: workspaces.name })
+      .from(workspaces)
+      .where(eq(workspaces.ownerId, invitedBy))
+      .limit(1);
+
     // Send invitation email
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
     const inviteUrl = `${baseUrl}/invite?token=${token}`;
@@ -181,7 +188,7 @@ export class TeamService {
     await EmailService.sendTeamInvitation({
       email: email.toLowerCase(),
       inviterName,
-      workspaceName: undefined, // TODO: Get workspace name if needed
+      workspaceName: workspace?.name,
       inviteUrl,
       expiresAt,
     });
@@ -390,6 +397,13 @@ export class TeamService {
         ? `${inviter.firstName} ${inviter.lastName}`
         : inviter?.email || 'A team member';
 
+    // Get workspace name
+    const [workspace] = await db
+      .select({ name: workspaces.name })
+      .from(workspaces)
+      .where(eq(workspaces.ownerId, invitation.team_members.invitedBy))
+      .limit(1);
+
     // Send new invitation email
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
     const inviteUrl = `${baseUrl}/invite?token=${token}`;
@@ -397,7 +411,7 @@ export class TeamService {
     await EmailService.sendTeamInvitation({
       email: invitation.team_invitations.email,
       inviterName,
-      workspaceName: undefined, // TODO: Get workspace name if needed
+      workspaceName: workspace?.name,
       inviteUrl,
       expiresAt,
     });
