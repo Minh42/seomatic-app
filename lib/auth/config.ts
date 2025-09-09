@@ -100,12 +100,18 @@ export const authOptions: NextAuthOptions = {
 
       // Pass remember me status to session if needed for client-side reference
       if (token.rememberMe !== undefined) {
-        (session as any).rememberMe = token.rememberMe;
+        // Extended session type to include rememberMe
+        const extendedSession = session as typeof session & {
+          rememberMe: boolean;
+        };
+        extendedSession.rememberMe = token.rememberMe;
       }
 
       // Calculate and pass the actual expiry time to the client
       if (token.exp && typeof token.exp === 'number') {
-        (session as any).expires = new Date(token.exp * 1000).toISOString();
+        // Extended session type to include expires
+        const extendedSession = session as typeof session & { expires: string };
+        extendedSession.expires = new Date(token.exp * 1000).toISOString();
       }
 
       return session;
@@ -118,7 +124,10 @@ export const authOptions: NextAuthOptions = {
         // Handle credentials provider remember me
         if (account?.provider === 'credentials') {
           // The remember me value is passed through the user object from authorize
-          token.rememberMe = (user as any).rememberMe === true;
+          const userWithRememberMe = user as typeof user & {
+            rememberMe?: boolean;
+          };
+          token.rememberMe = userWithRememberMe.rememberMe === true;
 
           // Set appropriate expiration based on remember me
           if (token.rememberMe) {
@@ -170,7 +179,7 @@ export const authOptions: NextAuthOptions = {
 
       return token;
     },
-    async signIn({ account, profile, user, isNewUser }) {
+    async signIn({ account, profile, user }) {
       // Only allow OAuth account linking if email is verified
       // This is enforced by the allowDangerousEmailAccountLinking flag
       // which will auto-link accounts with matching emails
@@ -224,33 +233,7 @@ export const authOptions: NextAuthOptions = {
             await db.update(users).set(updateData).where(eq(users.id, user.id));
           }
 
-          // Track account linking for existing users
-          if (!isNewUser && user?.id) {
-            // Check if this is a new OAuth link for an existing user
-            const existingAccounts = await db
-              .select()
-              .from(accounts)
-              .where(eq(accounts.userId, user.id));
-
-            // If this is a newly linked account (will be added after this callback)
-            const isNewLink = !existingAccounts.some(
-              acc =>
-                acc.provider === account.provider &&
-                acc.providerAccountId === account.providerAccountId
-            );
-
-            if (isNewLink) {
-              await AnalyticsService.trackEvent(
-                user.id,
-                'oauth_account_linked',
-                {
-                  provider: account.provider,
-                  email: user.email,
-                  timestamp: new Date().toISOString(),
-                }
-              );
-            }
-          }
+          // No need to track OAuth account linking - we only care about original signup method
         } catch (error) {
           console.error(
             `Failed to update user with ${account?.provider} profile:`,
@@ -283,13 +266,8 @@ export const authOptions: NextAuthOptions = {
             created_at: new Date().toISOString(),
             signup_method: account.provider,
           });
-        } else if (!isNewUser) {
-          // Existing user login (both OAuth and email)
-          await AnalyticsService.trackEvent(user.id, 'user_logged_in', {
-            method: account?.provider || 'email',
-            timestamp: new Date().toISOString(),
-          });
         }
+        // We don't track regular logins - not actionable data
         // Note: Email signups are tracked in /api/auth/signup route
       } catch (error) {
         console.error('Error tracking auth event:', error);
