@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useDeferredValue } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,7 +14,6 @@ import {
 import { StepComponentProps } from '@/types/form';
 import { workspaceNameSchema } from '@/lib/validations/onboarding';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { useDebounce } from '@/hooks/useDebounce';
 import { WorkspaceRecovery } from './WorkspaceRecovery';
 
 const PROFESSIONAL_ROLES = [
@@ -73,7 +72,7 @@ export function Step2WorkspaceInfo({
 
   // Get current workspace name value
   const [workspaceName, setWorkspaceName] = useState('');
-  const debouncedWorkspaceName = useDebounce(workspaceName, 300);
+  const debouncedWorkspaceName = useDeferredValue(workspaceName);
 
   // Check workspace name availability
   const checkAvailability = useCallback(

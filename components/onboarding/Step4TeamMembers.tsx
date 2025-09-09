@@ -26,6 +26,9 @@ const ROLE_DISPLAY_MAP = {
 
 const TEAM_ROLES: TeamMember['role'][] = ['viewer', 'member', 'admin'];
 
+// Email validation cache to prevent repeated API calls
+const emailCache = new Map<string, { available: boolean; error?: string }>();
+
 export function Step4TeamMembers({ form, isSubmitting }: StepComponentProps) {
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<TeamMember['role']>('viewer');
@@ -41,6 +44,14 @@ export function Step4TeamMembers({ form, isSubmitting }: StepComponentProps) {
   const checkEmailUniqueness = async (email: string) => {
     if (!email || !email.includes('@')) return;
 
+    // Check cache first
+    const cached = emailCache.get(email);
+    if (cached) {
+      setEmailAvailable(cached.available);
+      setEmailError(cached.error || null);
+      return;
+    }
+
     setIsCheckingEmail(true);
     try {
       const response = await fetch('/api/team/check-email', {
@@ -50,6 +61,12 @@ export function Step4TeamMembers({ form, isSubmitting }: StepComponentProps) {
       });
 
       const data = await response.json();
+
+      // Cache the result
+      emailCache.set(email, {
+        available: data.available,
+        error: data.error,
+      });
 
       if (data.available) {
         setEmailAvailable(true);
@@ -221,12 +238,9 @@ export function Step4TeamMembers({ form, isSubmitting }: StepComponentProps) {
                           setEmailError(null);
                           setEmailAvailable(false);
 
-                          // Clear previous timeouts
+                          // Clear previous timeout
                           if (typingTimeout) {
                             clearTimeout(typingTimeout);
-                          }
-                          if (checkEmailTimeout) {
-                            clearTimeout(checkEmailTimeout);
                           }
 
                           // Set a timeout to validate after user stops typing (500ms)

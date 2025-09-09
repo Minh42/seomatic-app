@@ -13,7 +13,6 @@ import { useOnboardingValidation } from './useOnboardingValidation';
 import { useOnboardingProgress } from './useOnboardingProgress';
 import { useOnboardingStepHandlers } from './useOnboardingStepHandlers';
 import { useOnboardingNavigation } from './useOnboardingNavigation';
-import { useSession } from 'next-auth/react';
 
 export interface OnboardingErrorData {
   message: string;
@@ -70,7 +69,6 @@ export function useOnboardingForm(
   initialData?: InitialData
 ): UseOnboardingFormReturn {
   const router = useRouter();
-  useSession(); // We may need session data in the future
 
   // State management
   const [currentStep, setCurrentStep] = useState(
@@ -203,13 +201,8 @@ export function useOnboardingForm(
     },
   });
 
-  // Use progress hook
-  const { saveStepProgress, updateSavedStep } = useOnboardingProgress({
-    initialData,
-    form,
-    setCurrentStep,
-    setWorkspaceId,
-  });
+  // Use progress hook for saving only (loading is done server-side)
+  const { saveStepProgress, updateSavedStep } = useOnboardingProgress();
 
   // Use step handlers hook
   const stepHandlers = useOnboardingStepHandlers({

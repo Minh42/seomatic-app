@@ -122,7 +122,7 @@ export function OnboardingPageClient({
             />
           )}
 
-          {/* Step Components - Show immediately with initial data */}
+          {/* Step Components - Show immediately for smooth transitions */}
           {currentStep === 1 && (
             <Step1UseCases form={form} isSubmitting={isSubmitting} />
           )}
