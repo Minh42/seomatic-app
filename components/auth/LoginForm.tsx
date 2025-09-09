@@ -104,7 +104,7 @@ export function LoginForm({
               type="checkbox"
               checked={field.state.value}
               onChange={e => field.handleChange(e.target.checked)}
-              className="h-3 w-3 md:h-4 md:w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
             <label
               htmlFor="remember"
@@ -122,7 +122,8 @@ export function LoginForm({
         {([canSubmit, isSubmitting]: [boolean, boolean]) => (
           <Button
             type="submit"
-            className="w-full h-10 md:h-12 text-sm md:text-base font-medium"
+            size="lg"
+            className="w-full text-sm md:text-base font-medium"
             disabled={!canSubmit || isSubmitting || isLoading}
           >
             {isLoading ? 'Signing in...' : 'Sign In →'}

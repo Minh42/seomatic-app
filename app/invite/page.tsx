@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -214,9 +214,11 @@ export default function InvitePage() {
                   <>
                     <Button
                       variant="outline"
-                      onClick={() => {
+                      onClick={async () => {
                         // Sign out and redirect to login with the invitation email
-                        window.location.href = `/api/auth/signout?callbackUrl=/login?email=${encodeURIComponent(invitation.email)}`;
+                        await signOut({
+                          callbackUrl: `/login?email=${encodeURIComponent(invitation.email)}`,
+                        });
                       }}
                       className="w-full"
                     >

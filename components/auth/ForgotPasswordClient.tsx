@@ -187,7 +187,7 @@ export function ForgotPasswordClient() {
             e.stopPropagation();
             form.handleSubmit();
           }}
-          className="space-y-6"
+          className="space-y-4 md:space-y-6"
         >
           <div>
             <form.Field name="email">
@@ -244,7 +244,12 @@ export function ForgotPasswordClient() {
             </form.Field>
           </div>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full text-sm md:text-base"
+            disabled={isSubmitting}
+          >
             {isSubmitting
               ? 'Sending...'
               : attemptCount > 0 && submitMessage?.type !== 'error'

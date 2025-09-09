@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { OnboardingService } from '@/lib/services/onboarding-service';
 import { RedirectGuard, isCurrentPath } from '@/lib/utils/redirect-guard';
 import { headers } from 'next/headers';
+import { SignOutButton } from '@/components/auth/SignOutButton';
 
 export default async function OnboardingLayout({
   children,
@@ -92,13 +93,10 @@ export default async function OnboardingLayout({
                 </a>
               </p>
               <p className="text-sm text-gray-500">
-                If you&apos;re seeing this repeatedly, please
-                <button
-                  onClick={() => (window.location.href = '/api/auth/signout')}
-                  className="text-blue-600 underline ml-1 bg-transparent border-none cursor-pointer"
-                >
+                If you&apos;re seeing this repeatedly, please{' '}
+                <SignOutButton className="text-blue-600 underline bg-transparent border-none cursor-pointer">
                   sign out
-                </button>{' '}
+                </SignOutButton>{' '}
                 and sign back in.
               </p>
             </div>

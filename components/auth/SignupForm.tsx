@@ -165,7 +165,8 @@ export function SignupForm({
         {([canSubmit, isSubmitting]: [boolean, boolean]) => (
           <Button
             type="submit"
-            className="w-full h-10 md:h-12 text-sm md:text-base font-medium"
+            size="lg"
+            className="w-full text-sm md:text-base font-medium"
             disabled={
               !canSubmit || isSubmitting || isLoading || !!disposableEmailError
             }
