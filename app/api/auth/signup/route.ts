@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UserService } from '@/lib/services/user-service';
+import { AnalyticsService } from '@/lib/services/analytics-service';
 import { signupApiSchema } from '@/lib/validations/auth';
 import {
   withRateLimit,
@@ -23,6 +24,13 @@ export async function POST(request: NextRequest) {
       email,
       password,
       fingerprint,
+    });
+
+    // Track signup event in PostHog
+    await AnalyticsService.trackEvent(newUser.id, 'user_signed_up', {
+      email: newUser.email,
+      signup_method: 'email', // We can expand this later for OAuth signups
+      timestamp: new Date().toISOString(),
     });
 
     const response = NextResponse.json(

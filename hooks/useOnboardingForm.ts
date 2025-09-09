@@ -13,6 +13,8 @@ import { useOnboardingValidation } from './useOnboardingValidation';
 import { useOnboardingProgress } from './useOnboardingProgress';
 import { useOnboardingStepHandlers } from './useOnboardingStepHandlers';
 import { useOnboardingNavigation } from './useOnboardingNavigation';
+import { usePostHog } from './usePostHog';
+import { useSession } from 'next-auth/react';
 
 export interface OnboardingErrorData {
   message: string;
@@ -21,7 +23,7 @@ export interface OnboardingErrorData {
 }
 
 export interface UseOnboardingFormReturn {
-  form: FormApi<OnboardingFormData, any>;
+  form: FormApi<OnboardingFormData, unknown>;
   currentStep: number;
   isSubmitting: boolean;
   isValidating: boolean;
@@ -55,7 +57,7 @@ interface InitialData {
     discoverySource: string;
     otherDiscoverySource: string;
     previousAttempts: string;
-    teamMembers: any[];
+    teamMembers: Array<{ email: string; role: string }>;
     workspaceName?: string;
   };
   workspaceId: string | null;
@@ -69,6 +71,8 @@ export function useOnboardingForm(
   initialData?: InitialData
 ): UseOnboardingFormReturn {
   const router = useRouter();
+  const { trackEvent } = usePostHog();
+  useSession(); // We may need session data in the future
 
   // State management
   const [currentStep, setCurrentStep] = useState(
@@ -227,6 +231,15 @@ export function useOnboardingForm(
     });
     return unsubscribe;
   }, [form.store]);
+
+  // Track onboarding started event
+  useEffect(() => {
+    if (currentStep === 1 && !initialData?.onboardingData?.currentStep) {
+      // Only track if we're starting fresh, not resuming
+      trackEvent('onboarding_started');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount - we intentionally want this to run only on initial mount
 
   // Use validation hook with reactive form values
   const { canGoNext, canGoPrevious, canSkip } = useOnboardingValidation(

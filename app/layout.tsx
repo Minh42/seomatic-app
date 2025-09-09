@@ -2,7 +2,12 @@ import type { Metadata } from 'next';
 import { Geist } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { SessionProvider } from '@/components/providers/SessionProvider';
+import {
+  PostHogAuthProvider,
+  PostHogPageView,
+} from '@/lib/providers/posthog-provider';
 import { Toaster } from '@/components/ui/sonner';
+import { Suspense } from 'react';
 import './globals.css';
 
 const geistSans = Geist({
@@ -23,7 +28,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} antialiased`}>
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <PostHogAuthProvider>
+            <Suspense fallback={null}>
+              <PostHogPageView />
+            </Suspense>
+            {children}
+          </PostHogAuthProvider>
+        </SessionProvider>
         <Toaster />
         <SpeedInsights />
       </body>

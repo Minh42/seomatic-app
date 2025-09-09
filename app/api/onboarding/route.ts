@@ -5,6 +5,7 @@ import { OnboardingService } from '@/lib/services/onboarding-service';
 import { WorkspaceService } from '@/lib/services/workspace-service';
 import { SubscriptionService } from '@/lib/services/subscription-service';
 import { EmailService } from '@/lib/services/email-service';
+import { AnalyticsService } from '@/lib/services/analytics-service';
 import { onboardingSubmissionSchema } from '@/lib/validations/onboarding';
 
 // GET /api/onboarding - Check onboarding status
@@ -159,7 +160,10 @@ export async function POST(req: NextRequest) {
       ...data,
     });
 
-    // Track onboarding completion
+    // Track onboarding completion in PostHog with all properties for pie charts
+    await AnalyticsService.trackOnboardingCompleted(userId, data);
+
+    // Track onboarding completion in email service
     await EmailService.trackOnboardingComplete({
       email: session.user.email || '',
       userId,

@@ -38,7 +38,7 @@ For complete product requirements, feature roadmap, and business objectives, see
 - **Authentication:** NextAuth.js for OAuth and session management
 - **Payments:** Stripe for payment processing and subscription management
 - **Email:** Bento API for email automation and transactional emails
-- **Analytics:** PostHog for in-app product analytics and user tracking
+- **Analytics:** PostHog for in-app product analytics and user tracking (see Analytics section below)
 - **Forms:** TanStack Form for form management and validation
 - **Validation:** Zod for schema validation and type safety
 - **Hosting:** Vercel for application deployment
@@ -143,6 +143,10 @@ STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
 
 # Application
 NEXT_PUBLIC_ROOT_DOMAIN=yourdomain.com  # Optional, defaults to localhost:3000
+
+# PostHog Analytics
+NEXT_PUBLIC_POSTHOG_KEY=your_posthog_project_api_key
+NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com  # Optional, defaults to PostHog cloud
 ```
 
 ### Development Notes
@@ -389,9 +393,38 @@ export async function POST(request: NextRequest) {
 }
 ```
 
+### Analytics with PostHog
+
+The application uses **PostHog** for product analytics, user tracking, and feature flags.
+
+**Implementation:**
+
+- **Provider:** `PostHogAuthProvider` in `/lib/providers/posthog-provider.tsx` wraps the entire app
+- **Auto-tracking:** Page views, clicks, and form submissions are automatically captured
+- **User identification:** Automatically identifies users on login with session data
+- **Workspace grouping:** Associates users with their workspace for team analytics
+- **Privacy:** Input fields are masked by default, sensitive data marked with `data-sensitive`
+
+**Usage:**
+
+```typescript
+import { usePostHog } from '@/hooks/usePostHog';
+
+// In your component
+const { trackEvent } = usePostHog();
+trackEvent('feature_used', { feature: 'bulk_export' });
+```
+
+**Key Files:**
+
+- `/lib/providers/posthog-provider.tsx` - PostHog initialization and session integration
+- `/hooks/usePostHog.ts` - Custom hook for easy PostHog usage
+- `/types/posthog.d.ts` - TypeScript types for PostHog
+
 ### Deployment Considerations
 
 - Designed for Vercel deployment
 - Requires wildcard DNS setup (`*.yourdomain.com`) for custom domains
 - Middleware config excludes `/api`, `/_next`, and static files from processing
 - Uses Vercel Analytics and Speed Insights for monitoring
+- PostHog analytics for user behavior tracking and product metrics

@@ -2,27 +2,32 @@
 
 import { useCallback } from 'react';
 import { toast } from 'sonner';
-import { stepSchemas } from '@/lib/validations/onboarding';
+import { FormApi } from '@tanstack/react-form';
+import { stepSchemas, OnboardingFormData } from '@/lib/validations/onboarding';
+import { usePostHog } from './usePostHog';
 
 const MAX_STEPS = 5;
 
 interface NavigationProps {
   currentStep: number;
   setCurrentStep: (step: number) => void;
-  form: any; // TanStack Form instance
+  form: FormApi<OnboardingFormData, unknown>;
   isSubmitting: boolean;
   setIsSubmitting: (value: boolean) => void;
   isValidating: boolean;
   setIsValidating: (value: boolean) => void;
   stepHandlers: {
-    handleStep1Submit: (values: any) => Promise<boolean>;
-    handleStep2Submit: (values: any) => Promise<boolean>;
-    handleStep3Submit: (values: any) => Promise<boolean>;
-    handleStep4Submit: (values: any) => Promise<boolean>;
-    handleStep5Submit: (values: any) => Promise<boolean>;
+    handleStep1Submit: (values: OnboardingFormData) => Promise<boolean>;
+    handleStep2Submit: (values: OnboardingFormData) => Promise<boolean>;
+    handleStep3Submit: (values: OnboardingFormData) => Promise<boolean>;
+    handleStep4Submit: (values: OnboardingFormData) => Promise<boolean>;
+    handleStep5Submit: (values: OnboardingFormData) => Promise<boolean>;
   };
   updateSavedStep: (step: number) => Promise<void>;
-  saveStepProgress: (step: number, data: any) => Promise<void>;
+  saveStepProgress: (
+    step: number,
+    data: Partial<OnboardingFormData>
+  ) => Promise<void>;
   canSkip: boolean;
 }
 
@@ -42,6 +47,7 @@ export function useOnboardingNavigation({
   saveStepProgress,
   canSkip,
 }: NavigationProps) {
+  const { trackEvent } = usePostHog();
   // Validate current step
   const validateCurrentStep = useCallback(async (): Promise<boolean> => {
     setIsValidating(true);
@@ -150,6 +156,9 @@ export function useOnboardingNavigation({
 
       // If step handler succeeded, advance to next step
       if (success && currentStep < MAX_STEPS) {
+        // Track step completion event
+        trackEvent(`onboarding_step_${currentStep}_completed`);
+
         const nextStep = Math.min(currentStep + 1, MAX_STEPS);
         setCurrentStep(nextStep);
         await updateSavedStep(nextStep);
@@ -167,6 +176,7 @@ export function useOnboardingNavigation({
     setCurrentStep,
     setIsSubmitting,
     updateSavedStep,
+    trackEvent,
   ]);
 
   // Handle previous step navigation

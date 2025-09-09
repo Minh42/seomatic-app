@@ -8,7 +8,12 @@ declare module 'next-auth' {
       email: string;
       firstName?: string | null;
       lastName?: string | null;
+      name?: string | null;
       image?: string | null;
+      createdAt?: string | Date | null;
+      workspaceId?: string | null;
+      workspaceName?: string | null;
+      plan?: string | null;
     };
     rememberMe?: boolean;
     expires: string;
