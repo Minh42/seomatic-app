@@ -6,8 +6,6 @@ declare module 'next-auth' {
     user: {
       id: string;
       email: string;
-      firstName?: string | null;
-      lastName?: string | null;
       name?: string | null;
       image?: string | null;
       createdAt?: string | Date | null;
@@ -22,8 +20,7 @@ declare module 'next-auth' {
   interface User {
     id: string;
     email: string;
-    firstName?: string | null;
-    lastName?: string | null;
+    name?: string | null;
     image?: string | null;
     rememberMe?: boolean;
   }

@@ -8,15 +8,13 @@ import { EmailService } from '@/lib/services/email-service';
 export interface CreateUserParams {
   email: string;
   password: string;
-  firstName?: string;
-  lastName?: string;
+  name?: string;
   fingerprint?: string;
 }
 
 export interface UserProfileUpdateParams {
-  firstName?: string;
-  lastName?: string;
-  profileImage?: string;
+  name?: string;
+  image?: string;
 }
 
 export class UserService {
@@ -24,7 +22,7 @@ export class UserService {
    * Create a new user account
    */
   static async createUser(params: CreateUserParams) {
-    const { email, password, firstName, lastName } = params;
+    const { email, password, name } = params;
 
     // Validate email domain (block disposable emails)
     const emailValidation = validateEmailDomain(email);
@@ -47,8 +45,7 @@ export class UserService {
       .values({
         email: email.toLowerCase(),
         passwordHash,
-        firstName,
-        lastName,
+        name,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -56,8 +53,7 @@ export class UserService {
       .returning({
         id: users.id,
         email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
+        name: users.name,
       });
 
     // Send welcome email and track user creation

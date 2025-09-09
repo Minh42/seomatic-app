@@ -63,9 +63,9 @@ export const verificationStatusEnum = pgEnum('verification_status', [
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email').unique().notNull(),
-  firstName: varchar('first_name'),
-  lastName: varchar('last_name'),
-  avatarUrl: varchar('avatar_url'),
+  name: varchar('name'),
+  emailVerified: timestamp('emailVerified'),
+  image: varchar('image'),
   timezone: varchar('timezone').default('UTC'),
 
   // Authentication
@@ -361,13 +361,11 @@ export const accounts = pgTable(
     providerAccountId: varchar('providerAccountId').notNull(),
     refresh_token: text('refresh_token'),
     access_token: text('access_token'),
-    expires_at: timestamp('expires_at'),
+    expires_at: bigint('expires_at', { mode: 'number' }),
     token_type: varchar('token_type'),
     scope: varchar('scope'),
     id_token: text('id_token'),
     session_state: varchar('session_state'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   account => ({
     compoundKey: primaryKey({

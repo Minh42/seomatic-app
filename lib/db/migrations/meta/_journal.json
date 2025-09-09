@@ -50,6 +50,13 @@
       "when": 1757085322312,
       "tag": "0006_broken_dorian_gray",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1757420066109,
+      "tag": "0007_tricky_malcolm_colcord",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,7 @@ import FacebookProvider from 'next-auth/providers/facebook';
 import LinkedInProvider from 'next-auth/providers/linkedin';
 import TwitterProvider from 'next-auth/providers/twitter';
 import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
+import { users, accounts, verificationTokens } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { createBentoEmailProvider } from '@/lib/providers/auth-email';
 import { credentialsProvider } from '@/lib/providers/auth-credentials';
@@ -16,7 +16,11 @@ const SESSION_MAX_AGE_REMEMBER_ME = 30 * 24 * 60 * 60; // 30 days in seconds
 const SESSION_UPDATE_AGE = 60 * 60; // 1 hour in seconds
 
 export const authOptions: NextAuthOptions = {
-  adapter: DrizzleAdapter(db),
+  adapter: DrizzleAdapter(db, {
+    usersTable: users,
+    accountsTable: accounts,
+    verificationTokensTable: verificationTokens,
+  }),
   providers: [
     credentialsProvider,
     createBentoEmailProvider(),
@@ -31,11 +35,30 @@ export const authOptions: NextAuthOptions = {
     LinkedInProvider({
       clientId: process.env.LINKEDIN_CLIENT_ID!,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET!,
+      client: {
+        token_endpoint_auth_method: 'client_secret_post',
+      },
+      issuer: 'https://www.linkedin.com',
+      wellKnown:
+        'https://www.linkedin.com/oauth/.well-known/openid-configuration',
+      authorization: {
+        params: {
+          scope: 'openid profile email',
+        },
+      },
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+        };
+      },
     }),
     TwitterProvider({
-      clientId: process.env.TWITTER_CLIENT_ID!,
-      clientSecret: process.env.TWITTER_CLIENT_SECRET!,
-      version: '2.0',
+      clientId: process.env.TWITTER_API_KEY!,
+      clientSecret: process.env.TWITTER_API_SECRET!,
+      version: '1.0',
     }),
   ],
   session: {
@@ -142,42 +165,55 @@ export const authOptions: NextAuthOptions = {
 
       return token;
     },
-    async signIn({ account, profile }) {
+    async signIn({ account, profile, user }) {
       // Handle OAuth provider data mapping
       if (account?.provider && profile) {
         try {
           const profileData = profile as Record<string, unknown>;
           const updateData: Record<string, unknown> = {
-            avatarUrl: profileData.picture || profileData.image,
             updatedAt: new Date(),
           };
 
-          // Map provider-specific fields
+          // Map provider-specific IDs
           if (account.provider === 'google') {
-            updateData.firstName = profileData.given_name;
-            updateData.lastName = profileData.family_name;
             updateData.googleId = profileData.sub;
           } else if (account.provider === 'facebook') {
-            updateData.firstName = profileData.first_name;
-            updateData.lastName = profileData.last_name;
             updateData.facebookId = profileData.id;
           } else if (account.provider === 'linkedin') {
-            updateData.firstName = profileData.given_name;
-            updateData.lastName = profileData.family_name;
             updateData.linkedinId = profileData.sub;
           } else if (account.provider === 'twitter') {
-            // Twitter provides full name only
-            const fullName = (profileData.name as string) || '';
-            const nameParts = fullName.split(' ');
-            updateData.firstName = nameParts[0] || '';
-            updateData.lastName = nameParts.slice(1).join(' ') || '';
-            updateData.twitterId = profileData.id;
+            // OAuth 1.0a uses id_str instead of id
+            updateData.twitterId = profileData.id_str || profileData.id;
+
+            // Handle Twitter users without email
+            // Even with OAuth 1.0a, email might not always be provided
+            if (!profile.email && user) {
+              // Use the user object which has the database record
+              const existingUser = await db
+                .select()
+                .from(users)
+                .where(eq(users.id, user.id))
+                .limit(1);
+
+              if (existingUser.length > 0) {
+                await db
+                  .update(users)
+                  .set(updateData)
+                  .where(eq(users.id, user.id));
+                return true;
+              }
+            }
           }
 
-          await db
-            .update(users)
-            .set(updateData)
-            .where(eq(users.email, profile.email!));
+          if (profile.email) {
+            await db
+              .update(users)
+              .set(updateData)
+              .where(eq(users.email, profile.email));
+          } else if (account.provider === 'twitter' && user?.id) {
+            // For Twitter without email, update by user ID
+            await db.update(users).set(updateData).where(eq(users.id, user.id));
+          }
         } catch (error) {
           console.error(
             `Failed to update user with ${account?.provider} profile:`,
