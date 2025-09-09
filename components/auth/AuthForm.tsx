@@ -43,7 +43,7 @@ function SocialAuthButtons({
       <Button
         type="button"
         variant="outline"
-        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 p-0"
+        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 p-0 cursor-pointer"
         onClick={onSocialAuth.google}
         disabled={isLoading}
         title="Continue with Google"
@@ -70,7 +70,7 @@ function SocialAuthButtons({
       <Button
         type="button"
         variant="outline"
-        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 p-0"
+        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 p-0 cursor-pointer"
         onClick={onSocialAuth.facebook}
         disabled={isLoading}
         title="Continue with Facebook"
@@ -82,7 +82,7 @@ function SocialAuthButtons({
       <Button
         type="button"
         variant="outline"
-        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 p-0"
+        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 p-0 cursor-pointer"
         onClick={onSocialAuth.linkedin}
         disabled={isLoading}
         title="Continue with LinkedIn"
@@ -94,7 +94,7 @@ function SocialAuthButtons({
       <Button
         type="button"
         variant="outline"
-        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 p-0"
+        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 p-0 cursor-pointer"
         onClick={onSocialAuth.twitter}
         disabled={isLoading}
         title="Continue with X"
