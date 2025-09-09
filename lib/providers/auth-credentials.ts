@@ -68,9 +68,8 @@ export const credentialsProvider = CredentialsProvider({
       return {
         id: user.id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        image: user.avatarUrl,
+        name: user.name,
+        image: user.profileImage,
         // Add rememberMe to the user object so it can be accessed in jwt callback
         rememberMe: validatedData.rememberMe,
       } as any;

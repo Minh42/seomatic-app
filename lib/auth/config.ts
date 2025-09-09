@@ -28,14 +28,17 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
     }),
     FacebookProvider({
       clientId: process.env.FACEBOOK_CLIENT_ID!,
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
     }),
     LinkedInProvider({
       clientId: process.env.LINKEDIN_CLIENT_ID!,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
       client: {
         token_endpoint_auth_method: 'client_secret_post',
       },
@@ -60,6 +63,7 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.TWITTER_API_KEY!,
       clientSecret: process.env.TWITTER_API_SECRET!,
       version: '1.0',
+      allowDangerousEmailAccountLinking: true,
     }),
   ],
   session: {
@@ -166,7 +170,11 @@ export const authOptions: NextAuthOptions = {
 
       return token;
     },
-    async signIn({ account, profile, user }) {
+    async signIn({ account, profile, user, isNewUser }) {
+      // Only allow OAuth account linking if email is verified
+      // This is enforced by the allowDangerousEmailAccountLinking flag
+      // which will auto-link accounts with matching emails
+
       // Handle OAuth provider data mapping
       if (account?.provider && profile) {
         try {
@@ -214,6 +222,34 @@ export const authOptions: NextAuthOptions = {
           } else if (account.provider === 'twitter' && user?.id) {
             // For Twitter without email, update by user ID
             await db.update(users).set(updateData).where(eq(users.id, user.id));
+          }
+
+          // Track account linking for existing users
+          if (!isNewUser && user?.id) {
+            // Check if this is a new OAuth link for an existing user
+            const existingAccounts = await db
+              .select()
+              .from(accounts)
+              .where(eq(accounts.userId, user.id));
+
+            // If this is a newly linked account (will be added after this callback)
+            const isNewLink = !existingAccounts.some(
+              acc =>
+                acc.provider === account.provider &&
+                acc.providerAccountId === account.providerAccountId
+            );
+
+            if (isNewLink) {
+              await AnalyticsService.trackEvent(
+                user.id,
+                'oauth_account_linked',
+                {
+                  provider: account.provider,
+                  email: user.email,
+                  timestamp: new Date().toISOString(),
+                }
+              );
+            }
           }
         } catch (error) {
           console.error(

@@ -130,7 +130,12 @@ export class TeamService {
       .limit(1);
 
     if (existingInvite.length > 0 && existingInvite[0].expiresAt > new Date()) {
-      throw new Error('An invitation has already been sent to this email');
+      // Return early instead of throwing - invitation already exists
+      return {
+        success: true,
+        status: 'already_invited',
+        teamMemberId: existingInvite[0].teamMemberId,
+      };
     }
 
     // Generate invitation token
@@ -161,18 +166,14 @@ export class TeamService {
     // Get inviter details
     const [inviter] = await db
       .select({
-        firstName: users.firstName,
-        lastName: users.lastName,
+        name: users.name,
         email: users.email,
       })
       .from(users)
       .where(eq(users.id, invitedBy))
       .limit(1);
 
-    const inviterName =
-      inviter?.firstName && inviter?.lastName
-        ? `${inviter.firstName} ${inviter.lastName}`
-        : inviter?.email || 'A team member';
+    const inviterName = inviter?.name || inviter?.email || 'A team member';
 
     // Get workspace name
     const [workspace] = await db
@@ -280,8 +281,7 @@ export class TeamService {
         member: {
           id: users.id,
           email: users.email,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          name: users.name,
           profileImage: users.profileImage,
         },
       })
@@ -384,18 +384,14 @@ export class TeamService {
     // Get inviter details
     const [inviter] = await db
       .select({
-        firstName: users.firstName,
-        lastName: users.lastName,
+        name: users.name,
         email: users.email,
       })
       .from(users)
       .where(eq(users.id, invitation.team_members.invitedBy))
       .limit(1);
 
-    const inviterName =
-      inviter?.firstName && inviter?.lastName
-        ? `${inviter.firstName} ${inviter.lastName}`
-        : inviter?.email || 'A team member';
+    const inviterName = inviter?.name || inviter?.email || 'A team member';
 
     // Get workspace name
     const [workspace] = await db
@@ -480,18 +476,14 @@ export class TeamService {
     // Get inviter details
     const [inviter] = await db
       .select({
-        firstName: users.firstName,
-        lastName: users.lastName,
+        name: users.name,
         email: users.email,
       })
       .from(users)
       .where(eq(users.id, teamMember.invitedBy))
       .limit(1);
 
-    const inviterName =
-      inviter?.firstName && inviter?.lastName
-        ? `${inviter.firstName} ${inviter.lastName}`
-        : inviter?.email || 'Someone';
+    const inviterName = inviter?.name || inviter?.email || 'Someone';
 
     return {
       valid: true,
@@ -637,9 +629,7 @@ export class TeamService {
         await EmailService.sendInvitationAcceptedNotification(
           inviter.email,
           currentUser.email,
-          currentUser.firstName && currentUser.lastName
-            ? `${currentUser.firstName} ${currentUser.lastName}`
-            : undefined
+          currentUser.name || undefined
         );
       }
 
@@ -678,8 +668,7 @@ export class TeamService {
         user: {
           id: users.id,
           email: users.email,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          name: users.name,
           profileImage: users.profileImage,
         },
       })

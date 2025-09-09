@@ -342,12 +342,14 @@ export function Step4TeamMembers({ form, isSubmitting }: StepComponentProps) {
                       (member, index) => (
                         <div
                           key={index}
-                          className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg"
+                          className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                         >
                           <div className="flex-1">
-                            <p className="text-gray-900 font-medium">
-                              {member.email}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-gray-900 font-medium">
+                                {member.email}
+                              </p>
+                            </div>
                             <p className="text-gray-500 text-sm">
                               {ROLE_DISPLAY_MAP[member.role]}
                             </p>

@@ -132,18 +132,36 @@ export function useOnboardingStepHandlers({
           return false;
         }
 
-        // Only show error toasts
+        // Show appropriate feedback
         if (data.invitations) {
+          const sentCount =
+            data.invitations?.filter(
+              (i: { status: string }) => i.status === 'sent'
+            ).length || 0;
           const failCount =
             data.invitations?.filter(
               (i: { status: string }) => i.status === 'failed'
             ).length || 0;
+          // Skipped count is tracked but not shown in UI (silent handling)
+          // const skippedCount = data.invitations?.filter(
+          //   (i: { status: string }) => i.status === 'skipped'
+          // ).length || 0;
 
-          if (failCount > 0) {
-            toast.error(
-              `${failCount} invitation${failCount !== 1 ? 's' : ''} failed to send`
+          // Only show success toast if new invitations were sent
+          if (sentCount > 0) {
+            toast.success(
+              `${sentCount} invitation${sentCount !== 1 ? 's' : ''} sent successfully`
             );
           }
+
+          // Only show error toast for actual failures (not duplicates)
+          if (failCount > 0) {
+            toast.error(
+              `${failCount} invitation${failCount !== 1 ? 's' : ''} could not be sent`
+            );
+          }
+
+          // Silent handling of duplicates - no toast needed
         }
 
         // Save team members data

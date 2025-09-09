@@ -39,8 +39,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
               </p>
               <p>
                 <span className="font-medium">Name:</span>{' '}
-                {`${session.user?.firstName || ''} ${session.user?.lastName || ''}`.trim() ||
-                  'Not set'}
+                {session.user?.name || 'Not set'}
               </p>
               <p>
                 <span className="font-medium">User ID:</span> {session.user?.id}

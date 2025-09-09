@@ -103,16 +103,25 @@ export async function POST(request: NextRequest) {
         }
 
         // Send invitation
-        await TeamService.inviteMember({
+        const result = await TeamService.inviteMember({
           email: normalizedEmail,
           role: member.role,
           invitedBy: userId,
         });
 
-        invitationResults.push({
-          email: member.email,
-          status: 'sent',
-        });
+        // Check if invitation was already sent
+        if (result.status === 'already_invited') {
+          invitationResults.push({
+            email: member.email,
+            status: 'skipped',
+            message: 'Invitation already sent',
+          });
+        } else {
+          invitationResults.push({
+            email: member.email,
+            status: 'sent',
+          });
+        }
       } catch (error) {
         console.error('Failed to invite team member:', error);
         invitationResults.push({
@@ -133,11 +142,26 @@ export async function POST(request: NextRequest) {
     const failCount = invitationResults.filter(
       r => r.status === 'failed'
     ).length;
-    const deletedCount = deletionResults.length;
+    const skippedCount = invitationResults.filter(
+      r => r.status === 'skipped'
+    ).length;
+    // deletedCount is tracked in deletionResults array
+
+    // Build a user-friendly message
+    let message = '';
+    if (successCount > 0) {
+      message = `${successCount} invitation${successCount !== 1 ? 's' : ''} sent`;
+    }
+    if (skippedCount > 0 && successCount === 0) {
+      message = 'All team members already invited';
+    }
+    if (failCount > 0) {
+      message += message ? `, ${failCount} failed` : `${failCount} failed`;
+    }
 
     return NextResponse.json({
       success: true,
-      message: `${successCount} invitation${successCount !== 1 ? 's' : ''} sent successfully${failCount > 0 ? `, ${failCount} failed` : ''}${deletedCount > 0 ? `, ${deletedCount} removed` : ''}`,
+      message: message || 'Team members processed',
       invitations: invitationResults,
       deletions: deletionResults,
     });

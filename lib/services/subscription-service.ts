@@ -231,8 +231,7 @@ export class SubscriptionService {
         owner: {
           id: users.id,
           email: users.email,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          name: users.name,
         },
       })
       .from(subscriptions)
