@@ -13,7 +13,7 @@ import { SocialProof } from '@/components/common/SocialProof';
 import { type LoginFormData } from '@/lib/validations/auth';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { useSocialAuth } from '@/hooks/useSocialAuth';
-import { AuthErrorHandler } from '@/lib/auth/errors';
+import { AuthErrorHandler } from '@/lib/errors/auth-errors';
 
 function LoginPageContent() {
   const searchParams = useSearchParams();

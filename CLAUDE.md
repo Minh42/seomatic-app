@@ -83,6 +83,24 @@ This is a **multi-tenant SaaS application** built with Next.js 15 that uses **su
 - Static assets and user uploads stored in S3
 - Delivered globally via CloudFront CDN for optimal performance
 
+### Project Structure
+
+**Core Directories:**
+
+- **`/app`** - Next.js 15 App Router pages and API routes
+- **`/components`** - React components organized by feature
+- **`/hooks`** - Custom React hooks for shared logic
+- **`/lib`** - Core application logic and utilities
+  - **`/lib/db`** - Database connection and schema definitions
+  - **`/lib/errors`** - Centralized error classes and handlers
+  - **`/lib/middleware`** - Middleware utilities (auth, rate limiting)
+  - **`/lib/providers`** - Context providers and wrappers
+  - **`/lib/services`** - Business logic service classes
+  - **`/lib/utils`** - Utility functions and helpers
+  - **`/lib/validations`** - Zod schemas and validation logic
+- **`/db/migrations`** - Database migration files (Drizzle ORM)
+- **`/public`** - Static assets (images, fonts, etc.)
+
 ### Key Files & Responsibilities
 
 - **`middleware.ts`** - Handles subdomain detection and routing logic across environments
@@ -172,6 +190,106 @@ NEXT_PUBLIC_ROOT_DOMAIN=yourdomain.com  # Optional, defaults to localhost:3000
 - Page-specific components that aren't reused elsewhere
 - Single-use "Client" wrapper components
 - Breaking apart cohesive units for organizational aesthetics
+
+### Code Organization
+
+**IMPORTANT: When creating new code, ALWAYS follow this structure:**
+
+**Lib Directory Structure:**
+
+The `/lib` directory contains all core application logic, organized by concern:
+
+- **`/lib/db`** - Database layer
+  - Database connection and configuration
+  - Drizzle ORM schema definitions
+  - Database utilities and helpers
+
+- **`/lib/errors`** - Error handling
+  - Centralized error classes and types
+  - Domain-specific error handlers
+  - Consistent error patterns across the application
+
+- **`/lib/middleware`** - Middleware utilities
+  - Request/response interceptors
+  - Authentication and authorization middleware
+  - Rate limiting and security middleware
+
+- **`/lib/providers`** - React providers
+  - Context providers for global state
+  - Third-party service providers
+  - Application-wide wrapper components
+
+- **`/lib/services`** - Business logic services
+  - Server-side service classes with static methods
+  - Domain-specific business logic
+  - External API integrations
+
+- **`/lib/utils`** - Utility functions
+  - Helper functions and utilities
+  - Common operations and transformations
+  - Shared application logic
+
+- **`/lib/validations`** - Data validation
+  - Zod schemas for form and API validation
+  - Type definitions derived from schemas
+  - Validation utilities and helpers
+
+**Database Migrations:**
+
+- **`/db/migrations`** - All database migrations
+  - Timestamped SQL migration files
+  - Version-controlled schema changes
+  - Migration history and rollback support
+
+**Code Placement Rules:**
+
+When creating or modifying code, ALWAYS place files in the correct location:
+
+1. **Error Classes** → `/lib/errors/`
+   - Create domain-specific error files (e.g., `payment-errors.ts`, `api-errors.ts`)
+   - Extend base Error class with proper typing
+   - Include error codes and field information
+
+2. **Business Logic** → `/lib/services/`
+   - Create service classes with static methods
+   - Never put API calls directly in components or hooks
+   - Services should handle all database operations and external APIs
+
+3. **Validation Schemas** → `/lib/validations/`
+   - Create Zod schemas for all forms and API inputs
+   - Export TypeScript types derived from schemas
+   - Group related validations in the same file
+
+4. **Utility Functions** → `/lib/utils/`
+   - Pure functions without side effects
+   - Reusable helper functions
+   - Domain-specific utilities in separate files
+
+5. **Database Schema** → `/lib/db/`
+   - Schema definitions in `schema.ts`
+   - Database utilities in separate files
+   - Keep migrations in `/db/migrations/`
+
+6. **Middleware** → `/lib/middleware/`
+   - Request/response interceptors
+   - Authentication checks
+   - Rate limiting logic
+
+7. **React Providers** → `/lib/providers/`
+   - Context providers
+   - Third-party provider wrappers
+   - Global state management
+
+**Example: Creating a new feature**
+
+If implementing a payment feature:
+
+- Payment service logic → `/lib/services/payment-service.ts`
+- Payment errors → `/lib/errors/payment-errors.ts`
+- Payment form validation → `/lib/validations/payment.ts`
+- Payment utilities → `/lib/utils/payment-helpers.ts`
+- Payment UI components → `/components/payment/`
+- Payment API routes → `/app/api/payment/`
 
 ### Service Layer Architecture
 

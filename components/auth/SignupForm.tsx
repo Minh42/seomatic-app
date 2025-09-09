@@ -24,7 +24,6 @@ export function SignupForm({
   onSubmit,
 }: SignupFormProps) {
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [disposableEmailError, setDisposableEmailError] = useState<
     string | null
   >(null);
@@ -33,10 +32,6 @@ export function SignupForm({
   );
   const emailValidation = useFieldValidation(signupSchema, 'email');
   const passwordValidation = useFieldValidation(signupSchema, 'password');
-  const confirmPasswordValidation = useFieldValidation(
-    signupSchema,
-    'confirmPassword'
-  );
 
   // Check for disposable email with debounce
   const checkDisposableEmail = (email: string) => {
@@ -161,66 +156,19 @@ export function SignupForm({
         )}
       </form.Field>
 
-      <form.Field
-        name="confirmPassword"
-        validators={{
-          ...confirmPasswordValidation,
-          onChangeAsyncDebounceMs: 300,
-          onChangeAsync: async ({ value }) => {
-            const password = form.getFieldValue('password');
-            if (value && password && value !== password) {
-              return "Passwords don't match";
-            }
-            return undefined;
-          },
-        }}
-      >
-        {(
-          field: any // eslint-disable-line @typescript-eslint/no-explicit-any
-        ) => (
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <div className="relative">
-              <Input
-                id="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="••••••••••"
-                value={field.state.value}
-                onChange={e => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-                disabled={isLoading}
-                className={`pr-10 ${field.state.meta.errors.length > 0 ? 'border-red-500' : ''}`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                tabIndex={-1}
-              >
-                {showConfirmPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-            {field.state.meta.errors.length > 0 && (
-              <p className="text-sm text-red-600">
-                {field.state.meta.errors[0]}
-              </p>
-            )}
-          </div>
-        )}
-      </form.Field>
-
       <form.Subscribe
-        selector={(state: any) => [state.canSubmit, state.isSubmitting]}
+        selector={(state: { canSubmit: boolean; isSubmitting: boolean }) => [
+          state.canSubmit,
+          state.isSubmitting,
+        ]}
       >
         {([canSubmit, isSubmitting]: [boolean, boolean]) => (
           <Button
             type="submit"
             className="w-full h-10 md:h-12 text-sm md:text-base font-medium"
-            disabled={!canSubmit || isSubmitting || isLoading}
+            disabled={
+              !canSubmit || isSubmitting || isLoading || !!disposableEmailError
+            }
           >
             {isLoading ? 'Creating account...' : 'Continue →'}
           </Button>
