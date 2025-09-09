@@ -9,6 +9,7 @@ import { users, accounts, verificationTokens } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { createBentoEmailProvider } from '@/lib/providers/auth-email';
 import { credentialsProvider } from '@/lib/providers/auth-credentials';
+import { AnalyticsService } from '@/lib/services/analytics-service';
 
 // Session configuration constants
 const SESSION_MAX_AGE = 24 * 60 * 60; // 24 hours in seconds
@@ -222,6 +223,41 @@ export const authOptions: NextAuthOptions = {
         }
       }
       return true;
+    },
+  },
+  events: {
+    signIn: async ({ user, account, isNewUser }) => {
+      if (!user?.id) return;
+
+      try {
+        // For OAuth providers, isNewUser=true means it's a signup
+        // For email, signup is handled in /api/auth/signup route
+        if (isNewUser && account?.provider) {
+          // OAuth signup - track it with the provider name
+          await AnalyticsService.trackEvent(user.id, 'user_signed_up', {
+            method: account.provider, // 'google', 'linkedin', 'twitter', 'facebook'
+            email: user.email,
+            timestamp: new Date().toISOString(),
+          });
+
+          // Identify the user in PostHog
+          await AnalyticsService.identify(user.id, {
+            email: user.email,
+            name: user.name,
+            created_at: new Date().toISOString(),
+            signup_method: account.provider,
+          });
+        } else if (!isNewUser) {
+          // Existing user login (both OAuth and email)
+          await AnalyticsService.trackEvent(user.id, 'user_logged_in', {
+            method: account?.provider || 'email',
+            timestamp: new Date().toISOString(),
+          });
+        }
+        // Note: Email signups are tracked in /api/auth/signup route
+      } catch (error) {
+        console.error('Error tracking auth event:', error);
+      }
     },
   },
   debug: process.env.NODE_ENV === 'development',

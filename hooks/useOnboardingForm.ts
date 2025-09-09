@@ -13,7 +13,6 @@ import { useOnboardingValidation } from './useOnboardingValidation';
 import { useOnboardingProgress } from './useOnboardingProgress';
 import { useOnboardingStepHandlers } from './useOnboardingStepHandlers';
 import { useOnboardingNavigation } from './useOnboardingNavigation';
-import { usePostHog } from './usePostHog';
 import { useSession } from 'next-auth/react';
 
 export interface OnboardingErrorData {
@@ -71,7 +70,6 @@ export function useOnboardingForm(
   initialData?: InitialData
 ): UseOnboardingFormReturn {
   const router = useRouter();
-  const { trackEvent } = usePostHog();
   useSession(); // We may need session data in the future
 
   // State management
@@ -232,14 +230,8 @@ export function useOnboardingForm(
     return unsubscribe;
   }, [form.store]);
 
-  // Track onboarding started event
-  useEffect(() => {
-    if (currentStep === 1 && !initialData?.onboardingData?.currentStep) {
-      // Only track if we're starting fresh, not resuming
-      trackEvent('onboarding_started');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount - we intentionally want this to run only on initial mount
+  // Note: Removed onboarding_started event as it's redundant
+  // Users go directly from signup to onboarding, so user_signed_up is sufficient
 
   // Use validation hook with reactive form values
   const { canGoNext, canGoPrevious, canSkip } = useOnboardingValidation(

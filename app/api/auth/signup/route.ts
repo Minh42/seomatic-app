@@ -26,11 +26,19 @@ export async function POST(request: NextRequest) {
       fingerprint,
     });
 
-    // Track signup event in PostHog
+    // Track email signup event
     await AnalyticsService.trackEvent(newUser.id, 'user_signed_up', {
+      method: 'email',
       email: newUser.email,
-      signup_method: 'email', // We can expand this later for OAuth signups
       timestamp: new Date().toISOString(),
+    });
+
+    // Identify the user in PostHog
+    await AnalyticsService.identify(newUser.id, {
+      email: newUser.email,
+      name: newUser.name,
+      created_at: new Date().toISOString(),
+      signup_method: 'email',
     });
 
     const response = NextResponse.json(

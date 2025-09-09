@@ -40,8 +40,8 @@ export class AnalyticsService {
         properties,
       });
 
-      // Ensure events are sent in serverless environment
-      await client.shutdown();
+      // Flush events immediately in serverless environment
+      await client.flush();
     } catch (error) {
       console.error('Error tracking event:', error);
     }
@@ -63,7 +63,7 @@ export class AnalyticsService {
         properties,
       });
 
-      await client.shutdown();
+      await client.flush();
     } catch (error) {
       console.error('Error identifying user:', error);
     }
@@ -93,6 +93,7 @@ export class AnalyticsService {
       otherUseCase?: string;
       professionalRole: string;
       otherProfessionalRole?: string;
+      companySize: string;
       industry: string;
       otherIndustry?: string;
       cmsIntegration: string;
@@ -133,6 +134,7 @@ export class AnalyticsService {
     await AnalyticsService.trackEvent(userId, 'onboarding_completed', {
       use_cases: processedUseCases,
       professional_role: professionalRole,
+      company_size: data.companySize,
       industry: industry,
       current_cms: data.cmsIntegration,
       desired_cms: desiredCms,
