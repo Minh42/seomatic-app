@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { OnboardingService } from '@/lib/services/onboarding-service';
 import { WorkspaceService } from '@/lib/services/workspace-service';
-import { SubscriptionService } from '@/lib/services/subscription-service';
 import { EmailService } from '@/lib/services/email-service';
 import { AnalyticsService } from '@/lib/services/analytics-service';
 import { onboardingSubmissionSchema } from '@/lib/validations/onboarding';
@@ -170,16 +169,6 @@ export async function POST(req: NextRequest) {
       workspaceId,
       completedAt: new Date(),
     });
-
-    // Check if user has a subscription, if not create a trial
-    const subscription = await SubscriptionService.getByOwnerId(userId);
-
-    if (!subscription) {
-      await SubscriptionService.createTrial({
-        ownerId: userId,
-        trialDays: 14,
-      });
-    }
 
     return NextResponse.json(
       {
