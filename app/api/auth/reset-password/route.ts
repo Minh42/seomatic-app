@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Too many failed reset attempts. Please contact support or try again later.',
+            'Too many failed reset attempts. Please contact support for assistance.',
           attempts: failedCheck.attempts,
         },
         { status: 429 }

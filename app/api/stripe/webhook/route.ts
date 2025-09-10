@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
+import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/db';
 import { checkoutSessions, plans } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -39,8 +40,9 @@ export async function POST(request: NextRequest) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        // Extract relevant data
-        const { id: stripeSessionId, customer_email } = session;
+        // Extract relevant data (Payment Links use customer_details.email)
+        const { id: stripeSessionId, customer_details } = session;
+        const customer_email = customer_details?.email;
 
         if (!customer_email) {
           console.error(
@@ -91,7 +93,6 @@ export async function POST(request: NextRequest) {
           .limit(1);
 
         if (existingSession) {
-          console.log('Checkout session already processed:', stripeSessionId);
           return NextResponse.json({ received: true });
         }
 
@@ -99,17 +100,18 @@ export async function POST(request: NextRequest) {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7); // Valid for 7 days
 
+        // Generate secure random token for signup
+        const signupToken = uuidv4();
+
         await db.insert(checkoutSessions).values({
           stripeSessionId,
           email: customer_email.toLowerCase(),
           planId: plan?.id || null!, // Will need manual intervention if plan not found
-          signupToken: stripeSessionId, // Use session ID as token
+          signupToken, // Use secure UUID instead of Stripe session ID
           status: 'pending',
           expiresAt,
           createdAt: new Date(),
         });
-
-        console.log('Checkout session stored successfully:', stripeSessionId);
 
         // Send trial started event to Bento for email automation
         if (plan) {
@@ -129,10 +131,9 @@ export async function POST(request: NextRequest) {
               max_seats: plan.maxNbOfSeats,
               max_sites: plan.maxNbOfSites,
               checkout_session_id: stripeSessionId,
-              signup_url: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/signup?token=${stripeSessionId}`,
+              signup_url: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/signup?token=${signupToken}`,
             },
           });
-          console.log('Trial started event sent to Bento for:', customer_email);
         }
         break;
       }

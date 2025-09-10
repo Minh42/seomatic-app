@@ -37,19 +37,37 @@ export class StripeService {
       });
 
       if (!session.customer || !session.subscription) {
-        console.error('No customer or subscription in checkout session');
+        console.error(
+          'Missing data - customer:',
+          session.customer,
+          'subscription:',
+          session.subscription
+        );
         return null;
       }
 
       // The subscription is expanded, so we have full details
       const subscription = session.subscription as Stripe.Subscription;
 
-      return {
+      // Get period dates from subscription items (Payment Links store them here)
+      const periodStart = subscription.items?.data?.[0]?.current_period_start;
+      const periodEnd = subscription.items?.data?.[0]?.current_period_end;
+
+      // If not found, we can't proceed
+      if (!periodStart || !periodEnd) {
+        console.error(
+          'Could not find period dates in subscription items:',
+          subscription.id
+        );
+        return null;
+      }
+
+      const result = {
         customerId: session.customer as string,
         subscriptionId: subscription.id,
         status: subscription.status,
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        currentPeriodStart: new Date(periodStart * 1000),
+        currentPeriodEnd: new Date(periodEnd * 1000),
         trialStart: subscription.trial_start
           ? new Date(subscription.trial_start * 1000)
           : null,
@@ -58,6 +76,8 @@ export class StripeService {
           : null,
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
       };
+
+      return result;
     } catch (error) {
       console.error('Error fetching checkout session from Stripe:', error);
       return null;

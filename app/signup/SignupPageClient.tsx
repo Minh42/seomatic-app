@@ -18,12 +18,14 @@ interface SignupPageClientProps {
   token?: string;
   checkoutSession: CheckoutSessionWithPlan | null;
   sessionError: string | null;
+  stripeError?: boolean;
 }
 
 export default function SignupPageClient({
   token,
   checkoutSession,
   sessionError,
+  stripeError,
 }: SignupPageClientProps) {
   const [fingerprint, setFingerprint] = useState<string | null>(null);
 
@@ -37,9 +39,14 @@ export default function SignupPageClient({
       // Don't redirect - let user stay on the page
     }
 
+    // Show Stripe error if OAuth callback failed to set up subscription
+    if (stripeError) {
+      toast.error('Failed to retrieve subscription details from Stripe');
+    }
+
     // Don't show errors for invalid/expired tokens on page load
     // These will be handled when the user tries to submit the form
-  }, [sessionError, checkoutSession]);
+  }, [sessionError, checkoutSession, stripeError]);
 
   // Initialize fingerprinting
   useEffect(() => {

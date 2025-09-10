@@ -23,92 +23,104 @@ export async function POST(request: NextRequest) {
     const validatedData = signupApiSchema.parse(body);
     const { email, password, fingerprint, token } = validatedData;
 
-    // If token is provided, validate checkout session
-    let checkoutSession = null;
-    if (token) {
-      checkoutSession = await CheckoutService.getSessionByToken(token);
-      const validation = CheckoutService.validateSession(checkoutSession);
+    // Check if user already exists BEFORE checking token
+    const existingUser = await UserService.findByEmail(email);
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'User with this email already exists' },
+        { status: 400 }
+      );
+    }
 
-      if (!validation.isValid) {
-        if (validation.error === 'already_used') {
-          return NextResponse.json(
-            {
-              error:
-                'This signup link has already been used. Please log in to your account.',
-            },
-            { status: 400 }
-          );
-        } else if (validation.error === 'Session not found') {
-          return NextResponse.json(
-            {
-              error:
-                "We couldn't find your payment information. Please check your email for the signup link.",
-            },
-            { status: 400 }
-          );
-        } else if (validation.error === 'expired') {
-          return NextResponse.json(
-            {
-              error:
-                'This signup link has expired for security reasons. Please contact support for assistance.',
-            },
-            { status: 400 }
-          );
-        }
+    // Token is required for signup
+    if (!token) {
+      return NextResponse.json(
+        {
+          error:
+            "We couldn't find your payment information. Please check your email for the signup link.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate checkout session
+    const checkoutSession = await CheckoutService.getSessionByToken(token);
+    const validation = CheckoutService.validateSession(checkoutSession);
+
+    if (!validation.isValid) {
+      if (validation.error === 'already_used') {
+        return NextResponse.json(
+          {
+            error:
+              'This signup link has already been used. Please log in to your account.',
+          },
+          { status: 400 }
+        );
+      } else if (validation.error === 'Session not found') {
+        return NextResponse.json(
+          {
+            error:
+              "We couldn't find your payment information. Please check your email for the signup link.",
+          },
+          { status: 400 }
+        );
+      } else if (validation.error === 'expired') {
+        return NextResponse.json(
+          {
+            error:
+              'This signup link has expired for security reasons. Please contact support for assistance.',
+          },
+          { status: 400 }
+        );
       }
     }
 
-    // Start a transaction to create user and subscription atomically
-    let newUser;
+    // Fetch subscription details from Stripe
+    const stripeData = await StripeService.getCheckoutSessionWithSubscription(
+      checkoutSession!.stripeSessionId
+    );
 
-    if (checkoutSession) {
-      // Fetch subscription details from Stripe
-      const stripeData = await StripeService.getCheckoutSessionWithSubscription(
-        checkoutSession.stripeSessionId
+    if (!stripeData) {
+      console.error(
+        'No stripe data returned for session:',
+        checkoutSession!.stripeSessionId
       );
+      return NextResponse.json(
+        {
+          error: 'Failed to retrieve subscription details from Stripe',
+        },
+        { status: 500 }
+      );
+    }
 
-      if (!stripeData) {
-        return NextResponse.json(
-          {
-            error: 'Failed to retrieve subscription details from Stripe',
-          },
-          { status: 500 }
-        );
-      }
-
-      // Create user with subscription in a transaction
-      await db.transaction(async () => {
-        // Create the user with billing email from checkout
-        newUser = await UserService.createUser({
-          email,
-          password,
-          fingerprint,
-          billingEmail: checkoutSession.email, // Store the Stripe checkout email
-        });
-
-        // Create the subscription with accurate Stripe data
-        await SubscriptionService.createSubscription({
-          ownerId: newUser.id,
-          planId: checkoutSession.planId,
-          status: stripeData.status === 'trialing' ? 'trialing' : 'active',
-          stripeCustomerId: stripeData.customerId,
-          stripeSubscriptionId: stripeData.subscriptionId,
-          currentPeriodStart: stripeData.currentPeriodStart,
-          currentPeriodEnd: stripeData.currentPeriodEnd,
-          trialEndsAt: stripeData.trialEnd || undefined,
-        });
-
-        // Mark checkout session as completed
-        await CheckoutService.completeSignup(token!);
-      });
-    } else {
-      // Regular signup without subscription
+    // Create user with subscription in a transaction
+    let newUser;
+    await db.transaction(async () => {
+      // Create the user with billing email from checkout
       newUser = await UserService.createUser({
         email,
         password,
         fingerprint,
+        billingEmail: checkoutSession!.email, // Store the Stripe checkout email
       });
-    }
+
+      // Create the subscription with accurate Stripe data
+      const subscriptionData = {
+        ownerId: newUser.id,
+        planId: checkoutSession!.planId,
+        status: stripeData.status === 'trialing' ? 'trialing' : 'active',
+        stripeCustomerId: stripeData.customerId,
+        stripeSubscriptionId: stripeData.subscriptionId,
+        currentPeriodStart: stripeData.currentPeriodStart,
+        currentPeriodEnd: stripeData.currentPeriodEnd,
+        trialEndsAt: stripeData.trialEnd || undefined,
+      };
+
+      await SubscriptionService.createSubscription(subscriptionData);
+
+      // Mark checkout session as completed
+      await CheckoutService.completeSignup(token);
+    });
 
     // Track email signup event
     await AnalyticsService.trackEvent(newUser!.id, 'user_signed_up', {

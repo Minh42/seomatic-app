@@ -4,9 +4,10 @@ export function useSocialAuth(
   callbackUrl: string = '/dashboard',
   token?: string
 ) {
-  // If token is provided, append it to the callback URL
+  // If token is provided, redirect to oauth-callback to handle subscription
+  // Otherwise, use the provided callback URL
   const finalCallbackUrl = token
-    ? `${callbackUrl}?token=${encodeURIComponent(token)}`
+    ? `/api/auth/oauth-callback?token=${encodeURIComponent(token)}`
     : callbackUrl;
 
   return {

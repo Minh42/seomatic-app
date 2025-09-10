@@ -134,8 +134,8 @@ export function WorkspaceRecovery({
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            If the problem persists, please contact support or try again later.
-            Your progress has been saved.
+            If the problem persists, please contact support for assistance. Your
+            progress has been saved.
           </AlertDescription>
         </Alert>
       )}
