@@ -96,10 +96,6 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ received: true });
         }
 
-        // Store checkout session in database
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 7); // Valid for 7 days
-
         // Generate secure random token for signup
         const signupToken = uuidv4();
 
@@ -109,7 +105,6 @@ export async function POST(request: NextRequest) {
           planId: plan?.id || null!, // Will need manual intervention if plan not found
           signupToken, // Use secure UUID instead of Stripe session ID
           status: 'pending',
-          expiresAt,
           createdAt: new Date(),
         });
 

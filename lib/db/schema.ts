@@ -48,7 +48,6 @@ export const billingFrequencyEnum = pgEnum('billing_frequency', [
 export const checkoutSessionStatusEnum = pgEnum('checkout_session_status', [
   'pending',
   'completed',
-  'expired',
 ]);
 export const invoiceStatusEnum = pgEnum('invoice_status', [
   'draft',
@@ -174,7 +173,6 @@ export const checkoutSessions = pgTable('checkout_sessions', {
   // Security token
   signupToken: varchar('signup_token').unique().notNull(),
   status: checkoutSessionStatusEnum('status').default('pending').notNull(),
-  expiresAt: timestamp('expires_at').notNull(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

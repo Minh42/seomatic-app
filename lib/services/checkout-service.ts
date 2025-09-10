@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { checkoutSessions, plans } from '@/lib/db/schema';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 export interface CheckoutSession {
   id: string;
@@ -8,8 +8,7 @@ export interface CheckoutSession {
   email: string;
   planId: string;
   signupToken: string;
-  status: 'pending' | 'completed' | 'expired';
-  expiresAt: Date;
+  status: 'pending' | 'completed';
   createdAt: Date;
 }
 
@@ -42,7 +41,6 @@ export class CheckoutService {
           planId: checkoutSessions.planId,
           signupToken: checkoutSessions.signupToken,
           status: checkoutSessions.status,
-          expiresAt: checkoutSessions.expiresAt,
           createdAt: checkoutSessions.createdAt,
           plan: {
             id: plans.id,
@@ -83,14 +81,6 @@ export class CheckoutService {
       return { isValid: false, error: 'already_used' };
     }
 
-    // Check if expired (though we give 7 days which should be plenty)
-    if (
-      session.status === 'expired' ||
-      new Date() > new Date(session.expiresAt)
-    ) {
-      return { isValid: false, error: 'expired' };
-    }
-
     return { isValid: true };
   }
 
@@ -109,25 +99,6 @@ export class CheckoutService {
           eq(checkoutSessions.status, 'pending')
         )
       );
-  }
-
-  /**
-   * Clean up expired sessions (can be run as a cron job)
-   */
-  static async expireOldSessions(): Promise<number> {
-    const result = await db
-      .update(checkoutSessions)
-      .set({
-        status: 'expired',
-      })
-      .where(
-        and(
-          eq(checkoutSessions.status, 'pending'),
-          gt(new Date(), checkoutSessions.expiresAt)
-        )
-      );
-
-    return result.rowCount || 0;
   }
 
   /**

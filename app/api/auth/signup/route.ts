@@ -64,14 +64,6 @@ export async function POST(request: NextRequest) {
           },
           { status: 400 }
         );
-      } else if (validation.error === 'expired') {
-        return NextResponse.json(
-          {
-            error:
-              'This signup link has expired for security reasons. Please contact support for assistance.',
-          },
-          { status: 400 }
-        );
       }
     }
 

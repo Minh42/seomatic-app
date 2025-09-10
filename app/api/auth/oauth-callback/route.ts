@@ -45,16 +45,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(new URL('/onboarding', request.url));
       }
 
-      // For expired or invalid tokens, redirect to signup with error
+      // For invalid tokens, redirect to signup with error
       const signupUrl = new URL('/signup', request.url);
       signupUrl.searchParams.set('token', token);
-
-      if (validation.error === 'expired') {
-        signupUrl.searchParams.set('error', 'expired');
-      } else {
-        signupUrl.searchParams.set('error', 'invalid');
-      }
-
+      signupUrl.searchParams.set('error', 'invalid');
       return NextResponse.redirect(signupUrl);
     }
 
