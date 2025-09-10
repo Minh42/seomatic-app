@@ -3,7 +3,7 @@ import { getBentoClient } from '@/lib/email/bento-client';
 export interface EmailEventData {
   email: string;
   type: string;
-  fields?: Record<string, any>;
+  fields?: Record<string, unknown>;
 }
 
 export interface PasswordResetEmailParams {
@@ -39,6 +39,12 @@ export interface MagicLinkEmailParams {
   url: string;
   token: string;
   expiresAt: Date;
+}
+
+export interface TrackEventParams {
+  email: string;
+  type: string;
+  details?: Record<string, unknown>;
 }
 
 export class EmailService {
@@ -328,5 +334,20 @@ export class EmailService {
       console.error(`Failed to trigger event ${type}:`, error);
       return false;
     }
+  }
+
+  /**
+   * Track custom events (alias for triggerEvent with clearer naming)
+   */
+  static async trackEvent({
+    email,
+    type,
+    details,
+  }: TrackEventParams): Promise<boolean> {
+    return EmailService.triggerEvent({
+      email,
+      type,
+      fields: details,
+    });
   }
 }

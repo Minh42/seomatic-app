@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UserService } from '@/lib/services/user-service';
 import { AnalyticsService } from '@/lib/services/analytics-service';
+import { CheckoutService } from '@/lib/services/checkout-service';
+import { SubscriptionService } from '@/lib/services/subscription-service';
 import { signupApiSchema } from '@/lib/validations/auth';
+import { db } from '@/lib/db';
 import {
   withRateLimit,
   addRateLimitHeaders,
@@ -17,14 +20,90 @@ export async function POST(request: NextRequest) {
 
     // Validate the input
     const validatedData = signupApiSchema.parse(body);
-    const { email, password, fingerprint } = validatedData;
+    const { email, password, fingerprint, token } = validatedData;
 
-    // Create the user using UserService
-    const newUser = await UserService.createUser({
-      email,
-      password,
-      fingerprint,
-    });
+    // If token is provided, validate checkout session
+    let checkoutSession = null;
+    if (token) {
+      checkoutSession = await CheckoutService.getSessionByToken(token);
+      const validation = CheckoutService.validateSession(checkoutSession);
+
+      if (!validation.isValid) {
+        if (validation.error === 'already_used') {
+          return NextResponse.json(
+            {
+              error:
+                'This signup link has already been used. Please log in to your account.',
+            },
+            { status: 400 }
+          );
+        } else if (validation.error === 'Session not found') {
+          return NextResponse.json(
+            {
+              error:
+                "We couldn't find your payment information. Please check your email for the signup link.",
+            },
+            { status: 400 }
+          );
+        } else if (validation.error === 'expired') {
+          return NextResponse.json(
+            {
+              error:
+                'This signup link has expired for security reasons. Please contact support for assistance.',
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Verify email matches
+      if (
+        checkoutSession &&
+        checkoutSession.email.toLowerCase() !== email.toLowerCase()
+      ) {
+        return NextResponse.json(
+          { error: 'Email does not match the checkout session' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Start a transaction to create user and subscription atomically
+    let newUser;
+
+    if (checkoutSession) {
+      // Create user with subscription in a transaction
+      await db.transaction(async () => {
+        // Create the user with billing email from checkout
+        newUser = await UserService.createUser({
+          email,
+          password,
+          fingerprint,
+          billingEmail: checkoutSession.email, // Store the Stripe checkout email
+        });
+
+        // Create the subscription
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + 14); // 14-day trial
+
+        await SubscriptionService.createSubscription({
+          ownerId: newUser.id,
+          planId: checkoutSession.planId,
+          status: 'trialing',
+          trialEndsAt: trialEndDate,
+        });
+
+        // Mark checkout session as completed
+        await CheckoutService.completeSignup(token);
+      });
+    } else {
+      // Regular signup without subscription
+      newUser = await UserService.createUser({
+        email,
+        password,
+        fingerprint,
+      });
+    }
 
     // Track email signup event
     await AnalyticsService.trackEvent(newUser.id, 'user_signed_up', {

@@ -19,7 +19,7 @@ const rateLimiters = {
 
   signup: new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(3, '10 m'), // 3 signups per 10 minutes
+    limiter: Ratelimit.slidingWindow(10, '10 m'), // 10 signups per 10 minutes
     analytics: true,
     prefix: 'ratelimit:signup',
   }),

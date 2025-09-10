@@ -1,34 +1,41 @@
 import { db } from '@/lib/db';
-import { subscriptions, users } from '@/lib/db/schema';
+import { subscriptions, users, plans } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
-export interface CreateTrialParams {
+export interface CreateSubscriptionParams {
   ownerId: string;
-  trialDays?: number;
+  planId: string;
+  status?: 'trialing' | 'active' | 'canceled' | 'past_due' | 'unpaid';
+  trialEndsAt?: Date;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
 }
 
 export interface UpdateSubscriptionParams {
   ownerId: string;
-  planType?: 'starter' | 'growth' | 'enterprise';
-  status?: 'trialing' | 'active' | 'canceled' | 'past_due';
+  planId?: string;
+  status?: 'trialing' | 'active' | 'canceled' | 'past_due' | 'unpaid';
   stripeSubscriptionId?: string;
-  stripePriceId?: string;
   stripeCustomerId?: string;
+  currentPeriodStart?: Date;
   currentPeriodEnd?: Date;
-}
-
-export interface UpdateUsageParams {
-  ownerId: string;
-  domainsUsed?: number;
-  pagesPublished?: number;
-  wordsGenerated?: number;
+  cancelAtPeriodEnd?: boolean;
 }
 
 export class SubscriptionService {
   /**
-   * Create a trial subscription for a new user
+   * Create a subscription for a user
    */
-  static async createTrial({ ownerId, trialDays = 14 }: CreateTrialParams) {
+  static async createSubscription(params: CreateSubscriptionParams) {
+    const {
+      ownerId,
+      planId,
+      status = 'trialing',
+      trialEndsAt,
+      stripeCustomerId,
+      stripeSubscriptionId,
+    } = params;
+
     // Check if subscription already exists
     const existing = await db
       .select()
@@ -40,23 +47,17 @@ export class SubscriptionService {
       throw new Error('Subscription already exists for this user');
     }
 
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + trialDays);
-
     const [subscription] = await db
       .insert(subscriptions)
       .values({
         ownerId,
-        planType: 'starter',
-        status: 'trialing',
-        maxDomains: 1,
-        maxTeamMembers: 2,
-        maxPages: 10,
-        maxWords: 50000,
-        overageRatePerPage: '0.00',
-        whiteLabelEnabled: false,
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: trialEndDate,
+        planId,
+        status,
+        trialEndsAt,
+        stripeCustomerId,
+        stripeSubscriptionId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       })
       .returning();
 
@@ -83,58 +84,10 @@ export class SubscriptionService {
     ownerId,
     ...updates
   }: UpdateSubscriptionParams) {
-    const updateData: any = {
-      ...updates,
-      updatedAt: new Date(),
-    };
-
-    // Update plan limits based on plan type
-    if (updates.planType) {
-      switch (updates.planType) {
-        case 'starter':
-          updateData.maxDomains = 1;
-          updateData.maxTeamMembers = 2;
-          updateData.maxPages = 10;
-          updateData.maxWords = 50000;
-          updateData.overageRatePerPage = '0.00';
-          updateData.whiteLabelEnabled = false;
-          break;
-        case 'growth':
-          updateData.maxDomains = 5;
-          updateData.maxTeamMembers = 10;
-          updateData.maxPages = 100;
-          updateData.maxWords = 500000;
-          updateData.overageRatePerPage = '2.00';
-          updateData.whiteLabelEnabled = false;
-          break;
-        case 'enterprise':
-          updateData.maxDomains = -1; // unlimited
-          updateData.maxTeamMembers = -1; // unlimited
-          updateData.maxPages = -1; // unlimited
-          updateData.maxWords = -1; // unlimited
-          updateData.overageRatePerPage = '0.00';
-          updateData.whiteLabelEnabled = true;
-          break;
-      }
-    }
-
-    const [updated] = await db
-      .update(subscriptions)
-      .set(updateData)
-      .where(eq(subscriptions.ownerId, ownerId))
-      .returning();
-
-    return updated;
-  }
-
-  /**
-   * Update usage metrics
-   */
-  static async updateUsage({ ownerId, ...usage }: UpdateUsageParams) {
     const [updated] = await db
       .update(subscriptions)
       .set({
-        ...usage,
+        ...updates,
         updatedAt: new Date(),
       })
       .where(eq(subscriptions.ownerId, ownerId))
@@ -147,55 +100,95 @@ export class SubscriptionService {
    * Check if user has reached plan limits
    */
   static async checkLimits(ownerId: string) {
-    const subscription = await this.getByOwnerId(ownerId);
+    const subscription = await this.getSubscriptionWithPlan(ownerId);
 
     if (!subscription) {
       throw new Error('No subscription found');
     }
 
+    // TODO: Get actual usage from workspace_usage table
+    const currentUsage = {
+      pagesUsed: 0,
+      creditsUsed: 0,
+      seatsUsed: 1,
+      sitesUsed: 1,
+    };
+
     const limits = {
-      canAddDomain:
-        subscription.maxDomains === -1 ||
-        subscription.domainsUsed < subscription.maxDomains,
-      canAddTeamMember:
-        subscription.maxTeamMembers === -1 ||
-        subscription.teamMembersUsed < subscription.maxTeamMembers,
-      canPublishPage:
-        subscription.maxPages === -1 ||
-        subscription.pagesPublished < subscription.maxPages,
-      canGenerateWords:
-        subscription.maxWords === -1 ||
-        subscription.wordsGenerated < subscription.maxWords,
-      remainingDomains:
-        subscription.maxDomains === -1
-          ? 'unlimited'
-          : subscription.maxDomains - subscription.domainsUsed,
-      remainingTeamMembers:
-        subscription.maxTeamMembers === -1
-          ? 'unlimited'
-          : subscription.maxTeamMembers - subscription.teamMembersUsed,
+      canAddPage:
+        subscription.plan.maxNbOfPages === -1 ||
+        currentUsage.pagesUsed < subscription.plan.maxNbOfPages,
+      canUseCredits:
+        subscription.plan.maxNbOfCredits === -1 ||
+        currentUsage.creditsUsed < subscription.plan.maxNbOfCredits,
+      canAddSeat:
+        subscription.plan.maxNbOfSeats === -1 ||
+        currentUsage.seatsUsed < subscription.plan.maxNbOfSeats,
+      canAddSite:
+        subscription.plan.maxNbOfSites === -1 ||
+        currentUsage.sitesUsed < subscription.plan.maxNbOfSites,
       remainingPages:
-        subscription.maxPages === -1
+        subscription.plan.maxNbOfPages === -1
           ? 'unlimited'
-          : subscription.maxPages - subscription.pagesPublished,
-      remainingWords:
-        subscription.maxWords === -1
+          : subscription.plan.maxNbOfPages - currentUsage.pagesUsed,
+      remainingCredits:
+        subscription.plan.maxNbOfCredits === -1
           ? 'unlimited'
-          : subscription.maxWords - subscription.wordsGenerated,
+          : subscription.plan.maxNbOfCredits - currentUsage.creditsUsed,
+      remainingSeats:
+        subscription.plan.maxNbOfSeats === -1
+          ? 'unlimited'
+          : subscription.plan.maxNbOfSeats - currentUsage.seatsUsed,
+      remainingSites:
+        subscription.plan.maxNbOfSites === -1
+          ? 'unlimited'
+          : subscription.plan.maxNbOfSites - currentUsage.sitesUsed,
     };
 
     return limits;
   }
 
   /**
-   * Cancel subscription
+   * Get subscription with plan details
+   */
+  static async getSubscriptionWithPlan(ownerId: string) {
+    const [subscription] = await db
+      .select({
+        id: subscriptions.id,
+        ownerId: subscriptions.ownerId,
+        status: subscriptions.status,
+        currentPeriodStart: subscriptions.currentPeriodStart,
+        currentPeriodEnd: subscriptions.currentPeriodEnd,
+        cancelAtPeriodEnd: subscriptions.cancelAtPeriodEnd,
+        trialEndsAt: subscriptions.trialEndsAt,
+        plan: {
+          id: plans.id,
+          name: plans.name,
+          price: plans.price,
+          frequency: plans.frequency,
+          maxNbOfCredits: plans.maxNbOfCredits,
+          maxNbOfPages: plans.maxNbOfPages,
+          maxNbOfSeats: plans.maxNbOfSeats,
+          maxNbOfSites: plans.maxNbOfSites,
+          overageRatePerPage: plans.overageRatePerPage,
+        },
+      })
+      .from(subscriptions)
+      .innerJoin(plans, eq(subscriptions.planId, plans.id))
+      .where(eq(subscriptions.ownerId, ownerId))
+      .limit(1);
+
+    return subscription || null;
+  }
+
+  /**
+   * Cancel subscription at period end
    */
   static async cancelSubscription(ownerId: string) {
     const [canceled] = await db
       .update(subscriptions)
       .set({
-        status: 'canceled',
-        canceledAt: new Date(),
+        cancelAtPeriodEnd: true,
         updatedAt: new Date(),
       })
       .where(eq(subscriptions.ownerId, ownerId))

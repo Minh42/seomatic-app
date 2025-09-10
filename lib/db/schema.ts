@@ -39,6 +39,16 @@ export const subscriptionStatusEnum = pgEnum('subscription_status', [
   'canceled',
   'past_due',
   'trialing',
+  'unpaid',
+]);
+export const billingFrequencyEnum = pgEnum('billing_frequency', [
+  'monthly',
+  'yearly',
+]);
+export const checkoutSessionStatusEnum = pgEnum('checkout_session_status', [
+  'pending',
+  'completed',
+  'expired',
 ]);
 export const invoiceStatusEnum = pgEnum('invoice_status', [
   'draft',
@@ -77,6 +87,9 @@ export const users = pgTable('users', {
   linkedinId: varchar('linkedin_id'),
   twitterId: varchar('twitter_id'),
 
+  // Billing
+  billingEmail: varchar('billing_email'),
+
   // User metadata
   isActive: boolean('is_active').default(true),
 
@@ -112,31 +125,80 @@ export const users = pgTable('users', {
 });
 
 // Subscriptions (billing entity)
+// Plans table - source of truth for all plan details
+export const plans = pgTable('plans', {
+  id: uuid('id').defaultRandom().primaryKey(),
+
+  // Stripe integration
+  stripeProductId: varchar('stripe_product_id').notNull(),
+  stripePriceId: varchar('stripe_price_id').notNull(),
+  stripePaymentLink: varchar('stripe_payment_link'),
+
+  // Plan details
+  name: varchar('name').notNull(), // Starter, Growth, Agency
+  description: text('description'),
+  price: integer('price').notNull(), // in cents
+  frequency: billingFrequencyEnum('frequency').notNull(),
+  level: integer('level').notNull(), // 1, 2, 3 for upgrade/downgrade logic
+  isRecommended: boolean('is_recommended').default(false).notNull(),
+
+  // Features and limits
+  features: text('features').array(), // Array of feature strings
+  maxNbOfCredits: integer('max_nb_of_credits').notNull(),
+  maxNbOfPages: integer('max_nb_of_pages').notNull(),
+  maxNbOfSeats: integer('max_nb_of_seats').notNull(),
+  maxNbOfSites: integer('max_nb_of_sites').notNull(),
+  whiteLabelEnabled: boolean('white_label_enabled').default(false).notNull(),
+
+  // Usage-based billing
+  overageRatePerPage: integer('overage_rate_per_page'), // in cents, null if no overage allowed
+
+  // Status
+  isActive: boolean('is_active').default(true).notNull(),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Checkout sessions for secure signup flow
+export const checkoutSessions = pgTable('checkout_sessions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+
+  // Stripe session info
+  stripeSessionId: varchar('stripe_session_id').unique().notNull(),
+  email: varchar('email').notNull(),
+  planId: uuid('plan_id')
+    .notNull()
+    .references(() => plans.id),
+
+  // Security token
+  signupToken: varchar('signup_token').unique().notNull(),
+  status: checkoutSessionStatusEnum('status').default('pending').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Updated subscriptions table
 export const subscriptions = pgTable('subscriptions', {
   id: uuid('id').defaultRandom().primaryKey(),
   ownerId: uuid('owner_id')
     .notNull()
     .references(() => users.id),
+  planId: uuid('plan_id')
+    .notNull()
+    .references(() => plans.id),
 
-  // Plan & billing
-  planType: planTypeEnum('plan_type').notNull(),
+  // Stripe billing
   stripeCustomerId: varchar('stripe_customer_id'),
   stripeSubscriptionId: varchar('stripe_subscription_id'),
   status: subscriptionStatusEnum('status').default('trialing').notNull(),
 
-  // Plan limits
-  maxDomains: integer('max_domains').notNull(),
-  maxTeamMembers: integer('max_team_members').notNull(),
-  maxPages: integer('max_pages').notNull(),
-  maxWords: bigint('max_words', { mode: 'number' }).notNull(),
-  overageRatePerPage: decimal('overage_rate_per_page', {
-    precision: 4,
-    scale: 2,
-  }).notNull(),
-  whiteLabelEnabled: boolean('white_label_enabled').default(false).notNull(),
-
+  // Billing periods
   currentPeriodStart: timestamp('current_period_start'),
   currentPeriodEnd: timestamp('current_period_end'),
+  cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false).notNull(),
+  trialEndsAt: timestamp('trial_ends_at'),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

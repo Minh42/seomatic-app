@@ -10,6 +10,7 @@ export interface CreateUserParams {
   password: string;
   name?: string;
   fingerprint?: string;
+  billingEmail?: string;
 }
 
 export interface UserProfileUpdateParams {
@@ -22,7 +23,7 @@ export class UserService {
    * Create a new user account
    */
   static async createUser(params: CreateUserParams) {
-    const { email, password, name } = params;
+    const { email, password, name, billingEmail } = params;
 
     // Validate email domain (block disposable emails)
     const emailValidation = validateEmailDomain(email);
@@ -46,6 +47,7 @@ export class UserService {
         email: email.toLowerCase(),
         passwordHash,
         name,
+        billingEmail: billingEmail?.toLowerCase(),
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
