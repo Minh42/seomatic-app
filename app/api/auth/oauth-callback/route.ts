@@ -7,8 +7,16 @@ import { StripeService } from '@/lib/services/stripe-service';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { withRateLimit } from '@/lib/middleware/rate-limit';
 
 export async function GET(request: NextRequest) {
+  // Check rate limit (but skip if user is already authenticated)
+  const rateLimitResponse = await withRateLimit(request, {
+    type: 'login',
+    skipIfAuthenticated: true,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Get the current session
     const session = await getServerSession(authOptions);
@@ -32,13 +40,16 @@ export async function GET(request: NextRequest) {
     const validation = CheckoutService.validateSession(checkoutSession);
 
     if (!validation.isValid) {
-      // Invalid token - redirect back to signup with error
+      // If already used, they likely already have an account - just continue
+      if (validation.error === 'already_used') {
+        return NextResponse.redirect(new URL('/onboarding', request.url));
+      }
+
+      // For expired or invalid tokens, redirect to signup with error
       const signupUrl = new URL('/signup', request.url);
       signupUrl.searchParams.set('token', token);
 
-      if (validation.error === 'already_used') {
-        signupUrl.searchParams.set('error', 'already_used');
-      } else if (validation.error === 'expired') {
+      if (validation.error === 'expired') {
         signupUrl.searchParams.set('error', 'expired');
       } else {
         signupUrl.searchParams.set('error', 'invalid');

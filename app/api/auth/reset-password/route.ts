@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { passwordResetSchema } from '@/lib/validations/auth';
 import { AuthService } from '@/lib/services/auth-service';
-import { RateLimitService } from '@/lib/services/rate-limit-service';
+import {
+  withRateLimit,
+  addRateLimitHeaders,
+} from '@/lib/middleware/rate-limit';
 
 export async function POST(request: NextRequest) {
+  // Check rate limit
+  const rateLimitResponse = await withRateLimit(request, {
+    type: 'passwordResetAttempt',
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json();
 
@@ -11,76 +20,21 @@ export async function POST(request: NextRequest) {
     const validatedData = passwordResetSchema.parse(body);
     const { token, email, password } = validatedData;
 
-    // Get IP for rate limiting
-    const ip =
-      request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
-
-    // Check rate limit for reset attempts (by email AND IP combination)
-    const rateLimitResult = await RateLimitService.check(
-      'passwordResetAttempt',
-      `reset:${email}:${ip}`
-    );
-
-    if (!rateLimitResult.success) {
-      return NextResponse.json(
-        {
-          error:
-            'Too many password reset attempts. Please wait before trying again.',
-          retryAfter: rateLimitResult.retryAfter,
-        },
-        {
-          status: 429,
-          headers: RateLimitService.formatHeaders(rateLimitResult),
-        }
-      );
-    }
-
-    // Check if this email has too many failed attempts
-    const failedCheck = await RateLimitService.trackFailedAttempt(
-      'password-reset',
+    // Reset password using service
+    await AuthService.resetPassword({
+      token,
       email,
-      10, // Max 10 failed attempts
-      15 * 60 * 1000 // 15 minute window
-    );
+      newPassword: password,
+    });
 
-    if (failedCheck.blocked) {
-      return NextResponse.json(
-        {
-          error:
-            'Too many failed reset attempts. Please contact support for assistance.',
-          attempts: failedCheck.attempts,
-        },
-        { status: 429 }
-      );
-    }
-
-    try {
-      // Reset password using service
-      await AuthService.resetPassword({
-        token,
-        email,
-        newPassword: password,
-      });
-
-      // Clear failed attempts on success
-      await RateLimitService.clearFailedAttempts('password-reset', email);
-    } catch (resetError) {
-      // Track this as a failed attempt
-      // Note: The failed attempt was already tracked above, so it will count
-      throw resetError; // Re-throw to be handled by outer catch
-    }
-
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         message: 'Password reset successfully.',
       },
-      {
-        status: 200,
-        headers: RateLimitService.formatHeaders(rateLimitResult),
-      }
+      { status: 200 }
     );
+
+    return addRateLimitHeaders(response, request);
   } catch (error: unknown) {
     console.error('Password reset error:', error);
 
