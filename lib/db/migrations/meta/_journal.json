@@ -71,6 +71,20 @@
       "when": 1757507489124,
       "tag": "0009_daffy_nighthawk",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1757511153429,
+      "tag": "0010_add-stripe-ids-to-checkout-sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1757515164635,
+      "tag": "0011_remove-stripe-ids-from-checkout-sessions",
+      "breakpoints": true
     }
   ]
 }

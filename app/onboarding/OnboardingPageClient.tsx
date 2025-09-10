@@ -1,7 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { OnboardingTestimonial } from '@/components/common/OnboardingTestimonial';
 import { SocialProof } from '@/components/common/SocialProof';
@@ -13,10 +12,7 @@ import { Step5Discovery } from '@/components/onboarding/Step5Discovery';
 import { ProgressBar } from '@/components/onboarding/ProgressBar';
 import { ErrorDisplay } from '@/components/onboarding/ErrorDisplay';
 import { useOnboardingForm } from '@/hooks/useOnboardingForm';
-import { useWindowDimensions } from '@/hooks/useWindowDimensions';
-
-// Dynamically import Confetti to avoid SSR issues
-const Confetti = dynamic(() => import('react-confetti'), { ssr: false });
+import { DynamicConfetti } from '@/components/common/DynamicConfetti';
 
 interface OnboardingPageClientProps {
   initialData: {
@@ -64,30 +60,16 @@ export function OnboardingPageClient({
     showConfetti,
   } = useOnboardingForm(initialData);
 
-  // Use the extracted hook for window dimensions
-  const windowDimensions = useWindowDimensions();
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
-      {/* Confetti celebration */}
-      {showConfetti && windowDimensions.width > 0 && (
-        <Confetti
-          width={windowDimensions.width}
-          height={windowDimensions.height}
+      {/* Confetti celebration - longer duration to persist through redirect */}
+      {showConfetti && (
+        <DynamicConfetti
+          duration={8000} // 8 seconds to persist through redirect
+          numberOfPieces={1200} // More pieces for bigger celebration
           recycle={false}
-          numberOfPieces={500}
-          gravity={0.15}
-          colors={[
-            '#3B82F6',
-            '#10B981',
-            '#F59E0B',
-            '#EF4444',
-            '#8B5CF6',
-            '#EC4899',
-          ]}
         />
       )}
-
       {/* Left side - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center px-4 py-6 sm:px-6 md:px-8 lg:py-12 lg:px-16 xl:px-20 2xl:px-24">
         <div className="w-full max-w-2xl">

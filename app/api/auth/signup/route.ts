@@ -3,6 +3,7 @@ import { UserService } from '@/lib/services/user-service';
 import { AnalyticsService } from '@/lib/services/analytics-service';
 import { CheckoutService } from '@/lib/services/checkout-service';
 import { SubscriptionService } from '@/lib/services/subscription-service';
+import { StripeService } from '@/lib/services/stripe-service';
 import { signupApiSchema } from '@/lib/validations/auth';
 import { db } from '@/lib/db';
 import {
@@ -55,23 +56,26 @@ export async function POST(request: NextRequest) {
           );
         }
       }
-
-      // Verify email matches
-      if (
-        checkoutSession &&
-        checkoutSession.email.toLowerCase() !== email.toLowerCase()
-      ) {
-        return NextResponse.json(
-          { error: 'Email does not match the checkout session' },
-          { status: 400 }
-        );
-      }
     }
 
     // Start a transaction to create user and subscription atomically
     let newUser;
 
     if (checkoutSession) {
+      // Fetch subscription details from Stripe
+      const stripeData = await StripeService.getCheckoutSessionWithSubscription(
+        checkoutSession.stripeSessionId
+      );
+
+      if (!stripeData) {
+        return NextResponse.json(
+          {
+            error: 'Failed to retrieve subscription details from Stripe',
+          },
+          { status: 500 }
+        );
+      }
+
       // Create user with subscription in a transaction
       await db.transaction(async () => {
         // Create the user with billing email from checkout
@@ -82,19 +86,20 @@ export async function POST(request: NextRequest) {
           billingEmail: checkoutSession.email, // Store the Stripe checkout email
         });
 
-        // Create the subscription
-        const trialEndDate = new Date();
-        trialEndDate.setDate(trialEndDate.getDate() + 14); // 14-day trial
-
+        // Create the subscription with accurate Stripe data
         await SubscriptionService.createSubscription({
           ownerId: newUser.id,
           planId: checkoutSession.planId,
-          status: 'trialing',
-          trialEndsAt: trialEndDate,
+          status: stripeData.status === 'trialing' ? 'trialing' : 'active',
+          stripeCustomerId: stripeData.customerId,
+          stripeSubscriptionId: stripeData.subscriptionId,
+          currentPeriodStart: stripeData.currentPeriodStart,
+          currentPeriodEnd: stripeData.currentPeriodEnd,
+          trialEndsAt: stripeData.trialEnd || undefined,
         });
 
         // Mark checkout session as completed
-        await CheckoutService.completeSignup(token);
+        await CheckoutService.completeSignup(token!);
       });
     } else {
       // Regular signup without subscription
@@ -106,16 +111,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Track email signup event
-    await AnalyticsService.trackEvent(newUser.id, 'user_signed_up', {
+    await AnalyticsService.trackEvent(newUser!.id, 'user_signed_up', {
       method: 'email',
-      email: newUser.email,
+      email: newUser!.email,
       timestamp: new Date().toISOString(),
     });
 
     // Identify the user in PostHog
-    await AnalyticsService.identify(newUser.id, {
-      email: newUser.email,
-      name: newUser.name,
+    await AnalyticsService.identify(newUser!.id, {
+      email: newUser!.email,
+      name: newUser!.name,
       created_at: new Date().toISOString(),
       signup_method: 'email',
     });

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from '@tanstack/react-form';
 import {
   passwordResetRequestSchema,
@@ -16,6 +17,8 @@ import { CheckCircle, AlertCircle, Info, Mail } from 'lucide-react';
 import { getEmailSuggestion } from '@/lib/utils/email-validation';
 
 export function ForgotPasswordClient() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{
     type: 'success' | 'error' | 'info';
@@ -262,7 +265,7 @@ export function ForgotPasswordClient() {
           <p className="text-sm text-gray-600">
             Remember your password?{' '}
             <a
-              href="/login"
+              href={token ? `/login?token=${token}` : '/login'}
               className="font-medium text-blue-600 hover:text-blue-500"
             >
               Back to login

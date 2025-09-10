@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
@@ -26,22 +25,21 @@ export default function SignupPageClient({
   checkoutSession,
   sessionError,
 }: SignupPageClientProps) {
-  const router = useRouter();
   const [fingerprint, setFingerprint] = useState<string | null>(null);
 
-  // Handle session errors - only redirect if already used
+  // Handle session errors - show toast but don't redirect
   useEffect(() => {
-    // Only handle already_used on page load - user already has an account
+    // Show error for already used tokens but let user stay on the page
     if (sessionError === 'already_used' && checkoutSession) {
-      toast.success(
-        'Your account has already been created! Please sign in to continue.'
+      toast.error(
+        'This signup link has already been used. Please sign in to your account.'
       );
-      router.push(`/login?email=${encodeURIComponent(checkoutSession.email)}`);
+      // Don't redirect - let user stay on the page
     }
 
     // Don't show errors for invalid/expired tokens on page load
     // These will be handled when the user tries to submit the form
-  }, [sessionError, checkoutSession, router]);
+  }, [sessionError, checkoutSession]);
 
   // Initialize fingerprinting
   useEffect(() => {
@@ -114,7 +112,7 @@ export default function SignupPageClient({
       },
     });
 
-  const handleSocialAuth = useSocialAuth('/onboarding');
+  const handleSocialAuth = useSocialAuth('/onboarding', token);
 
   // Determine title and subtitle based on whether we have a checkout session
   const title = checkoutSession
@@ -130,14 +128,14 @@ export default function SignupPageClient({
       <AuthForm
         title={title}
         subtitle={subtitle}
-        showSocialFirst={!checkoutSession} // Don't show social auth if from checkout
+        showSocialFirst={true} // Always show OAuth options first
         onSocialAuth={handleSocialAuth}
         error={null}
         isLoading={isLoading}
         bottomLink={{
           text: 'Already have an account?',
           linkText: 'Login Now',
-          href: '/login',
+          href: token ? `/login?token=${token}` : '/login',
         }}
       >
         <SignupForm

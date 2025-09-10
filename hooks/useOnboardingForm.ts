@@ -77,13 +77,13 @@ export function useOnboardingForm(
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState<OnboardingErrorData | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
   const [lastSubmissionData, setLastSubmissionData] =
     useState<OnboardingFormData | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string | null>(
     initialData?.workspaceId || null
   );
   const [isLoadingProgress] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
 
   // Merge initial data with defaults
   const formDefaults = initialData
@@ -168,14 +168,14 @@ export function useOnboardingForm(
           }
         }
 
-        // Show confetti and success message
+        // Show success message and confetti, then redirect
         setShowConfetti(true);
         toast.success('Welcome! Your account setup is complete.');
 
-        // Redirect after a short delay to let users enjoy the confetti
+        // Redirect after a short delay to show confetti
         setTimeout(() => {
           router.push('/dashboard');
-        }, 3000);
+        }, 2000);
       } catch (err) {
         const errorMessage =
           err instanceof OnboardingError
@@ -280,14 +280,14 @@ export function useOnboardingForm(
         );
       }
 
-      // Show confetti and success message
+      // Show success message and confetti, then redirect
       setShowConfetti(true);
       toast.success('Welcome! Your account setup is complete.');
 
-      // Redirect after a short delay
+      // Redirect after a short delay to show confetti
       setTimeout(() => {
         router.push('/dashboard');
-      }, 3000);
+      }, 2000);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to complete onboarding';

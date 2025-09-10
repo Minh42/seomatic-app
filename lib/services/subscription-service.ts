@@ -9,6 +9,8 @@ export interface CreateSubscriptionParams {
   trialEndsAt?: Date;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
+  currentPeriodStart?: Date;
+  currentPeriodEnd?: Date;
 }
 
 export interface UpdateSubscriptionParams {
@@ -34,6 +36,8 @@ export class SubscriptionService {
       trialEndsAt,
       stripeCustomerId,
       stripeSubscriptionId,
+      currentPeriodStart,
+      currentPeriodEnd,
     } = params;
 
     // Check if subscription already exists
@@ -56,6 +60,8 @@ export class SubscriptionService {
         trialEndsAt,
         stripeCustomerId,
         stripeSubscriptionId,
+        currentPeriodStart,
+        currentPeriodEnd,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -75,6 +81,13 @@ export class SubscriptionService {
       .limit(1);
 
     return subscription || null;
+  }
+
+  /**
+   * Alias for getByOwnerId for consistency
+   */
+  static async getUserSubscription(userId: string) {
+    return this.getByOwnerId(userId);
   }
 
   /**
