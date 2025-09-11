@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { ConnectionsContent } from './ConnectionsContent';
+import { Suspense } from 'react';
 
 export const metadata: Metadata = {
   title: 'Connections | SEOmatic',
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function ConnectionsPage() {
-  return <ConnectionsContent />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ConnectionsContent />
+    </Suspense>
+  );
 }

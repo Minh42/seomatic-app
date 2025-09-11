@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
+import { WordPressConnectionModal } from './WordPressConnectionModal';
 
 type ConnectionStatus = 'not_connected' | 'connected' | 'error';
 
@@ -14,16 +16,24 @@ interface ConnectionRowProps {
     isConfigured: boolean;
   };
   onStatusChange: (id: string, status: ConnectionStatus) => void;
+  workspaceId?: string;
   isLast?: boolean;
 }
 
 export function ConnectionRow({
   connection,
   onStatusChange,
+  workspaceId,
   isLast = false,
 }: ConnectionRowProps) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const handleAddConnection = () => {
-    // Simulate connection (in real app, this would open a modal or redirect)
+    setIsModalOpen(true);
+  };
+
+  const handleConnect = (domain: string) => {
+    console.log('Connecting to WordPress domain:', domain);
     onStatusChange(connection.id, 'connected');
   };
 
@@ -76,13 +86,23 @@ export function ConnectionRow({
           ) : (
             <button
               onClick={handleAddConnection}
-              className="h-10 px-4 bg-slate-900 text-white rounded text-sm font-bold leading-relaxed hover:bg-slate-800 transition-colors"
+              className="h-10 px-4 bg-slate-900 text-white rounded text-sm font-bold leading-relaxed hover:bg-slate-800 transition-colors cursor-pointer"
             >
               Add Connection
             </button>
           )}
         </div>
       </div>
+
+      {/* WordPress Connection Modal */}
+      {connection.id === 'wordpress' && workspaceId && (
+        <WordPressConnectionModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onConnect={handleConnect}
+          workspaceId={workspaceId}
+        />
+      )}
     </div>
   );
 }

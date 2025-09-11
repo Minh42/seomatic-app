@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { ConnectionRow } from './ConnectionRow';
+import { useWorkspace } from '@/hooks/useWorkspace';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 type ConnectionStatus = 'not_connected' | 'connected' | 'error';
 
@@ -20,6 +23,62 @@ export function ConnectionsContent() {
     'available'
   );
   const [searchQuery, setSearchQuery] = useState('');
+  const { selectedWorkspace, isLoading } = useWorkspace();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Handle WordPress callback when redirected back from WordPress
+  useEffect(() => {
+    const handleWordPressCallback = async () => {
+      // WordPress sends back these parameters:
+      // domain_name, site_url, user_login, password
+      const domainName = searchParams.get('domain_name');
+      const siteUrl = searchParams.get('site_url');
+      const userLogin = searchParams.get('user_login');
+      const password = searchParams.get('password');
+
+      if (domainName && userLogin && password && selectedWorkspace) {
+        // WordPress has redirected back with credentials
+        try {
+          // Call the callback API to store the connection
+          const response = await fetch('/api/connections/wordpress/callback', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              workspaceId: selectedWorkspace.id,
+              domain: domainName,
+              siteUrl: siteUrl || `https://${domainName}`,
+              username: userLogin,
+              password: decodeURIComponent(password), // WordPress URL encodes the password
+              success: true,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            toast.success('WordPress connection established successfully!');
+            // Clear the URL parameters
+            router.replace('/dashboard/connections');
+            // TODO: Refresh connections list
+          } else {
+            toast.error(data.error || 'Failed to save connection');
+            router.replace('/dashboard/connections');
+          }
+        } catch {
+          toast.error('Failed to complete WordPress connection');
+          router.replace('/dashboard/connections');
+        }
+      }
+    };
+
+    // Check if we have WordPress callback parameters
+    if (searchParams.get('domain_name') && searchParams.get('user_login')) {
+      handleWordPressCallback();
+    }
+  }, [searchParams, selectedWorkspace, router]);
 
   // Mock data - replace with actual data
   const [connections, setConnections] = useState<Connection[]>([
@@ -80,6 +139,27 @@ export function ConnectionsContent() {
             conn.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             conn.description.toLowerCase().includes(searchQuery.toLowerCase())
         );
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!selectedWorkspace) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-500 mb-4">No workspace selected</p>
+          <p className="text-sm text-gray-400">
+            Please select or create a workspace to manage connections.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -150,6 +230,7 @@ export function ConnectionsContent() {
               <ConnectionRow
                 key={connection.id}
                 connection={connection}
+                workspaceId={selectedWorkspace.id}
                 isLast={index === filteredConnections.length - 1}
                 onStatusChange={(id, newStatus) => {
                   setConnections(prev =>
