@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Geist } from 'next/font/google';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { SessionProvider } from '@/components/providers/SessionProvider';
 import {
@@ -10,14 +10,16 @@ import { Toaster } from '@/components/ui/sonner';
 import { Suspense } from 'react';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: '--font-plus-jakarta-sans',
   subsets: ['latin'],
+  weight: ['200', '300', '400', '500', '600', '700', '800'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'Platforms Starter Kit',
-  description: 'Next.js template for building a multi-tenant SaaS.',
+  title: 'SEOmatic - Programmatic SEO Platform',
+  description: 'Create, optimize, and publish thousands of SEO pages at scale.',
 };
 
 export default function RootLayout({
@@ -27,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} antialiased`}>
+      <body className={`${plusJakartaSans.variable} font-sans antialiased`}>
         <SessionProvider>
           <PostHogAuthProvider>
             <Suspense fallback={null}>

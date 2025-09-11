@@ -90,12 +90,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
   return (
     <div
-      className={`group flex h-full flex-col bg-gray-900 text-white transition-all duration-300 relative ${
+      className={`group flex h-full flex-col bg-slate-900 text-white transition-all duration-300 relative ${
         isCollapsed ? 'w-16' : 'w-64'
       }`}
     >
       {/* Logo */}
-      <div className="p-4 border-b border-gray-800">
+      <div className="p-4 border-b border-gray-200/10">
         <div className="flex items-center justify-between">
           {isCollapsed ? (
             <button
@@ -122,9 +122,9 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               </Link>
               <button
                 onClick={onToggle}
-                className="p-1 rounded hover:bg-gray-800 transition-all opacity-0 group-hover:opacity-100"
+                className="p-1 rounded-lg hover:bg-gray-800/30 transition-all opacity-0 group-hover:opacity-100"
               >
-                <ChevronsLeft className="h-5 w-5 text-gray-400" />
+                <ChevronsLeft className="h-5 w-5 text-gray-500" />
               </button>
             </>
           )}
@@ -139,9 +139,9 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             className="w-full text-left group"
             disabled={isLoading}
           >
-            <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800/50 transition-all">
+            <div className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-800/30 transition-all">
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-8 h-8 bg-gray-800 rounded-md flex items-center justify-center text-gray-400 font-medium text-sm border border-gray-700">
+                <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex items-center justify-center text-gray-400 font-medium text-sm border border-gray-700/50">
                   {currentWorkspace.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -177,7 +177,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
           {/* Workspace Dropdown */}
           {isWorkspaceOpen && (
-            <div className="absolute left-3 right-3 mt-1 bg-gray-800/95 border border-gray-700/50 rounded-xl shadow-xl z-10 overflow-hidden backdrop-blur-sm">
+            <div className="absolute left-3 right-3 mt-1 bg-slate-800 border border-gray-700/30 rounded-xl shadow-xl z-10 overflow-hidden">
               <div className="p-1">
                 {/* Configure connection button if no connection */}
                 {!currentWorkspace.connectionUrl && (
@@ -186,7 +186,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                       // TODO: Open connection configuration modal
                       setIsWorkspaceOpen(false);
                     }}
-                    className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-gray-800/40 transition-colors flex items-center gap-2.5 cursor-pointer group/configure"
+                    className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-gray-800/30 transition-colors flex items-center gap-2.5 cursor-pointer group/configure"
                   >
                     <div className="w-7 h-7 bg-amber-500/10 rounded flex items-center justify-center group-hover/configure:bg-amber-500/20 transition-colors">
                       <Globe className="h-3.5 w-3.5 text-amber-500 group-hover/configure:text-amber-400" />
@@ -220,8 +220,8 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                           }}
                           className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors flex items-center gap-2.5 ${
                             isActive
-                              ? 'bg-gray-800/60 cursor-default'
-                              : 'hover:bg-gray-800/40'
+                              ? 'bg-gray-800/40 cursor-default'
+                              : 'hover:bg-gray-800/30'
                           }`}
                         >
                           <div
@@ -278,7 +278,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 <Link
                   href="/dashboard/workspaces/new"
                   onClick={() => setIsWorkspaceOpen(false)}
-                  className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-gray-800/40 transition-colors flex items-center gap-2.5 group/create"
+                  className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-gray-800/30 transition-colors flex items-center gap-2.5 group/create"
                 >
                   <div className="w-7 h-7 border border-dashed border-gray-600 rounded flex items-center justify-center group-hover/create:border-gray-500 transition-colors">
                     <Plus className="h-3.5 w-3.5 text-gray-500 group-hover/create:text-gray-400" />
@@ -294,7 +294,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-2 py-4">
+      <nav className="flex-1 space-y-1 px-3 py-4">
         {/* Workspace-specific items */}
         {navigationItems[0].items.map(item => {
           const Icon = item.icon;
@@ -305,20 +305,22 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               key={item.name}
               href={item.href}
               title={item.name}
-              className={`group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors ${
+              className={`group flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                 isActive
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-              } ${isCollapsed ? 'justify-center' : ''}`}
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-400 hover:bg-gray-800/40 hover:text-white'
+              } ${isCollapsed ? 'justify-center px-2' : ''}`}
             >
-              <Icon className={`h-5 w-5 ${!isCollapsed && 'mr-3'}`} />
+              <Icon
+                className={`h-5 w-5 flex-shrink-0 ${!isCollapsed && 'mr-3'}`}
+              />
               {!isCollapsed && item.name}
             </Link>
           );
         })}
 
         {/* Divider */}
-        <div className="my-4 border-t border-gray-700" />
+        <div className="my-4 border-t border-gray-200/10" />
 
         {/* Shared resources */}
         {navigationItems[1].items.map(item => {
@@ -330,20 +332,22 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               key={item.name}
               href={item.href}
               title={item.name}
-              className={`group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors ${
+              className={`group flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                 isActive
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-              } ${isCollapsed ? 'justify-center' : ''}`}
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-400 hover:bg-gray-800/40 hover:text-white'
+              } ${isCollapsed ? 'justify-center px-2' : ''}`}
             >
-              <Icon className={`h-5 w-5 ${!isCollapsed && 'mr-3'}`} />
+              <Icon
+                className={`h-5 w-5 flex-shrink-0 ${!isCollapsed && 'mr-3'}`}
+              />
               {!isCollapsed && item.name}
             </Link>
           );
         })}
 
         {/* Divider */}
-        <div className="my-4 border-t border-gray-700" />
+        <div className="my-4 border-t border-gray-200/10" />
 
         {/* Settings */}
         {navigationItems[2].items.map(item => {
@@ -355,13 +359,15 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               key={item.name}
               href={item.href}
               title={item.name}
-              className={`group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors ${
+              className={`group flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                 isActive
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-              } ${isCollapsed ? 'justify-center' : ''}`}
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-400 hover:bg-gray-800/40 hover:text-white'
+              } ${isCollapsed ? 'justify-center px-2' : ''}`}
             >
-              <Icon className={`h-5 w-5 ${!isCollapsed && 'mr-3'}`} />
+              <Icon
+                className={`h-5 w-5 flex-shrink-0 ${!isCollapsed && 'mr-3'}`}
+              />
               {!isCollapsed && item.name}
             </Link>
           );
