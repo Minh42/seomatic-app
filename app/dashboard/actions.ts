@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { WorkspaceService } from '@/lib/services/workspace-service';
 import { db } from '@/lib/db';
-import { connections } from '@/lib/db/schema';
+import { connections, workspaces } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 export type ConnectionType =
@@ -35,27 +35,27 @@ export async function getUserWorkspaces(): Promise<WorkspaceWithConnection[]> {
   }
 
   try {
-    // Get all workspaces for the user
-    const workspaces = await WorkspaceService.getByOwnerId(session.user.id);
-
-    // Get connections for each workspace
-    const workspacesWithConnections = await Promise.all(
-      workspaces.map(async workspace => {
-        const [connection] = await db
-          .select()
-          .from(connections)
-          .where(eq(connections.workspaceId, workspace.id))
-          .limit(1);
-
-        return {
-          id: workspace.id,
-          name: workspace.name,
-          connectionUrl: connection?.connectionUrl || null,
-          connectionType: connection?.connectionType as ConnectionType | null,
-          status: connection?.status as ConnectionStatus | null,
-        };
+    // Get all workspaces with their connections in a single query
+    const result = await db
+      .select({
+        workspaceId: workspaces.id,
+        workspaceName: workspaces.name,
+        connectionUrl: connections.connectionUrl,
+        connectionType: connections.connectionType,
+        status: connections.status,
       })
-    );
+      .from(workspaces)
+      .leftJoin(connections, eq(workspaces.id, connections.workspaceId))
+      .where(eq(workspaces.ownerId, session.user.id));
+
+    // Map to the expected format
+    const workspacesWithConnections = result.map(row => ({
+      id: row.workspaceId,
+      name: row.workspaceName,
+      connectionUrl: row.connectionUrl || null,
+      connectionType: row.connectionType as ConnectionType | null,
+      status: row.status as ConnectionStatus | null,
+    }));
 
     return workspacesWithConnections;
   } catch (error) {

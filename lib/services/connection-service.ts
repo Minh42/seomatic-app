@@ -33,6 +33,81 @@ export interface UpdateConnectionParams {
 
 export class ConnectionService {
   /**
+   * Create or replace a connection for a workspace
+   */
+  static async createOrReplace({
+    workspaceId,
+    connectionUrl,
+    connectionType,
+    credentials,
+    apiUsername,
+    cmsSiteId,
+    status = 'pending',
+  }: CreateConnectionParams & { status?: ConnectionStatus }) {
+    try {
+      // Check if workspace already has a connection
+      const [existingWorkspaceConnection] = await db
+        .select()
+        .from(connections)
+        .where(eq(connections.workspaceId, workspaceId))
+        .limit(1);
+
+      console.log(
+        'Existing workspace connection:',
+        existingWorkspaceConnection
+      );
+
+      if (existingWorkspaceConnection) {
+        console.log(
+          'Deleting existing workspace connection:',
+          existingWorkspaceConnection.id
+        );
+        // Delete existing connection (cascade will delete related records)
+        await this.delete(existingWorkspaceConnection.id);
+      }
+
+      // Check if another workspace is using this URL
+      const [existingUrlConnection] = await db
+        .select()
+        .from(connections)
+        .where(eq(connections.connectionUrl, connectionUrl))
+        .limit(1);
+
+      console.log('Existing URL connection:', existingUrlConnection);
+
+      if (existingUrlConnection) {
+        console.log(
+          'Deleting existing URL connection:',
+          existingUrlConnection.id
+        );
+        // Delete the connection using this URL
+        await this.delete(existingUrlConnection.id);
+      }
+
+      // Now create the new connection
+      console.log(
+        'Creating new connection for workspace:',
+        workspaceId,
+        'with URL:',
+        connectionUrl
+      );
+
+      return await this.create({
+        workspaceId,
+        connectionUrl,
+        connectionType,
+        credentials,
+        apiUsername,
+        cmsSiteId,
+        status,
+      });
+    } catch (error) {
+      console.error('Error in createOrReplace:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Create a new connection for a workspace
    */
   static async create({
@@ -204,6 +279,14 @@ export class ConnectionService {
       ...result[0].connection,
       cms: result[0].cms,
     };
+  }
+
+  /**
+   * Delete a connection
+   */
+  static async delete(connectionId: string) {
+    // Delete connection (cascade will handle related records)
+    await db.delete(connections).where(eq(connections.id, connectionId));
   }
 
   /**

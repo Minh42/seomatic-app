@@ -70,9 +70,8 @@ export const verificationStatusEnum = pgEnum('verification_status', [
 ]);
 export const connectionStatusEnum = pgEnum('connection_status', [
   'pending',
-  'connected',
-  'failed',
-  'disconnected',
+  'active',
+  'error',
 ]);
 
 export const users = pgTable('users', {

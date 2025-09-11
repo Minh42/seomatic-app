@@ -275,7 +275,8 @@ export class WordPressService {
       password: applicationPassword,
     };
 
-    const connection = await ConnectionService.create({
+    // Use createOrReplace to handle existing connections
+    const connection = await ConnectionService.createOrReplace({
       workspaceId,
       connectionUrl: cleanDomain,
       connectionType: 'wordpress',

@@ -15,10 +15,10 @@ import {
   ChevronDown,
   ChevronsLeft,
   Plus,
-  Globe,
 } from 'lucide-react';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { StatusIndicator } from './StatusIndicator';
+import { useRouter } from 'next/navigation';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -27,6 +27,7 @@ interface SidebarProps {
 
 export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
   const { selectedWorkspace, workspaces, setSelectedWorkspace, isLoading } =
     useWorkspace();
@@ -48,7 +49,6 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     {
       section: 'shared',
       items: [
-        { name: 'Connections', href: '/dashboard/connections', icon: Globe },
         { name: 'Templates', href: '/dashboard/templates', icon: Layout },
         { name: 'Datasets', href: '/dashboard/datasets', icon: Database },
       ],
@@ -114,23 +114,37 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           >
             <div className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-800/30 transition-all">
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex items-center justify-center text-gray-400 font-medium text-sm border border-gray-700/50">
-                  {selectedWorkspace.name.charAt(0).toUpperCase()}
+                <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex items-center justify-center text-gray-400 font-medium text-sm border border-gray-700/50 p-1.5">
+                  {selectedWorkspace.connectionType ? (
+                    <Image
+                      src={`/logos/cms/${selectedWorkspace.connectionType === 'hosted' ? 'seomatic' : selectedWorkspace.connectionType}.svg`}
+                      alt={selectedWorkspace.connectionType}
+                      width={20}
+                      height={20}
+                      className="object-contain"
+                    />
+                  ) : (
+                    selectedWorkspace.name.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-white">
                     {isLoading ? 'Loading...' : selectedWorkspace.name}
                   </div>
-                  {!isLoading && selectedWorkspace.connectionUrl ? (
+                  {!isLoading && selectedWorkspace.connectionType ? (
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-xs text-gray-500 truncate">
                         {selectedWorkspace.connectionUrl}
                       </span>
                     </div>
                   ) : !isLoading ? (
-                    <div className="text-xs text-amber-500 mt-0.5">
-                      No connection
-                    </div>
+                    <button
+                      onClick={() => router.push('/dashboard/connections')}
+                      className="flex items-center gap-1 mt-0.5 text-xs text-orange-500 hover:text-orange-600 transition-colors cursor-pointer"
+                    >
+                      <span className="text-sm leading-none">+</span>
+                      <span>Add connection</span>
+                    </button>
                   ) : null}
                 </div>
               </div>
@@ -145,100 +159,82 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           {/* Workspace Dropdown */}
           {isWorkspaceOpen && (
             <div className="absolute left-3 right-3 mt-1 bg-slate-800 border border-gray-700/30 rounded-xl shadow-xl z-10 overflow-hidden">
-              {/* Only show content section if there's something to display */}
-              {(!selectedWorkspace.connectionUrl || workspaces.length > 1) && (
+              {/* Workspace list */}
+              {workspaces.length > 1 && (
                 <div className="p-1">
-                  {/* Configure connection button if no connection */}
-                  {!selectedWorkspace.connectionUrl && (
-                    <button
-                      onClick={() => {
-                        setIsWorkspaceOpen(false);
-                      }}
-                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-gray-800/30 transition-colors flex items-center gap-2.5 cursor-pointer group/configure"
-                    >
-                      <div className="w-7 h-7 bg-amber-500/10 rounded flex items-center justify-center group-hover/configure:bg-amber-500/20 transition-colors">
-                        <Globe className="h-3.5 w-3.5 text-amber-500 group-hover/configure:text-amber-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs font-medium text-white group-hover/configure:text-amber-400 transition-colors">
-                          Configure connection
+                  {workspaces.map(workspace => {
+                    const isActive = workspace.id === selectedWorkspace.id;
+
+                    return (
+                      <button
+                        key={workspace.id}
+                        onClick={() => {
+                          if (!isActive) {
+                            setSelectedWorkspace(workspace);
+                            setIsWorkspaceOpen(false);
+                          }
+                        }}
+                        className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors flex items-center gap-2.5 ${
+                          isActive
+                            ? 'bg-gray-800/40 cursor-default'
+                            : 'hover:bg-gray-800/30'
+                        }`}
+                      >
+                        <div
+                          className={`w-7 h-7 rounded flex items-center justify-center font-medium text-xs p-1 ${
+                            isActive
+                              ? 'bg-gray-700 text-white border border-gray-600'
+                              : 'bg-gray-800 text-gray-400 border border-gray-700'
+                          }`}
+                        >
+                          {workspace.connectionType ? (
+                            <Image
+                              src={`/logos/cms/${workspace.connectionType === 'hosted' ? 'seomatic' : workspace.connectionType}.svg`}
+                              alt={workspace.connectionType}
+                              width={16}
+                              height={16}
+                              className="object-contain"
+                            />
+                          ) : (
+                            workspace.name.charAt(0).toUpperCase()
+                          )}
                         </div>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* Workspace list */}
-                  {workspaces.length > 1 && (
-                    <>
-                      {/* Only show divider if configure button is visible */}
-                      {!selectedWorkspace.connectionUrl && (
-                        <div className="my-1 h-px bg-gray-700/50" />
-                      )}
-                      {workspaces.map(workspace => {
-                        const isActive = workspace.id === selectedWorkspace.id;
-
-                        return (
-                          <button
-                            key={workspace.id}
-                            onClick={() => {
-                              if (!isActive) {
-                                setSelectedWorkspace(workspace);
-                                setIsWorkspaceOpen(false);
-                              }
-                            }}
-                            className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors flex items-center gap-2.5 ${
-                              isActive
-                                ? 'bg-gray-800/40 cursor-default'
-                                : 'hover:bg-gray-800/30'
-                            }`}
-                          >
-                            <div
-                              className={`w-7 h-7 rounded flex items-center justify-center font-medium text-xs ${
-                                isActive
-                                  ? 'bg-gray-700 text-white border border-gray-600'
-                                  : 'bg-gray-800 text-gray-400 border border-gray-700'
-                              }`}
-                            >
-                              {workspace.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-medium text-white flex items-center gap-1.5">
-                                {workspace.name}
-                                {isActive && (
-                                  <span className="text-[10px] text-gray-500">
-                                    Current
-                                  </span>
-                                )}
-                              </div>
-                              {workspace.connectionUrl ? (
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  <span className="text-[10px] text-gray-500 truncate">
-                                    {workspace.connectionUrl}
-                                  </span>
-                                </div>
-                              ) : (
-                                <div className="text-[10px] text-amber-500 mt-0.5">
-                                  No connection configured
-                                </div>
-                              )}
-                            </div>
-                            {workspace.status && workspace.connectionUrl && (
-                              <StatusIndicator
-                                status={workspace.status}
-                                className="h-2 w-2"
-                              />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium text-white flex items-center gap-1.5">
+                            {workspace.name}
+                            {isActive && (
+                              <span className="text-[10px] text-gray-500">
+                                Current
+                              </span>
                             )}
-                          </button>
-                        );
-                      })}
-                    </>
-                  )}
+                          </div>
+                          {workspace.connectionType ? (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] text-gray-500 truncate">
+                                {workspace.connectionUrl}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-amber-500 mt-0.5">
+                              No connection configured
+                            </div>
+                          )}
+                        </div>
+                        {workspace.connectionType && (
+                          <StatusIndicator
+                            status={workspace.status}
+                            className="h-2 w-2"
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
               {/* New workspace */}
               <div
-                className={`p-1 ${!selectedWorkspace.connectionUrl || workspaces.length > 1 ? 'border-t border-gray-700/50' : ''}`}
+                className={`p-1 ${workspaces.length > 1 ? 'border-t border-gray-700/50' : ''}`}
               >
                 <Link
                   href="/dashboard/workspaces/new"

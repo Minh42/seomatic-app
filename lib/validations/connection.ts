@@ -56,12 +56,7 @@ export const connectionTypeSchema = z.enum([
   'seomatic',
 ]);
 
-export const connectionStatusSchema = z.enum([
-  'pending',
-  'active',
-  'error',
-  'disconnected',
-]);
+export const connectionStatusSchema = z.enum(['pending', 'active', 'error']);
 
 // Base connection schema
 export const baseConnectionSchema = z.object({
