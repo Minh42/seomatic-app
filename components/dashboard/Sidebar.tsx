@@ -139,7 +139,10 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                     </div>
                   ) : !isLoading ? (
                     <button
-                      onClick={() => router.push('/dashboard/connections')}
+                      onClick={e => {
+                        e.stopPropagation();
+                        router.push('/dashboard/connections');
+                      }}
                       className="flex items-center gap-1 mt-0.5 text-xs text-orange-500 hover:text-orange-600 transition-colors cursor-pointer"
                     >
                       <span className="text-sm leading-none">+</span>
