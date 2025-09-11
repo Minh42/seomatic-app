@@ -15,7 +15,7 @@ export function SignupFeatures() {
       .catch(error => console.error('Failed to fetch user count:', error));
   }, []);
   const features = [
-    'Connect 1 Domain',
+    'Connect 1 Site',
     'Publish up to 10 Pages',
     'AI Content & Images Generation',
     'Access to All SEO Templates',

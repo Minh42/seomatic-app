@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { redirect } from 'next/navigation';
-import { DashboardClient } from '@/components/dashboard/DashboardClient';
+import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { OnboardingService } from '@/lib/services/onboarding-service';
 
 export default async function DashboardPage() {
@@ -20,5 +20,11 @@ export default async function DashboardPage() {
     redirect('/onboarding');
   }
 
-  return <DashboardClient session={session} />;
+  return (
+    <DashboardLayout>
+      <div className="flex items-center justify-center h-full text-gray-500">
+        <p>Select an item from the sidebar to get started</p>
+      </div>
+    </DashboardLayout>
+  );
 }

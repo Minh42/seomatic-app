@@ -1,0 +1,372 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
+import {
+  Home,
+  FileText,
+  BookOpen,
+  BarChart3,
+  Layout,
+  Database,
+  Settings,
+  ChevronDown,
+  ChevronsLeft,
+  Plus,
+  Globe,
+} from 'lucide-react';
+import {
+  getUserWorkspaces,
+  getCurrentWorkspace,
+  type WorkspaceWithConnection,
+} from '@/app/dashboard/actions';
+import { CmsIcon } from './CmsIcon';
+import { StatusIndicator } from './StatusIndicator';
+
+interface SidebarProps {
+  isCollapsed: boolean;
+  onToggle: () => void;
+}
+
+export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
+  const pathname = usePathname();
+  const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+  const [currentWorkspace, setCurrentWorkspace] =
+    useState<WorkspaceWithConnection | null>(null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceWithConnection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchWorkspaces() {
+      try {
+        const [current, all] = await Promise.all([
+          getCurrentWorkspace(),
+          getUserWorkspaces(),
+        ]);
+
+        setCurrentWorkspace(current);
+        setWorkspaces(all);
+      } catch (error) {
+        console.error('Error fetching workspaces:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchWorkspaces();
+  }, []);
+
+  const navigationItems = [
+    {
+      section: 'workspace',
+      items: [
+        { name: 'Dashboard', href: '/dashboard', icon: Home },
+        {
+          name: 'Landing Pages',
+          href: '/dashboard/landing-pages',
+          icon: FileText,
+        },
+        { name: 'Blog Posts', href: '/dashboard/blog-posts', icon: BookOpen },
+        { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+      ],
+    },
+    {
+      section: 'shared',
+      items: [
+        { name: 'Connections', href: '/dashboard/connections', icon: Globe },
+        { name: 'Templates', href: '/dashboard/templates', icon: Layout },
+        { name: 'Datasets', href: '/dashboard/datasets', icon: Database },
+      ],
+    },
+    {
+      section: 'settings',
+      items: [
+        { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+      ],
+    },
+  ];
+
+  return (
+    <div
+      className={`group flex h-full flex-col bg-gray-900 text-white transition-all duration-300 relative ${
+        isCollapsed ? 'w-16' : 'w-64'
+      }`}
+    >
+      {/* Logo */}
+      <div className="p-4 border-b border-gray-800">
+        <div className="flex items-center justify-between">
+          {isCollapsed ? (
+            <button
+              onClick={onToggle}
+              className="flex items-center justify-center flex-1 hover:opacity-80 transition-opacity cursor-pointer"
+            >
+              <Image
+                src="/logos/seomatic.svg"
+                alt="SEOmatic"
+                width={32}
+                height={32}
+              />
+            </button>
+          ) : (
+            <>
+              <Link href="/dashboard" className="flex items-center space-x-2">
+                <Image
+                  src="/logos/seomatic.svg"
+                  alt="SEOmatic"
+                  width={32}
+                  height={32}
+                />
+                <div className="text-xl font-semibold">SEOmatic</div>
+              </Link>
+              <button
+                onClick={onToggle}
+                className="p-1 rounded hover:bg-gray-800 transition-all opacity-0 group-hover:opacity-100"
+              >
+                <ChevronsLeft className="h-5 w-5 text-gray-400" />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Workspace Switcher */}
+      {!isCollapsed && currentWorkspace && (
+        <div className="px-3 py-2">
+          <button
+            onClick={() => setIsWorkspaceOpen(!isWorkspaceOpen)}
+            className="w-full text-left group"
+            disabled={isLoading}
+          >
+            <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800/50 transition-all">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-8 h-8 bg-gray-800 rounded-md flex items-center justify-center text-gray-400 font-medium text-sm border border-gray-700">
+                  {currentWorkspace.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-white">
+                    {isLoading ? 'Loading...' : currentWorkspace.name}
+                  </div>
+                  {!isLoading && currentWorkspace.connectionUrl ? (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {currentWorkspace.connectionType && (
+                        <CmsIcon
+                          connectionType={currentWorkspace.connectionType}
+                          className="h-3 w-3 flex-shrink-0"
+                        />
+                      )}
+                      <span className="text-xs text-gray-500 truncate">
+                        {currentWorkspace.connectionUrl}
+                      </span>
+                    </div>
+                  ) : !isLoading ? (
+                    <div className="text-xs text-amber-500 mt-0.5">
+                      No connection
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 cursor-pointer ${
+                  isWorkspaceOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </div>
+          </button>
+
+          {/* Workspace Dropdown */}
+          {isWorkspaceOpen && (
+            <div className="absolute left-3 right-3 mt-1 bg-gray-800/95 border border-gray-700/50 rounded-xl shadow-xl z-10 overflow-hidden backdrop-blur-sm">
+              <div className="p-1">
+                {/* Configure connection button if no connection */}
+                {!currentWorkspace.connectionUrl && (
+                  <button
+                    onClick={() => {
+                      // TODO: Open connection configuration modal
+                      setIsWorkspaceOpen(false);
+                    }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-gray-800/40 transition-colors flex items-center gap-2.5 cursor-pointer group/configure"
+                  >
+                    <div className="w-7 h-7 bg-amber-500/10 rounded flex items-center justify-center group-hover/configure:bg-amber-500/20 transition-colors">
+                      <Globe className="h-3.5 w-3.5 text-amber-500 group-hover/configure:text-amber-400" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs font-medium text-white group-hover/configure:text-amber-400 transition-colors">
+                        Configure connection
+                      </div>
+                    </div>
+                  </button>
+                )}
+
+                {/* Workspace list */}
+                {workspaces.length > 1 && (
+                  <>
+                    {!currentWorkspace.connectionUrl && (
+                      <div className="my-1 h-px bg-gray-700/50" />
+                    )}
+                    {workspaces.map(workspace => {
+                      const isActive = workspace.id === currentWorkspace.id;
+
+                      return (
+                        <button
+                          key={workspace.id}
+                          onClick={() => {
+                            if (!isActive) {
+                              setCurrentWorkspace(workspace);
+                              setIsWorkspaceOpen(false);
+                              // TODO: Persist workspace selection
+                            }
+                          }}
+                          className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors flex items-center gap-2.5 ${
+                            isActive
+                              ? 'bg-gray-800/60 cursor-default'
+                              : 'hover:bg-gray-800/40'
+                          }`}
+                        >
+                          <div
+                            className={`w-7 h-7 rounded flex items-center justify-center font-medium text-xs ${
+                              isActive
+                                ? 'bg-gray-700 text-white border border-gray-600'
+                                : 'bg-gray-800 text-gray-400 border border-gray-700'
+                            }`}
+                          >
+                            {workspace.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-white flex items-center gap-1.5">
+                              {workspace.name}
+                              {isActive && (
+                                <span className="text-[10px] text-gray-500">
+                                  Current
+                                </span>
+                              )}
+                            </div>
+                            {workspace.connectionUrl ? (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                {workspace.connectionType && (
+                                  <CmsIcon
+                                    connectionType={workspace.connectionType}
+                                    className="h-2.5 w-2.5"
+                                  />
+                                )}
+                                <span className="text-[10px] text-gray-500 truncate">
+                                  {workspace.connectionUrl}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-amber-500 mt-0.5">
+                                No connection configured
+                              </div>
+                            )}
+                          </div>
+                          {workspace.status && workspace.connectionUrl && (
+                            <StatusIndicator
+                              status={workspace.status}
+                              className="h-2 w-2"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+
+              {/* New workspace */}
+              <div className="border-t border-gray-700/50 p-1">
+                <Link
+                  href="/dashboard/workspaces/new"
+                  onClick={() => setIsWorkspaceOpen(false)}
+                  className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-gray-800/40 transition-colors flex items-center gap-2.5 group/create"
+                >
+                  <div className="w-7 h-7 border border-dashed border-gray-600 rounded flex items-center justify-center group-hover/create:border-gray-500 transition-colors">
+                    <Plus className="h-3.5 w-3.5 text-gray-500 group-hover/create:text-gray-400" />
+                  </div>
+                  <span className="text-xs text-gray-400 group-hover/create:text-gray-300">
+                    Create workspace
+                  </span>
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Navigation */}
+      <nav className="flex-1 space-y-1 px-2 py-4">
+        {/* Workspace-specific items */}
+        {navigationItems[0].items.map(item => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              title={item.name}
+              className={`group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-gray-800 text-white'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              } ${isCollapsed ? 'justify-center' : ''}`}
+            >
+              <Icon className={`h-5 w-5 ${!isCollapsed && 'mr-3'}`} />
+              {!isCollapsed && item.name}
+            </Link>
+          );
+        })}
+
+        {/* Divider */}
+        <div className="my-4 border-t border-gray-700" />
+
+        {/* Shared resources */}
+        {navigationItems[1].items.map(item => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              title={item.name}
+              className={`group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-gray-800 text-white'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              } ${isCollapsed ? 'justify-center' : ''}`}
+            >
+              <Icon className={`h-5 w-5 ${!isCollapsed && 'mr-3'}`} />
+              {!isCollapsed && item.name}
+            </Link>
+          );
+        })}
+
+        {/* Divider */}
+        <div className="my-4 border-t border-gray-700" />
+
+        {/* Settings */}
+        {navigationItems[2].items.map(item => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              title={item.name}
+              className={`group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-gray-800 text-white'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              } ${isCollapsed ? 'justify-center' : ''}`}
+            >
+              <Icon className={`h-5 w-5 ${!isCollapsed && 'mr-3'}`} />
+              {!isCollapsed && item.name}
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}

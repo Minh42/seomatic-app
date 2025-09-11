@@ -68,6 +68,12 @@ export const verificationStatusEnum = pgEnum('verification_status', [
   'verified',
   'failed',
 ]);
+export const connectionStatusEnum = pgEnum('connection_status', [
+  'pending',
+  'connected',
+  'failed',
+  'disconnected',
+]);
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -290,34 +296,60 @@ export const workspaces = pgTable('workspaces', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Domains (1:1 with workspaces)
-export const domains = pgTable('domains', {
+// Connections (1:1 with workspaces)
+export const connections = pgTable('connections', {
   id: uuid('id').defaultRandom().primaryKey(),
   workspaceId: uuid('workspace_id')
     .notNull()
     .references(() => workspaces.id)
     .unique(), // 1:1 relationship
-  domain: varchar('domain').notNull().unique(), // "nike.com"
+  connectionUrl: varchar('connection_url').notNull().unique(), // "nike.com" or database connection string
 
   // Connection details
   connectionType: connectionTypeEnum('connection_type').notNull(),
+  status: connectionStatusEnum('status').default('pending').notNull(),
 
-  // CMS connection (wordpress, webflow, shopify)
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// CMS-specific connection details
+export const connectionCms = pgTable('connection_cms', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  connectionId: uuid('connection_id')
+    .notNull()
+    .references(() => connections.id, { onDelete: 'cascade' })
+    .unique(), // 1:1 with connection
+
+  // API credentials
   apiUsername: varchar('api_username'),
   encryptedApiToken: text('encrypted_api_token'),
   cmsSiteId: varchar('cms_site_id'),
-  connectionStatus:
-    verificationStatusEnum('connection_status').default('pending'),
+
+  // Sync status
   lastSyncAt: timestamp('last_sync_at'),
   lastSyncError: text('last_sync_error'),
 
-  // Hosted connection (when connectionType = 'hosted')
-  hostedConfig: json('hosted_config'), // hosting settings, CDN config, etc
-  verificationStatus: verificationStatusEnum('verification_status').default(
-    'pending'
-  ),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Hosted-specific connection details
+export const connectionHosted = pgTable('connection_hosted', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  connectionId: uuid('connection_id')
+    .notNull()
+    .references(() => connections.id, { onDelete: 'cascade' })
+    .unique(), // 1:1 with connection
+
+  // Verification
   verificationToken: varchar('verification_token'),
+  verificationMethod: varchar('verification_method').default('DNS'),
   verifiedAt: timestamp('verified_at'),
+
+  // CDN and SSL
+  cdnConfig: json('cdn_config'), // CloudFront settings, etc.
+  sslCertificateId: varchar('ssl_certificate_id'),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
