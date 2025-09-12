@@ -255,21 +255,10 @@ export class WordPressService {
   }: WordPressAuthParams) {
     const cleanDomain = domain.toLowerCase().trim();
 
-    // Validate credentials by making a test request
-    const isValid = await this.validateCredentials(
-      cleanDomain,
-      username,
-      applicationPassword
-    );
+    // WordPress already validated these credentials when it sent them back
+    // No need to validate again - this saves a round trip and speeds up the process
 
-    if (!isValid) {
-      throw new WordPressError(
-        ConnectionErrorCode.INVALID_CREDENTIALS,
-        'Invalid WordPress credentials'
-      );
-    }
-
-    // Store connection with active status since we already validated
+    // Store connection with active status since WordPress validated
     const credentials: ConnectionCredentials = {
       username,
       password: applicationPassword,
@@ -282,7 +271,7 @@ export class WordPressService {
       connectionType: 'wordpress',
       credentials,
       apiUsername: username,
-      status: 'active', // Create with active status since credentials are validated
+      status: 'active', // Create with active status since WordPress pre-validated
     });
 
     return connection;

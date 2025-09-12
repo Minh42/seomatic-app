@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { ConnectionRow } from './ConnectionRow';
 import { DisconnectConfirmModal } from '@/components/modals/DisconnectConfirmModal';
 import { useWorkspace } from '@/hooks/useWorkspace';
@@ -32,13 +32,20 @@ export function ConnectionsContent() {
   const queryClient = useQueryClient();
   const [isDisconnectModalOpen, setIsDisconnectModalOpen] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isProcessingCallback, setIsProcessingCallback] = useState(false);
+  const [callbackStatus, setCallbackStatus] = useState<string>('');
+
+  // Check if we have callback params
+  const hasCallbackParams = !!(
+    searchParams.get('domain_name') && searchParams.get('user_login')
+  );
 
   // Use TanStack Query for connection data
   const { data: workspaceConnection, isLoading: isLoadingConnection } =
     useQuery({
       queryKey: ['connection', selectedWorkspace?.id],
       queryFn: () => fetchConnectionData(selectedWorkspace?.id),
-      enabled: !!selectedWorkspace?.id,
+      enabled: !!selectedWorkspace?.id && !hasCallbackParams, // Don't fetch during callback processing
       staleTime: 30 * 1000, // Consider data fresh for 30 seconds
       gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
     });
@@ -46,59 +53,86 @@ export function ConnectionsContent() {
   // Handle WordPress callback when redirected back from WordPress
   useEffect(() => {
     const handleWordPressCallback = async () => {
-      // WordPress sends back these parameters:
-      // domain_name, site_url, user_login, password
       const domainName = searchParams.get('domain_name');
       const siteUrl = searchParams.get('site_url');
       const userLogin = searchParams.get('user_login');
       const password = searchParams.get('password');
 
-      if (domainName && userLogin && password && selectedWorkspace) {
-        // WordPress has redirected back with credentials
-        try {
-          // Call the callback API to store the connection
-          const response = await fetch('/api/connections/wordpress/callback', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              workspaceId: selectedWorkspace.id,
-              domain: domainName,
-              siteUrl: siteUrl || `https://${domainName}`,
-              username: userLogin,
-              password: decodeURIComponent(password), // WordPress URL encodes the password
-              success: true,
-            }),
+      if (!domainName || !userLogin || !password) return;
+
+      // Start processing immediately, don't wait for workspace
+      setIsProcessingCallback(true);
+      setCallbackStatus('Validating credentials...');
+
+      // Wait for workspace if needed, but show progress
+      if (!selectedWorkspace) {
+        setCallbackStatus('Loading workspace...');
+        // Wait a bit for workspace to load
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (!selectedWorkspace) {
+          // If still no workspace after wait, we'll retry on next effect run
+          return;
+        }
+      }
+
+      try {
+        setCallbackStatus('Saving connection...');
+
+        // Call the callback API to store the connection
+        const response = await fetch('/api/connections/wordpress/callback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            workspaceId: selectedWorkspace.id,
+            domain: domainName,
+            siteUrl: siteUrl || `https://${domainName}`,
+            username: userLogin,
+            password: decodeURIComponent(password),
+            success: true,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setCallbackStatus('Connection established!');
+
+          // Optimistically update the cache with the new connection
+          queryClient.setQueryData(
+            ['connection', selectedWorkspace.id],
+            data.connection
+          );
+
+          // Clear URL params and show success
+          router.replace('/dashboard/connections');
+          toast.success('WordPress connection established successfully!');
+
+          // Invalidate both queries to update UI everywhere (including sidebar)
+          await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+          await queryClient.invalidateQueries({
+            queryKey: ['connection', selectedWorkspace.id],
           });
-
-          const data = await response.json();
-
-          if (data.success) {
-            toast.success('WordPress connection established successfully!');
-            // Clear the URL parameters
-            router.replace('/dashboard/connections');
-            // Refresh the connection data
-            await queryClient.invalidateQueries({
-              queryKey: ['connection', selectedWorkspace.id],
-            });
-          } else {
-            toast.error(data.error || 'Failed to save connection');
-            router.replace('/dashboard/connections');
-          }
-        } catch {
-          toast.error('Failed to complete WordPress connection');
+        } else {
+          toast.error(data.error || 'Failed to save connection');
           router.replace('/dashboard/connections');
         }
+      } catch (error) {
+        console.error('Callback error:', error);
+        toast.error('Failed to complete WordPress connection');
+        router.replace('/dashboard/connections');
+      } finally {
+        setIsProcessingCallback(false);
+        setCallbackStatus('');
       }
     };
 
-    // Check if we have WordPress callback parameters
-    if (searchParams.get('domain_name') && searchParams.get('user_login')) {
+    if (hasCallbackParams) {
       handleWordPressCallback();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, selectedWorkspace, router]);
+  }, [searchParams, selectedWorkspace, hasCallbackParams]);
 
   // Available platforms data
   const platforms = [
@@ -166,7 +200,10 @@ export function ConnectionsContent() {
       if (response.ok) {
         toast.success('Connection disconnected successfully');
         setIsDisconnectModalOpen(false);
-        // Refresh the connection data
+        // Optimistically remove from cache
+        queryClient.setQueryData(['connection', selectedWorkspace?.id], null);
+        // Invalidate both queries to update UI everywhere (including sidebar)
+        await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
         await queryClient.invalidateQueries({
           queryKey: ['connection', selectedWorkspace?.id],
         });
@@ -181,6 +218,30 @@ export function ConnectionsContent() {
       setIsDisconnecting(false);
     }
   };
+
+  // Show processing state if we're handling a callback
+  if (isProcessingCallback) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-6xl mx-auto px-8 py-8">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-gray-900 leading-normal">
+              Setting Up Connection
+            </h1>
+          </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-8">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+              <p className="text-gray-600 font-medium">{callbackStatus}</p>
+              <p className="text-sm text-gray-500">
+                Please wait while we configure your WordPress connection...
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show loading state while workspace is loading
   if (isLoadingWorkspace) {
