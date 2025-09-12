@@ -8,26 +8,40 @@ import { DisconnectConfirmModal } from '@/components/modals/DisconnectConfirmMod
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 type ConnectionStatus = 'not_connected' | 'connected' | 'error';
 
+// Fetch function for connection data
+async function fetchConnectionData(workspaceId: string | undefined) {
+  if (!workspaceId) return null;
+
+  const response = await fetch(`/api/connections?workspaceId=${workspaceId}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch connection');
+  }
+  const data = await response.json();
+  return data.connection;
+}
+
 export function ConnectionsContent() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { selectedWorkspace, isLoading } = useWorkspace();
+  const { selectedWorkspace, isLoading: isLoadingWorkspace } = useWorkspace();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [workspaceConnection, setWorkspaceConnection] = useState<{
-    id: string;
-    connectionType: string;
-    connectionUrl: string;
-    status: string;
-    cms?: {
-      lastSyncAt?: string | null;
-    };
-  } | null>(null);
-  const [isLoadingConnection, setIsLoadingConnection] = useState(true);
+  const queryClient = useQueryClient();
   const [isDisconnectModalOpen, setIsDisconnectModalOpen] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+
+  // Use TanStack Query for connection data
+  const { data: workspaceConnection, isLoading: isLoadingConnection } =
+    useQuery({
+      queryKey: ['connection', selectedWorkspace?.id],
+      queryFn: () => fetchConnectionData(selectedWorkspace?.id),
+      enabled: !!selectedWorkspace?.id,
+      staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+      gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    });
 
   // Handle WordPress callback when redirected back from WordPress
   useEffect(() => {
@@ -65,7 +79,9 @@ export function ConnectionsContent() {
             // Clear the URL parameters
             router.replace('/dashboard/connections');
             // Refresh the connection data
-            await fetchConnection();
+            await queryClient.invalidateQueries({
+              queryKey: ['connection', selectedWorkspace.id],
+            });
           } else {
             toast.error(data.error || 'Failed to save connection');
             router.replace('/dashboard/connections');
@@ -83,32 +99,6 @@ export function ConnectionsContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, selectedWorkspace, router]);
-
-  // Function to fetch workspace connection
-  const fetchConnection = async () => {
-    if (!selectedWorkspace) return;
-
-    setIsLoadingConnection(true);
-    try {
-      const response = await fetch(
-        `/api/connections?workspaceId=${selectedWorkspace.id}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setWorkspaceConnection(data.connection);
-      }
-    } catch (error) {
-      console.error('Failed to fetch connection:', error);
-    } finally {
-      setIsLoadingConnection(false);
-    }
-  };
-
-  // Fetch workspace connection on mount and when workspace changes
-  useEffect(() => {
-    fetchConnection();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWorkspace]);
 
   // Available platforms data
   const platforms = [
@@ -175,10 +165,11 @@ export function ConnectionsContent() {
 
       if (response.ok) {
         toast.success('Connection disconnected successfully');
-        setWorkspaceConnection(null);
         setIsDisconnectModalOpen(false);
-        // Refresh the page to update workspace state
-        await fetchConnection();
+        // Refresh the connection data
+        await queryClient.invalidateQueries({
+          queryKey: ['connection', selectedWorkspace?.id],
+        });
       } else {
         const data = await response.json();
         toast.error(data.error || 'Failed to disconnect');
@@ -191,14 +182,35 @@ export function ConnectionsContent() {
     }
   };
 
-  if (isLoading || isLoadingConnection) {
+  // Show loading state while workspace is loading
+  if (isLoadingWorkspace) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-6xl mx-auto px-8 py-8">
+          <div className="mb-8">
+            <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6 animate-pulse">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+                <div>
+                  <div className="h-6 w-32 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 w-48 bg-gray-200 rounded"></div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="h-10 w-20 bg-gray-200 rounded-lg"></div>
+                <div className="h-10 w-24 bg-gray-200 rounded-lg"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // Only show "No workspace selected" after loading is complete
   if (!selectedWorkspace) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -222,8 +234,24 @@ export function ConnectionsContent() {
           </h1>
         </div>
 
-        {/* Conditional rendering based on connection status */}
-        {workspaceConnection ? (
+        {/* Show loading skeleton while fetching */}
+        {isLoadingConnection ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6 animate-pulse">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+                <div>
+                  <div className="h-6 w-32 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 w-48 bg-gray-200 rounded"></div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="h-10 w-20 bg-gray-200 rounded-lg"></div>
+                <div className="h-10 w-24 bg-gray-200 rounded-lg"></div>
+              </div>
+            </div>
+          </div>
+        ) : workspaceConnection ? (
           // Show connection details when connected
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
             <div className="flex items-start justify-between">

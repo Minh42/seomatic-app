@@ -7,6 +7,7 @@ import {
   useEffect,
   ReactNode,
 } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getUserWorkspaces,
   type WorkspaceWithConnection,
@@ -32,27 +33,41 @@ interface WorkspaceProviderProps {
 }
 
 export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
+  const queryClient = useQueryClient();
   const [selectedWorkspace, setSelectedWorkspaceState] =
     useState<WorkspaceWithConnection | null>(null);
-  const [workspaces, setWorkspaces] = useState<WorkspaceWithConnection[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch workspaces and restore selection
-  const fetchWorkspaces = async () => {
-    try {
-      const allWorkspaces = await getUserWorkspaces();
-      setWorkspaces(allWorkspaces);
+  // Use TanStack Query for fetching workspaces
+  const {
+    data: workspaces = [],
+    isLoading: isInitialLoading,
+    error,
+  } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: getUserWorkspaces,
+    // Data is considered fresh for 5 minutes
+    staleTime: 5 * 60 * 1000,
+    // Keep data in cache for 10 minutes
+    gcTime: 10 * 60 * 1000,
+  });
 
-      if (allWorkspaces.length === 0) {
-        setSelectedWorkspaceState(null);
-        return;
-      }
+  // Only show loading state on initial load, not on background refetches
+  const isLoading = isInitialLoading && workspaces.length === 0;
 
+  // Handle workspace selection from localStorage and set initial selection
+  useEffect(() => {
+    if (workspaces.length === 0) {
+      setSelectedWorkspaceState(null);
+      return;
+    }
+
+    // Only set selection if we don't already have one
+    if (!selectedWorkspace) {
       // Try to restore previously selected workspace
       const storedWorkspaceId = localStorage.getItem(WORKSPACE_STORAGE_KEY);
 
       if (storedWorkspaceId) {
-        const storedWorkspace = allWorkspaces.find(
+        const storedWorkspace = workspaces.find(
           w => w.id === storedWorkspaceId
         );
         if (storedWorkspace) {
@@ -62,19 +77,26 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       }
 
       // Default to first workspace if no stored selection or stored workspace not found
-      setSelectedWorkspaceState(allWorkspaces[0]);
-      localStorage.setItem(WORKSPACE_STORAGE_KEY, allWorkspaces[0].id);
-    } catch (error) {
+      setSelectedWorkspaceState(workspaces[0]);
+      localStorage.setItem(WORKSPACE_STORAGE_KEY, workspaces[0].id);
+    } else {
+      // Update the selected workspace data if it exists in the new data
+      const updatedWorkspace = workspaces.find(
+        w => w.id === selectedWorkspace.id
+      );
+      if (updatedWorkspace) {
+        setSelectedWorkspaceState(updatedWorkspace);
+      }
+    }
+  }, [workspaces, selectedWorkspace]);
+
+  // Show error toast if fetching fails
+  useEffect(() => {
+    if (error) {
       console.error('Error fetching workspaces:', error);
       toast.error('Failed to load workspaces');
-    } finally {
-      setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchWorkspaces();
-  }, []);
+  }, [error]);
 
   const setSelectedWorkspace = (workspace: WorkspaceWithConnection) => {
     setSelectedWorkspaceState(workspace);
@@ -82,8 +104,8 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   };
 
   const refreshWorkspaces = async () => {
-    setIsLoading(true);
-    await fetchWorkspaces();
+    // Invalidate and refetch workspaces query
+    await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
   };
 
   const value: WorkspaceContextType = {

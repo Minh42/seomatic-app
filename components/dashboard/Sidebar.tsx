@@ -105,59 +105,72 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       </div>
 
       {/* Workspace Switcher */}
-      {!isCollapsed && selectedWorkspace && (
+      {!isCollapsed && (
         <div className="px-3 py-2">
-          <button
-            onClick={() => setIsWorkspaceOpen(!isWorkspaceOpen)}
-            className="w-full text-left group"
-            disabled={isLoading}
-          >
-            <div className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-800/30 transition-all">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex items-center justify-center text-gray-400 font-medium text-sm border border-gray-700/50 p-1.5">
-                  {selectedWorkspace.connectionType ? (
-                    <Image
-                      src={`/logos/cms/${selectedWorkspace.connectionType === 'hosted' ? 'seomatic' : selectedWorkspace.connectionType}.svg`}
-                      alt={selectedWorkspace.connectionType}
-                      width={20}
-                      height={20}
-                      className="object-contain"
-                    />
-                  ) : (
-                    selectedWorkspace.name.charAt(0).toUpperCase()
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white">
-                    {isLoading ? 'Loading...' : selectedWorkspace.name}
+          {selectedWorkspace ? (
+            <button
+              onClick={() => setIsWorkspaceOpen(!isWorkspaceOpen)}
+              className="w-full text-left group"
+              disabled={isLoading}
+            >
+              <div className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-800/30 transition-all">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex items-center justify-center text-gray-400 font-medium text-sm border border-gray-700/50 p-1.5">
+                    {selectedWorkspace.connectionType ? (
+                      <Image
+                        src={`/logos/cms/${selectedWorkspace.connectionType === 'hosted' ? 'seomatic' : selectedWorkspace.connectionType}.svg`}
+                        alt={selectedWorkspace.connectionType}
+                        width={20}
+                        height={20}
+                        className="object-contain"
+                      />
+                    ) : (
+                      selectedWorkspace.name.charAt(0).toUpperCase()
+                    )}
                   </div>
-                  {!isLoading && selectedWorkspace.connectionType ? (
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-xs text-gray-500 truncate">
-                        {selectedWorkspace.connectionUrl}
-                      </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white">
+                      {selectedWorkspace.name}
                     </div>
-                  ) : !isLoading ? (
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        router.push('/dashboard/connections');
-                      }}
-                      className="flex items-center gap-1 mt-0.5 text-xs text-orange-500 hover:text-orange-600 transition-colors cursor-pointer"
-                    >
-                      <span className="text-sm leading-none">+</span>
-                      <span>Add connection</span>
-                    </button>
-                  ) : null}
+                    {selectedWorkspace.connectionType ? (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs text-gray-500 truncate">
+                          {selectedWorkspace.connectionUrl}
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          router.push('/dashboard/connections');
+                        }}
+                        className="flex items-center gap-1 mt-0.5 text-xs text-orange-500 hover:text-orange-600 transition-colors cursor-pointer"
+                      >
+                        <span className="text-sm leading-none">+</span>
+                        <span>Add connection</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 cursor-pointer ${
+                    isWorkspaceOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </div>
+            </button>
+          ) : (
+            // Show skeleton while loading
+            <div className="p-2.5 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gray-800/50 rounded-lg animate-pulse"></div>
+                <div className="flex-1">
+                  <div className="h-4 w-24 bg-gray-800/50 rounded animate-pulse"></div>
+                  <div className="h-3 w-16 bg-gray-800/50 rounded animate-pulse mt-1"></div>
                 </div>
               </div>
-              <ChevronDown
-                className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 cursor-pointer ${
-                  isWorkspaceOpen ? 'rotate-180' : ''
-                }`}
-              />
             </div>
-          </button>
+          )}
 
           {/* Workspace Dropdown */}
           {isWorkspaceOpen && (
