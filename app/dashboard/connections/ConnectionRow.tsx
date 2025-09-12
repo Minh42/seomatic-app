@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { WordPressConnectionModal } from './WordPressConnectionModal';
+import { WebflowConnectionModal } from './WebflowConnectionModal';
+import { ShopifyConnectionModal } from './ShopifyConnectionModal';
+import { GhostConnectionModal } from './GhostConnectionModal';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ConnectionRowProps {
   connection: {
@@ -23,9 +27,35 @@ export function ConnectionRow({
   isLast = false,
 }: ConnectionRowProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleAddConnection = () => {
     setIsModalOpen(true);
+  };
+
+  const handleConnectionSuccess = () => {
+    setIsModalOpen(false);
+    // Invalidate queries to refresh the connection data
+    queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+    queryClient.invalidateQueries({
+      queryKey: ['connection', workspaceId],
+    });
+  };
+
+  // Get documentation URL based on connection ID
+  const getDocumentationUrl = () => {
+    switch (connection.id) {
+      case 'wordpress':
+        return 'https://docs.seomatic.ai/integrations/7Me35UUvTEqmQNRxyWy6Ke/connect-wordpress/3PjSKfTt8Ju6Gt4DVinfJN';
+      case 'webflow':
+        return 'https://docs.seomatic.ai/integrations/7Me35UUvTEqmQNRxyWy6Ke/connect-webflow/5UWtaZhoqtFZc4fc8TggVs';
+      case 'shopify':
+        return 'https://docs.seomatic.ai/integrations/7Me35UUvTEqmQNRxyWy6Ke/connect-shopify/dwFLYQUwArfJNHEVYC6VAP';
+      case 'ghost':
+        return 'https://docs.seomatic.ai/integrations/7Me35UUvTEqmQNRxyWy6Ke/connect-ghost/rsKhKTK3iccXNYU23bLr49';
+      default:
+        return null;
+    }
   };
 
   return (
@@ -54,9 +84,16 @@ export function ConnectionRow({
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="text-sm font-bold text-zinc-400 leading-relaxed hover:text-zinc-600">
-            Learn More
-          </button>
+          {getDocumentationUrl() && (
+            <a
+              href={getDocumentationUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-bold text-zinc-400 leading-relaxed hover:text-zinc-600 cursor-pointer"
+            >
+              Learn More
+            </a>
+          )}
 
           <button
             onClick={handleAddConnection}
@@ -73,6 +110,37 @@ export function ConnectionRow({
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           workspaceId={workspaceId}
+          onSuccess={handleConnectionSuccess}
+        />
+      )}
+
+      {/* Webflow Connection Modal */}
+      {connection.id === 'webflow' && workspaceId && (
+        <WebflowConnectionModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          workspaceId={workspaceId}
+          onSuccess={handleConnectionSuccess}
+        />
+      )}
+
+      {/* Shopify Connection Modal */}
+      {connection.id === 'shopify' && workspaceId && (
+        <ShopifyConnectionModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          workspaceId={workspaceId}
+          onSuccess={handleConnectionSuccess}
+        />
+      )}
+
+      {/* Ghost Connection Modal */}
+      {connection.id === 'ghost' && workspaceId && (
+        <GhostConnectionModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          workspaceId={workspaceId}
+          onSuccess={handleConnectionSuccess}
         />
       )}
     </div>

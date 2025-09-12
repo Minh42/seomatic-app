@@ -200,6 +200,48 @@ export class WordPressError extends ConnectionError {
   }
 }
 
+/**
+ * Webflow-specific error
+ */
+export class WebflowError extends ConnectionError {
+  constructor(
+    code: ConnectionErrorCode,
+    message: string,
+    options?: Parameters<typeof ConnectionError.prototype.constructor>[2]
+  ) {
+    super(code, message, { ...options, cms: 'webflow' });
+    this.name = 'WebflowError';
+  }
+}
+
+/**
+ * Shopify-specific error
+ */
+export class ShopifyError extends ConnectionError {
+  constructor(
+    code: ConnectionErrorCode,
+    message: string,
+    options?: Parameters<typeof ConnectionError.prototype.constructor>[2]
+  ) {
+    super(code, message, { ...options, cms: 'shopify' });
+    this.name = 'ShopifyError';
+  }
+}
+
+/**
+ * Ghost-specific error
+ */
+export class GhostError extends ConnectionError {
+  constructor(
+    code: ConnectionErrorCode,
+    message: string,
+    options?: Parameters<typeof ConnectionError.prototype.constructor>[2]
+  ) {
+    super(code, message, { ...options, cms: 'ghost' });
+    this.name = 'GhostError';
+  }
+}
+
 export class ApplicationPasswordError extends WordPressError {
   constructor() {
     super(

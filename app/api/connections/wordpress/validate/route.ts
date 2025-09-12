@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         }
       } catch (error) {
         // Credentials failed, but let's still check if it's WordPress
-        console.log('Credential validation failed:', error);
+        console.error('Credential validation failed:', error);
       }
     }
 

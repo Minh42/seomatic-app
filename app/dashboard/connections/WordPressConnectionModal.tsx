@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import {
   ArrowLeftRight,
   ChevronDown,
   ChevronUp,
-  Info,
   Eye,
   EyeOff,
+  HelpCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -34,9 +34,10 @@ export function WordPressConnectionModal({
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasBlurred, setHasBlurred] = useState(false);
-  const [isInfoExpanded, setIsInfoExpanded] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const [isCredentialsExpanded, setIsCredentialsExpanded] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update domain when existingDomain changes
   useEffect(() => {
@@ -305,56 +306,94 @@ export function WordPressConnectionModal({
 
                 {/* Authorization Info */}
                 <div>
-                  <div className="mb-3">
+                  <div className="mb-3 relative">
                     <button
                       type="button"
-                      onClick={() => setIsInfoExpanded(!isInfoExpanded)}
-                      className="flex items-center gap-2 text-xs text-gray-600 hover:text-gray-800 transition-colors"
-                      style={{ cursor: 'pointer' }}
+                      onMouseEnter={() => {
+                        if (tooltipTimeoutRef.current) {
+                          clearTimeout(tooltipTimeoutRef.current);
+                        }
+                        setShowTooltip(true);
+                      }}
+                      onMouseLeave={() => {
+                        tooltipTimeoutRef.current = setTimeout(() => {
+                          setShowTooltip(false);
+                        }, 100);
+                      }}
+                      onClick={() => setShowTooltip(!showTooltip)}
+                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
                     >
-                      <Info className="h-3.5 w-3.5 flex-shrink-0" />
+                      <HelpCircle className="h-3.5 w-3.5" />
                       <span className="text-left">
                         We&apos;ll redirect you to your WordPress site to create
                         an application password and authorize the connection
                       </span>
-                      {isInfoExpanded ? (
-                        <ChevronUp className="h-3.5 w-3.5 ml-auto" />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5 ml-auto" />
-                      )}
                     </button>
 
-                    {isInfoExpanded && (
-                      <div className="mt-2 pl-5 space-y-2">
-                        <ol className="text-xs text-gray-500 space-y-1 list-decimal list-inside">
-                          <li>
-                            You&apos;ll be redirected to your WordPress admin
-                            panel
-                          </li>
-                          <li>Log in if you&apos;re not already logged in</li>
-                          <li>Approve the Application Password for SEOmatic</li>
-                          <li>
-                            You&apos;ll be redirected back here automatically
-                          </li>
-                        </ol>
-                        <div className="border-l-2 border-amber-400 pl-2">
-                          <p className="text-xs text-amber-600 font-medium">
-                            Requirements:
-                          </p>
-                          <ul className="text-xs text-amber-600 mt-1 space-y-0.5 list-disc list-inside">
-                            <li>Self-hosted WordPress (WordPress.org)</li>
-                            <li>WordPress 5.6 or higher</li>
-                            <li>Administrator or Editor permissions</li>
-                            <li>Application Passwords enabled</li>
-                            <li>
-                              REST API accessible (check security plugins like
-                              Wordfence)
-                            </li>
-                            <li>
-                              If using Cloudflare, allow /wp-json/* endpoints
-                            </li>
-                          </ul>
+                    {/* Tooltip */}
+                    {showTooltip && (
+                      <div
+                        className="absolute z-10 bottom-full left-0 mb-2 w-80 bg-white border border-gray-200 text-gray-700 text-xs rounded-lg shadow-xl"
+                        onMouseEnter={() => {
+                          if (tooltipTimeoutRef.current) {
+                            clearTimeout(tooltipTimeoutRef.current);
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          setShowTooltip(false);
+                        }}
+                      >
+                        <div className="max-h-64 overflow-y-auto p-3 space-y-2">
+                          <div>
+                            <p className="font-semibold mb-1">Steps:</p>
+                            <ol className="space-y-0.5 list-decimal list-inside">
+                              <li>
+                                You&apos;ll be redirected to your WordPress
+                                admin panel
+                              </li>
+                              <li>
+                                Log in if you&apos;re not already logged in
+                              </li>
+                              <li>
+                                Approve the Application Password for SEOmatic
+                              </li>
+                              <li>
+                                You&apos;ll be redirected back here
+                                automatically
+                              </li>
+                            </ol>
+                          </div>
+                          <div className="border-l-2 border-amber-400 pl-2">
+                            <p className="text-amber-600 font-medium">
+                              Requirements:
+                            </p>
+                            <ul className="text-amber-600 mt-1 space-y-0.5 list-disc list-inside">
+                              <li>Self-hosted WordPress (WordPress.org)</li>
+                              <li>WordPress 5.6 or higher</li>
+                              <li>Administrator or Editor permissions</li>
+                              <li>Application Passwords enabled</li>
+                              <li>
+                                REST API accessible (check security plugins like
+                                Wordfence)
+                              </li>
+                              <li>
+                                If using Cloudflare, allow /wp-json/* endpoints
+                              </li>
+                            </ul>
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <a
+                              href="https://docs.seomatic.ai/integrations/7Me35UUvTEqmQNRxyWy6Ke/connect-wordpress/3PjSKfTt8Ju6Gt4DVinfJN"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:text-indigo-700 font-medium cursor-pointer"
+                            >
+                              Read full documentation →
+                            </a>
+                          </div>
                         </div>
+                        {/* Tooltip arrow */}
+                        <div className="absolute top-full left-4 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
                       </div>
                     )}
                   </div>

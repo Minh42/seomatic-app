@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { ConnectionService } from '@/lib/services/connection-service';
 import { WordPressService } from '@/lib/services/wordpress-service';
+import { WebflowService } from '@/lib/services/webflow-service';
+import { ShopifyService } from '@/lib/services/shopify-service';
+import { GhostService } from '@/lib/services/ghost-service';
 import {
   handleConnectionError,
   getErrorMessage,
@@ -71,6 +74,135 @@ export async function POST(
           {
             success: false,
             error: 'Connection test failed. Please check your credentials.',
+            connection: {
+              ...connection,
+              status: 'error',
+            },
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Test Webflow connection
+    if (connection.connectionType === 'webflow') {
+      const cmsSiteId = connection.cms?.cmsSiteId;
+      if (!cmsSiteId) {
+        return NextResponse.json(
+          { success: false, error: 'Site ID not found' },
+          { status: 400 }
+        );
+      }
+
+      const isValid = await WebflowService.testConnection(
+        credentials.apiKey!,
+        cmsSiteId
+      );
+
+      if (isValid) {
+        // Update connection status to active if it was in error
+        if (connection.status !== 'active') {
+          await ConnectionService.updateStatus(params.id, 'active');
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: 'Connection is working properly',
+          connection: {
+            ...connection,
+            status: 'active',
+          },
+        });
+      } else {
+        // Update connection status to error
+        await ConnectionService.updateStatus(params.id, 'error');
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Connection test failed. Please check your API token.',
+            connection: {
+              ...connection,
+              status: 'error',
+            },
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Test Shopify connection
+    if (connection.connectionType === 'shopify') {
+      const validationResult = await ShopifyService.validateStore(
+        connection.connectionUrl,
+        credentials.apiKey!
+      );
+
+      if (validationResult.isValid) {
+        // Update connection status to active if it was in error
+        if (connection.status !== 'active') {
+          await ConnectionService.updateStatus(params.id, 'active');
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: 'Connection is working properly',
+          connection: {
+            ...connection,
+            status: 'active',
+          },
+        });
+      } else {
+        // Update connection status to error
+        await ConnectionService.updateStatus(params.id, 'error');
+
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              validationResult.error ||
+              'Connection test failed. Please check your access token.',
+            connection: {
+              ...connection,
+              status: 'error',
+            },
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Test Ghost connection
+    if (connection.connectionType === 'ghost') {
+      const validationResult = await GhostService.validateCredentials(
+        connection.connectionUrl,
+        credentials.apiKey!
+      );
+
+      if (validationResult.isValid) {
+        // Update connection status to active if it was in error
+        if (connection.status !== 'active') {
+          await ConnectionService.updateStatus(params.id, 'active');
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: 'Connection is working properly',
+          connection: {
+            ...connection,
+            status: 'active',
+          },
+        });
+      } else {
+        // Update connection status to error
+        await ConnectionService.updateStatus(params.id, 'error');
+
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              validationResult.error ||
+              'Connection test failed. Please check your Admin API key.',
             connection: {
               ...connection,
               status: 'error',

@@ -5,6 +5,9 @@ import Image from 'next/image';
 import { Search, Loader2 } from 'lucide-react';
 import { ConnectionRow } from './ConnectionRow';
 import { WordPressConnectionModal } from './WordPressConnectionModal';
+import { WebflowConnectionModal } from './WebflowConnectionModal';
+import { ShopifyConnectionModal } from './ShopifyConnectionModal';
+import { GhostConnectionModal } from './GhostConnectionModal';
 import { DisconnectConfirmModal } from '@/components/modals/DisconnectConfirmModal';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -411,7 +414,7 @@ export function ConnectionsContent() {
                       <button
                         onClick={handleTestConnection}
                         disabled={isTestingConnection}
-                        className="text-xs text-indigo-600 hover:text-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-xs text-indigo-600 hover:text-indigo-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isTestingConnection
                           ? 'Testing connection...'
@@ -432,13 +435,13 @@ export function ConnectionsContent() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleEditConnection}
-                  className="px-4 py-2 text-zinc-600 text-sm font-bold leading-relaxed bg-white border border-zinc-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 text-zinc-600 text-sm font-bold leading-relaxed bg-white border border-zinc-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => setIsDisconnectModalOpen(true)}
-                  className="px-4 py-2 text-red-600 text-sm font-bold leading-relaxed bg-white border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+                  className="px-4 py-2 text-red-600 text-sm font-bold leading-relaxed bg-white border border-red-300 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
                 >
                   Disconnect
                 </button>
@@ -509,6 +512,66 @@ export function ConnectionsContent() {
           onClose={() => setIsEditModalOpen(false)}
           workspaceId={selectedWorkspace?.id || ''}
           existingDomain={workspaceConnection.connectionUrl}
+          onSuccess={() => {
+            setIsEditModalOpen(false);
+            // Invalidate queries to refresh the connection
+            queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+            queryClient.invalidateQueries({
+              queryKey: ['connection', selectedWorkspace?.id],
+            });
+          }}
+        />
+      )}
+
+      {workspaceConnection?.connectionType === 'webflow' && (
+        <WebflowConnectionModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          workspaceId={selectedWorkspace?.id || ''}
+          existingConnection={{
+            siteId: workspaceConnection.cms?.cmsSiteId,
+            siteName: workspaceConnection.connectionUrl,
+          }}
+          onSuccess={() => {
+            setIsEditModalOpen(false);
+            // Invalidate queries to refresh the connection
+            queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+            queryClient.invalidateQueries({
+              queryKey: ['connection', selectedWorkspace?.id],
+            });
+          }}
+        />
+      )}
+
+      {workspaceConnection?.connectionType === 'shopify' && (
+        <ShopifyConnectionModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          workspaceId={selectedWorkspace?.id || ''}
+          existingConnection={{
+            storeDomain: workspaceConnection.connectionUrl,
+            shopName: workspaceConnection.cms?.cmsSiteId,
+          }}
+          onSuccess={() => {
+            setIsEditModalOpen(false);
+            // Invalidate queries to refresh the connection
+            queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+            queryClient.invalidateQueries({
+              queryKey: ['connection', selectedWorkspace?.id],
+            });
+          }}
+        />
+      )}
+
+      {workspaceConnection?.connectionType === 'ghost' && (
+        <GhostConnectionModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          workspaceId={selectedWorkspace?.id || ''}
+          existingConnection={{
+            domain: workspaceConnection.connectionUrl,
+            siteName: workspaceConnection.cms?.cmsSiteId,
+          }}
           onSuccess={() => {
             setIsEditModalOpen(false);
             // Invalidate queries to refresh the connection
