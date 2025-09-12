@@ -18,13 +18,6 @@ export const domainSchema = z
     message: 'Domain should not include protocol (http:// or https://)',
   });
 
-// WordPress connection schema
-export const wordPressConnectionSchema = z.object({
-  domain: domainSchema,
-  username: z.string().min(1, 'Username is required'),
-  applicationPassword: z.string().min(1, 'Application password is required'),
-});
-
 // Webflow connection schema (for future use)
 export const webflowConnectionSchema = z.object({
   domain: domainSchema,
@@ -88,13 +81,6 @@ export const wordPressCallbackSchema = z.object({
   error: z.string().optional(),
 });
 
-// Update connection status
-export const updateConnectionStatusSchema = z.object({
-  connectionId: z.string().uuid('Invalid connection ID'),
-  status: connectionStatusSchema,
-  error: z.string().optional(),
-});
-
 // Connection response type
 export const connectionResponseSchema = z.object({
   id: z.string().uuid(),
@@ -116,7 +102,6 @@ export const connectionResponseSchema = z.object({
 
 // Type exports
 export type Domain = z.infer<typeof domainSchema>;
-export type WordPressConnection = z.infer<typeof wordPressConnectionSchema>;
 export type WebflowConnection = z.infer<typeof webflowConnectionSchema>;
 export type ShopifyConnection = z.infer<typeof shopifyConnectionSchema>;
 export type GhostConnection = z.infer<typeof ghostConnectionSchema>;
@@ -126,7 +111,4 @@ export type BaseConnection = z.infer<typeof baseConnectionSchema>;
 export type WordPressValidateRequest = z.infer<typeof wordPressValidateSchema>;
 export type WordPressConnectRequest = z.infer<typeof wordPressConnectSchema>;
 export type WordPressCallbackRequest = z.infer<typeof wordPressCallbackSchema>;
-export type UpdateConnectionStatus = z.infer<
-  typeof updateConnectionStatusSchema
->;
 export type ConnectionResponse = z.infer<typeof connectionResponseSchema>;

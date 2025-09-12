@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
     // Parse and validate request body
     const body = await request.json();
     const { workspaceId, domain } = wordPressConnectSchema.parse(body);
+    const { username, password } = body; // Optional direct credentials
 
     // Verify user owns the workspace
     const hasAccess = await ConnectionService.verifyWorkspaceOwnership(
@@ -37,8 +38,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if domain is already connected
-    const isConnected = await ConnectionService.isDomainConnected(domain);
+    // Check if domain is already connected to a different workspace
+    const isConnected = await ConnectionService.isDomainConnected(
+      domain,
+      workspaceId
+    );
     if (isConnected) {
       return NextResponse.json(
         {
@@ -49,7 +53,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate WordPress domain first
+    // Check if direct credentials are provided
+    if (username && password) {
+      // Validate credentials
+      const isValid = await WordPressService.validateCredentials(
+        domain,
+        username,
+        password
+      );
+
+      if (!isValid) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid WordPress credentials',
+          },
+          { status: 401 }
+        );
+      }
+
+      // Create connection with direct credentials
+      await WordPressService.createConnection({
+        workspaceId,
+        domain,
+        username,
+        applicationPassword: password, // Using the WordPress password as application password
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'WordPress connection established successfully',
+      });
+    }
+
+    // Otherwise, use Application Password flow
     const validation = await WordPressService.validateDomain(domain);
     if (!validation.isValid || !validation.isWordPress) {
       return NextResponse.json(

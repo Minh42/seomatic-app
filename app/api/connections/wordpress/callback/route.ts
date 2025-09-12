@@ -81,34 +81,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Handle GET request for OAuth-style callback
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const domain = searchParams.get('domain');
-  const status = searchParams.get('status');
-  const user_login = searchParams.get('user_login');
-  const password = searchParams.get('password');
-  const error = searchParams.get('error');
-
-  // Redirect to dashboard with parameters
-  const redirectUrl = new URL('/dashboard/connections', request.url);
-
-  if (status === 'success' && user_login && password) {
-    // Success - redirect with success params
-    redirectUrl.searchParams.set('wordpress_success', 'true');
-    redirectUrl.searchParams.set('domain', domain || '');
-    redirectUrl.searchParams.set('username', user_login);
-    // Note: In production, pass password securely through session storage
-    redirectUrl.searchParams.set(
-      'temp_token',
-      Buffer.from(password).toString('base64')
-    );
-  } else {
-    // Error - redirect with error
-    redirectUrl.searchParams.set('wordpress_error', 'true');
-    redirectUrl.searchParams.set('error', error || 'Authorization failed');
-  }
-
-  return NextResponse.redirect(redirectUrl);
-}

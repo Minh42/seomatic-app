@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { connections, connectionCms, workspaces } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, ne } from 'drizzle-orm';
 import {
   encryptCredentials,
   decryptCredentials,
@@ -52,16 +52,7 @@ export class ConnectionService {
         .where(eq(connections.workspaceId, workspaceId))
         .limit(1);
 
-      console.log(
-        'Existing workspace connection:',
-        existingWorkspaceConnection
-      );
-
       if (existingWorkspaceConnection) {
-        console.log(
-          'Deleting existing workspace connection:',
-          existingWorkspaceConnection.id
-        );
         // Delete existing connection (cascade will delete related records)
         await this.delete(existingWorkspaceConnection.id);
       }
@@ -73,25 +64,12 @@ export class ConnectionService {
         .where(eq(connections.connectionUrl, connectionUrl))
         .limit(1);
 
-      console.log('Existing URL connection:', existingUrlConnection);
-
       if (existingUrlConnection) {
-        console.log(
-          'Deleting existing URL connection:',
-          existingUrlConnection.id
-        );
         // Delete the connection using this URL
         await this.delete(existingUrlConnection.id);
       }
 
       // Now create the new connection
-      console.log(
-        'Creating new connection for workspace:',
-        workspaceId,
-        'with URL:',
-        connectionUrl
-      );
-
       return await this.create({
         workspaceId,
         connectionUrl,
@@ -339,15 +317,44 @@ export class ConnectionService {
   }
 
   /**
+   * Update connection status
+   */
+  static async updateStatus(connectionId: string, status: ConnectionStatus) {
+    await db
+      .update(connections)
+      .set({
+        status,
+        updatedAt: new Date(),
+      })
+      .where(eq(connections.id, connectionId));
+  }
+
+  /**
    * Check if a domain is already connected in any workspace
    */
-  static async isDomainConnected(domain: string): Promise<boolean> {
-    const existing = await db
+  static async isDomainConnected(
+    domain: string,
+    excludeWorkspaceId?: string
+  ): Promise<boolean> {
+    const query = db
       .select()
       .from(connections)
-      .where(eq(connections.connectionUrl, domain))
-      .limit(1);
+      .where(eq(connections.connectionUrl, domain));
 
+    // If excludeWorkspaceId is provided, exclude that workspace from the check
+    if (excludeWorkspaceId) {
+      const existing = await query
+        .where(
+          and(
+            eq(connections.connectionUrl, domain),
+            ne(connections.workspaceId, excludeWorkspaceId)
+          )
+        )
+        .limit(1);
+      return existing.length > 0;
+    }
+
+    const existing = await query.limit(1);
     return existing.length > 0;
   }
 

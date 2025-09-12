@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Search, Loader2 } from 'lucide-react';
 import { ConnectionRow } from './ConnectionRow';
+import { WordPressConnectionModal } from './WordPressConnectionModal';
 import { DisconnectConfirmModal } from '@/components/modals/DisconnectConfirmModal';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -34,6 +35,9 @@ export function ConnectionsContent() {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isProcessingCallback, setIsProcessingCallback] = useState(false);
   const [callbackStatus, setCallbackStatus] = useState<string>('');
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const isProcessingCallbackRef = useRef(false);
 
   // Check if we have callback params
   const hasCallbackParams = !!(
@@ -70,7 +74,8 @@ export function ConnectionsContent() {
         // Wait a bit for workspace to load
         await new Promise(resolve => setTimeout(resolve, 100));
         if (!selectedWorkspace) {
-          // If still no workspace after wait, we'll retry on next effect run
+          // If still no workspace after wait, reset the ref so we can retry
+          isProcessingCallbackRef.current = false;
           return;
         }
       }
@@ -128,8 +133,15 @@ export function ConnectionsContent() {
       }
     };
 
-    if (hasCallbackParams) {
+    // Only process if we have params and haven't already started processing
+    if (hasCallbackParams && !isProcessingCallbackRef.current) {
+      isProcessingCallbackRef.current = true;
       handleWordPressCallback();
+    }
+
+    // Reset the ref when params are cleared
+    if (!hasCallbackParams && isProcessingCallbackRef.current) {
+      isProcessingCallbackRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, selectedWorkspace, hasCallbackParams]);
@@ -217,6 +229,53 @@ export function ConnectionsContent() {
     } finally {
       setIsDisconnecting(false);
     }
+  };
+
+  // Handle test connection
+  const handleTestConnection = async () => {
+    if (!workspaceConnection) return;
+
+    setIsTestingConnection(true);
+    try {
+      const response = await fetch(
+        `/api/connections/${workspaceConnection.id}/test`,
+        {
+          method: 'POST',
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update connection status if changed
+        if (data.connection) {
+          queryClient.setQueryData(['connection', selectedWorkspace?.id], {
+            ...data.connection,
+            status: 'active',
+          });
+        }
+        toast.success('Connection is working properly');
+      } else {
+        // Update status to error
+        if (workspaceConnection) {
+          queryClient.setQueryData(['connection', selectedWorkspace?.id], {
+            ...workspaceConnection,
+            status: 'error',
+          });
+        }
+        toast.error(data.error || 'Connection test failed');
+      }
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      toast.error('Failed to test connection');
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  // Handle edit connection
+  const handleEditConnection = () => {
+    setIsEditModalOpen(true);
   };
 
   // Show processing state if we're handling a callback
@@ -334,19 +393,30 @@ export function ConnectionsContent() {
                     {workspaceConnection.connectionUrl}
                   </p>
                   <div className="flex items-center gap-4 mt-3">
-                    <div className="flex items-center gap-1.5">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          workspaceConnection.status === 'active'
-                            ? 'bg-green-500'
-                            : workspaceConnection.status === 'error'
-                              ? 'bg-red-500'
-                              : 'bg-yellow-500'
-                        }`}
-                      />
-                      <span className="text-xs text-gray-600 capitalize">
-                        {workspaceConnection.status}
-                      </span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            workspaceConnection.status === 'active'
+                              ? 'bg-green-500'
+                              : workspaceConnection.status === 'error'
+                                ? 'bg-red-500'
+                                : 'bg-yellow-500'
+                          }`}
+                        />
+                        <span className="text-xs text-gray-600 capitalize">
+                          {workspaceConnection.status}
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleTestConnection}
+                        disabled={isTestingConnection}
+                        className="text-xs text-indigo-600 hover:text-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isTestingConnection
+                          ? 'Testing connection...'
+                          : 'Test connection'}
+                      </button>
                     </div>
                     {workspaceConnection.cms?.lastSyncAt && (
                       <span className="text-xs text-gray-500">
@@ -360,12 +430,15 @@ export function ConnectionsContent() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button className="px-4 py-2 text-zinc-600 text-sm font-bold leading-relaxed bg-white border border-zinc-300 rounded-lg hover:bg-gray-50 transition-colors">
-                  Settings
+                <button
+                  onClick={handleEditConnection}
+                  className="px-4 py-2 text-zinc-600 text-sm font-bold leading-relaxed bg-white border border-zinc-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Edit
                 </button>
                 <button
                   onClick={() => setIsDisconnectModalOpen(true)}
-                  className="px-4 py-2 text-red-500 text-sm font-bold leading-relaxed bg-white border border-red-500 rounded-lg hover:bg-red-50 transition-colors"
+                  className="px-4 py-2 text-red-600 text-sm font-bold leading-relaxed bg-white border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
                 >
                   Disconnect
                 </button>
@@ -407,10 +480,6 @@ export function ConnectionsContent() {
                     connection={platform}
                     workspaceId={selectedWorkspace.id}
                     isLast={index === filteredPlatforms.length - 1}
-                    onStatusChange={(id, newStatus) => {
-                      // Handle status change if needed
-                      console.log('Status change:', id, newStatus);
-                    }}
                   />
                 ))}
               </div>
@@ -432,6 +501,24 @@ export function ConnectionsContent() {
         connectionUrl={workspaceConnection?.connectionUrl}
         isLoading={isDisconnecting}
       />
+
+      {/* Edit Connection Modal */}
+      {workspaceConnection?.connectionType === 'wordpress' && (
+        <WordPressConnectionModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          workspaceId={selectedWorkspace?.id || ''}
+          existingDomain={workspaceConnection.connectionUrl}
+          onSuccess={() => {
+            setIsEditModalOpen(false);
+            // Invalidate queries to refresh the connection
+            queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+            queryClient.invalidateQueries({
+              queryKey: ['connection', selectedWorkspace?.id],
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

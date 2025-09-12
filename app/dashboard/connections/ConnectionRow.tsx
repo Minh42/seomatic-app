@@ -4,25 +4,21 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { WordPressConnectionModal } from './WordPressConnectionModal';
 
-type ConnectionStatus = 'not_connected' | 'connected' | 'error';
-
 interface ConnectionRowProps {
   connection: {
     id: string;
     name: string;
     description: string;
     icon: string;
-    status: ConnectionStatus;
+    status: 'not_connected' | 'connected' | 'error';
     isConfigured: boolean;
   };
-  onStatusChange: (id: string, status: ConnectionStatus) => void;
   workspaceId?: string;
   isLast?: boolean;
 }
 
 export function ConnectionRow({
   connection,
-  onStatusChange,
   workspaceId,
   isLast = false,
 }: ConnectionRowProps) {
@@ -30,16 +26,6 @@ export function ConnectionRow({
 
   const handleAddConnection = () => {
     setIsModalOpen(true);
-  };
-
-  const handleConnect = (domain: string) => {
-    console.log('Connecting to WordPress domain:', domain);
-    onStatusChange(connection.id, 'connected');
-  };
-
-  const handleManage = () => {
-    // Handle manage action
-    console.log('Manage connection:', connection.id);
   };
 
   return (
@@ -72,25 +58,12 @@ export function ConnectionRow({
             Learn More
           </button>
 
-          {connection.status === 'connected' ? (
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              <span className="text-sm text-gray-600 mr-3">Connected</span>
-              <button
-                onClick={handleManage}
-                className="px-5 py-2 bg-indigo-600 text-white rounded-full text-sm font-medium hover:bg-indigo-700 transition-colors"
-              >
-                Manage
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={handleAddConnection}
-              className="h-10 px-4 bg-slate-900 text-white rounded text-sm font-bold leading-relaxed hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              Add Connection
-            </button>
-          )}
+          <button
+            onClick={handleAddConnection}
+            className="h-10 px-4 bg-slate-900 text-white rounded text-sm font-bold leading-relaxed hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            Add Connection
+          </button>
         </div>
       </div>
 
@@ -99,7 +72,6 @@ export function ConnectionRow({
         <WordPressConnectionModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onConnect={handleConnect}
           workspaceId={workspaceId}
         />
       )}

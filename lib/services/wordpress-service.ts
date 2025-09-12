@@ -52,6 +52,46 @@ export class WordPressService {
         });
         clearTimeout(timeout);
 
+        // Check for HTTP Basic Auth protection
+        if (response.status === 401) {
+          const authHeader = response.headers.get('www-authenticate');
+          if (authHeader && authHeader.toLowerCase().includes('basic')) {
+            throw new WordPressError(
+              ConnectionErrorCode.CONNECTION_REFUSED,
+              'Site requires HTTP Basic Authentication',
+              {
+                statusCode: 401,
+                details: { httpBasicAuth: true },
+              }
+            );
+          }
+        }
+
+        // Check for CDN/Proxy blocking (especially Cloudflare)
+        if (response.status === 403) {
+          const cfRayHeader = response.headers.get('cf-ray');
+          const cfCacheStatus = response.headers.get('cf-cache-status');
+
+          if (cfRayHeader || cfCacheStatus) {
+            // Cloudflare is blocking the request
+            throw new WordPressError(
+              ConnectionErrorCode.CONNECTION_REFUSED,
+              "Your site's Cloudflare settings are blocking our connection. Please whitelist our service or temporarily disable Bot Fight Mode.",
+              {
+                statusCode: 403,
+                details: { cdn: 'cloudflare', cfRay: cfRayHeader },
+              }
+            );
+          } else {
+            // Generic security block
+            throw new WordPressError(
+              ConnectionErrorCode.CONNECTION_REFUSED,
+              "Your site's security settings are blocking the connection. Please check your firewall or security plugin settings.",
+              { statusCode: 403 }
+            );
+          }
+        }
+
         if (!response.ok && response.status !== 405) {
           throw new NetworkError(
             `Domain returned status ${response.status}`,
@@ -78,6 +118,87 @@ export class WordPressService {
         },
       });
 
+      // Check for HTTP Basic Auth on API endpoint
+      if (apiResponse.status === 401) {
+        const authHeader = apiResponse.headers.get('www-authenticate');
+        if (authHeader && authHeader.toLowerCase().includes('basic')) {
+          throw new WordPressError(
+            ConnectionErrorCode.CONNECTION_REFUSED,
+            'Site requires HTTP Basic Authentication',
+            {
+              statusCode: 401,
+              details: { httpBasicAuth: true, endpoint: 'wp-json' },
+            }
+          );
+        }
+      }
+
+      // Check for CDN/Security plugin blocking on API endpoint
+      if (apiResponse.status === 403) {
+        const cfRayHeader = apiResponse.headers.get('cf-ray');
+        if (cfRayHeader) {
+          throw new WordPressError(
+            ConnectionErrorCode.CONNECTION_REFUSED,
+            "Your site's Cloudflare settings are blocking our connection. Please whitelist our service or temporarily disable Bot Fight Mode.",
+            {
+              statusCode: 403,
+              details: { cdn: 'cloudflare', endpoint: 'wp-json' },
+            }
+          );
+        }
+
+        // Check if response is HTML (common when security plugins block)
+        const contentType = apiResponse.headers.get('content-type') || '';
+        const isHtml = contentType.includes('text/html');
+
+        // Try to get response body to check for security plugin patterns
+        // Clone the response to avoid consuming the original
+        let responseText = '';
+        try {
+          const responseClone = apiResponse.clone();
+          responseText = await responseClone.text();
+        } catch {
+          // Ignore if we can't read the body
+        }
+
+        // Check for common security plugin patterns
+        const securityPluginPatterns = [
+          'wordfence',
+          'rest_forbidden',
+          'rest_disabled',
+          'security',
+          'firewall',
+          'blocked',
+          'access denied',
+        ];
+
+        const hasSecurityPattern = securityPluginPatterns.some(pattern =>
+          responseText.toLowerCase().includes(pattern)
+        );
+
+        if (isHtml || hasSecurityPattern) {
+          throw new WordPressError(
+            ConnectionErrorCode.API_DISABLED,
+            'A security plugin (like Wordfence) is blocking API access. Please check your security settings and whitelist the REST API.',
+            {
+              statusCode: 403,
+              details: {
+                securityPlugin: true,
+                isHtml,
+                hasSecurityPattern,
+              },
+            }
+          );
+        }
+
+        // Generic 403 without specific detection
+        throw new WordPressError(
+          ConnectionErrorCode.CONNECTION_REFUSED,
+          "Your site's security settings are blocking the connection. Please check your firewall or security plugin settings.",
+          { statusCode: 403 }
+        );
+      }
+
       // If we get a 401, it means the API exists but requires auth (which is fine)
       // If we get a 200, the API is public (also fine)
       // If we get a 404, the API doesn't exist
@@ -95,7 +216,8 @@ export class WordPressService {
           return {
             isValid: false,
             isWordPress: false,
-            error: 'WordPress REST API not found',
+            error:
+              'WordPress REST API is not accessible. Please check your permalink settings in WordPress (Settings > Permalinks).',
           };
         }
       }
@@ -111,12 +233,23 @@ export class WordPressService {
         try {
           const siteInfo = await siteInfoResponse.json();
 
+          // Check for REST API restriction error
+          if (siteInfo.status === 'error' && siteInfo.error === 'Restricted') {
+            return {
+              isValid: false,
+              isWordPress: true, // It IS WordPress, just restricted
+              error:
+                'WordPress REST API is protected by Basic Authentication. Please provide the correct credentials.',
+            };
+          }
+
           // Check if it's actually WordPress
           if (!siteInfo.name || !siteInfo.namespaces?.includes('wp/v2')) {
             return {
               isValid: false,
               isWordPress: false,
-              error: 'Not a WordPress site',
+              error:
+                "This doesn't appear to be a WordPress site. Please verify the domain and ensure WordPress is installed.",
             };
           }
 
@@ -164,15 +297,46 @@ export class WordPressService {
           return {
             isValid: false,
             isWordPress: false,
-            error: 'Invalid WordPress response',
+            error:
+              'WordPress returned an unexpected response. This may be caused by a plugin conflict or server configuration issue.',
           };
         }
+      }
+
+      // If we got here, the site might be WordPress but with restricted API
+      // Check if the response has WordPress-specific error format
+      try {
+        const errorResponse = await siteInfoResponse.json();
+        if (
+          errorResponse.status === 'error' ||
+          errorResponse.code ||
+          errorResponse.message
+        ) {
+          // This is likely WordPress with restricted API
+          // Improve error message for common restriction messages
+          let errorMessage =
+            errorResponse.error_description ||
+            errorResponse.message ||
+            'REST API access is restricted';
+          if (errorMessage.includes('not allowed to access REST API')) {
+            errorMessage =
+              'WordPress REST API is protected by Basic Authentication. Please provide the correct credentials.';
+          }
+          return {
+            isValid: false,
+            isWordPress: true,
+            error: errorMessage,
+          };
+        }
+      } catch {
+        // Not JSON or other error
       }
 
       return {
         isValid: false,
         isWordPress: false,
-        error: 'Unable to detect WordPress',
+        error:
+          'Cannot verify this is a WordPress site. Please check that WordPress is properly installed and accessible.',
       };
     } catch (error) {
       // Handle network errors
@@ -238,8 +402,6 @@ export class WordPressService {
     loginUrl.searchParams.set('reauth', '1'); // Force re-authentication for security
 
     const finalUrl = loginUrl.toString();
-    console.log('Generated WordPress auth URL with login redirect:', finalUrl);
-    console.log('Authorization URL:', authUrl.toString());
 
     return finalUrl;
   }

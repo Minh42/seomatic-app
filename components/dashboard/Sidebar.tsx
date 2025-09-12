@@ -133,13 +133,20 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                       {selectedWorkspace.name}
                     </div>
                     {selectedWorkspace.connectionType ? (
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-xs text-gray-500 truncate">
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          router.push('/dashboard/connections');
+                        }}
+                        className="flex items-center gap-1.5 mt-0.5 text-left"
+                        title="Manage connection"
+                      >
+                        <span className="text-xs text-gray-500 hover:text-gray-400 transition-colors truncate cursor-pointer">
                           {selectedWorkspace.connectionUrl}
                         </span>
-                      </div>
+                      </button>
                     ) : (
-                      <button
+                      <div
                         onClick={e => {
                           e.stopPropagation();
                           router.push('/dashboard/connections');
@@ -148,7 +155,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                       >
                         <span className="text-sm leading-none">+</span>
                         <span>Add connection</span>
-                      </button>
+                      </div>
                     )}
                   </div>
                 </div>

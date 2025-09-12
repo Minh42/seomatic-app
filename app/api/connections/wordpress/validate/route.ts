@@ -12,8 +12,35 @@ export async function POST(request: NextRequest) {
     // Parse and validate request body
     const body = await request.json();
     const { domain } = wordPressValidateSchema.parse(body);
+    const { username, password } = body; // Optional credentials
 
-    // Validate WordPress domain
+    // If credentials are provided, try to validate them first
+    // This handles sites where REST API requires authentication
+    if (username && password) {
+      try {
+        const credentialsValid = await WordPressService.validateCredentials(
+          domain,
+          username,
+          password
+        );
+
+        if (credentialsValid) {
+          // Credentials work, so it's definitely WordPress
+          return NextResponse.json({
+            success: true,
+            isWordPress: true,
+            restApiUrl: `https://${domain}/wp-json/wp/v2`,
+            applicationPasswordsEnabled: true, // Credentials work, so auth is enabled
+            credentialsValid: true,
+          });
+        }
+      } catch (error) {
+        // Credentials failed, but let's still check if it's WordPress
+        console.log('Credential validation failed:', error);
+      }
+    }
+
+    // Validate WordPress domain (without credentials)
     const result = await WordPressService.validateDomain(domain);
 
     if (!result.isValid) {
@@ -32,6 +59,7 @@ export async function POST(request: NextRequest) {
       isWordPress: result.isWordPress,
       restApiUrl: result.restApiUrl,
       applicationPasswordsEnabled: result.applicationPasswordsEnabled,
+      credentialsValid: false, // Credentials either not provided or invalid
     });
   } catch (error) {
     // Handle validation errors

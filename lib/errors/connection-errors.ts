@@ -299,6 +299,10 @@ export function getErrorMessage(error: ConnectionError): string {
       return 'This CMS version is not supported. Please update to a newer version.';
 
     case ConnectionErrorCode.API_DISABLED:
+      // Check if it's a security plugin blocking
+      if (error.details?.securityPlugin) {
+        return 'WordPress REST API appears to be blocked by a security plugin. You may need to whitelist the REST API or adjust your security settings.';
+      }
       return 'The API is disabled on this site. Please enable it to continue.';
 
     case ConnectionErrorCode.INVALID_CREDENTIALS:
@@ -320,7 +324,14 @@ export function getErrorMessage(error: ConnectionError): string {
       return 'SSL certificate error. The site may not be secure.';
 
     case ConnectionErrorCode.CONNECTION_REFUSED:
-      return 'Connection refused. Please check if the site is online.';
+      // Check if it's a CDN-specific error with detailed instructions
+      if (error.details?.cdn === 'cloudflare') {
+        if (error.details?.endpoint === 'wp-json') {
+          return "WordPress API is blocked by Cloudflare. You'll need to create a Page Rule to allow access to /wp-json/* endpoints.";
+        }
+        return "Site is protected by Cloudflare. You may need to adjust your security settings or whitelist SEOmatic's access.";
+      }
+      return 'Connection blocked by security settings. Check your firewall, security plugins, or CDN configuration.';
 
     case ConnectionErrorCode.API_RATE_LIMITED:
       return 'Too many requests. Please wait a moment and try again.';
