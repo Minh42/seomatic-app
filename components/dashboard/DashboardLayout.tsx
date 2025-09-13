@@ -23,9 +23,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           />
 
           {/* Main Content */}
-          <main className="flex-1 overflow-y-auto">
-            <div className="h-full p-8">{children}</div>
-          </main>
+          <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
       </WorkspaceProvider>
     </QueryProvider>

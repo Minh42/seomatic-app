@@ -192,6 +192,13 @@ export const authOptions: NextAuthOptions = {
             updatedAt: new Date(),
           };
 
+          // Parse name into firstName and lastName
+          if (profile.name) {
+            const nameParts = profile.name.split(' ');
+            updateData.firstName = nameParts[0] || '';
+            updateData.lastName = nameParts.slice(1).join(' ') || '';
+          }
+
           // Map provider-specific IDs
           if (account.provider === 'google') {
             updateData.googleId = profileData.sub;

@@ -3,7 +3,6 @@
 import type React from 'react';
 
 import { useState } from 'react';
-import { useActionState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,15 +19,7 @@ import {
   EmojiPickerSearch,
   EmojiPickerFooter,
 } from '@/components/ui/emoji-picker';
-import { createSubdomainAction } from '@/app/actions';
 import { rootDomain } from '@/lib/utils';
-
-type CreateState = {
-  error?: string;
-  success?: boolean;
-  subdomain?: string;
-  icon?: string;
-};
 
 function SubdomainInput({ defaultValue }: { defaultValue?: string }) {
   return (
@@ -126,21 +117,52 @@ function IconPicker({
 
 export function SubdomainForm() {
   const [icon, setIcon] = useState('');
+  // const [subdomain, setSubdomain] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  // const router = useRouter();
 
-  const [state, action, isPending] = useActionState<CreateState, FormData>(
-    createSubdomainAction,
-    {}
-  );
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    setIsPending(true);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      const subdomainValue = formData.get('subdomain') as string;
+
+      const response = await fetch('/api/subdomain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subdomain: subdomainValue,
+          icon: icon,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Failed to create subdomain');
+        return;
+      }
+
+      // Redirect to the new subdomain
+      window.location.href = data.redirectUrl;
+    } catch {
+      setError('An unexpected error occurred');
+    } finally {
+      setIsPending(false);
+    }
+  };
 
   return (
-    <form action={action} className="space-y-4">
-      <SubdomainInput defaultValue={state?.subdomain} />
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <SubdomainInput defaultValue={subdomain} />
 
-      <IconPicker icon={icon} setIcon={setIcon} defaultValue={state?.icon} />
+      <IconPicker icon={icon} setIcon={setIcon} defaultValue={icon} />
 
-      {state?.error && (
-        <div className="text-sm text-red-500">{state.error}</div>
-      )}
+      {error && <div className="text-sm text-red-500">{error}</div>}
 
       <Button type="submit" className="w-full" disabled={isPending || !icon}>
         {isPending ? 'Creating...' : 'Create Subdomain'}

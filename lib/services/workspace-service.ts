@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { workspaces } from '@/lib/db/schema';
+import { workspaces, connections } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export interface CreateWorkspaceParams {
@@ -11,6 +11,27 @@ export interface UpdateWorkspaceParams {
   id: string;
   name?: string;
   whiteLabelEnabled?: boolean;
+}
+
+export type ConnectionType =
+  | 'wordpress'
+  | 'webflow'
+  | 'shopify'
+  | 'ghost'
+  | 'hosted';
+
+export type ConnectionStatus =
+  | 'pending'
+  | 'connected'
+  | 'failed'
+  | 'disconnected';
+
+export interface WorkspaceWithConnection {
+  id: string;
+  name: string;
+  connectionUrl: string | null;
+  connectionType: ConnectionType | null;
+  status: ConnectionStatus | null;
 }
 
 export class WorkspaceService {
@@ -117,5 +138,62 @@ export class WorkspaceService {
       .limit(1);
 
     return !!workspace;
+  }
+
+  /**
+   * Get all workspaces with their connections for a user
+   */
+  static async getWorkspacesWithConnections(
+    userId: string
+  ): Promise<WorkspaceWithConnection[]> {
+    const result = await db
+      .select({
+        workspaceId: workspaces.id,
+        workspaceName: workspaces.name,
+        connectionUrl: connections.connectionUrl,
+        connectionType: connections.connectionType,
+        status: connections.status,
+      })
+      .from(workspaces)
+      .leftJoin(connections, eq(workspaces.id, connections.workspaceId))
+      .where(eq(workspaces.ownerId, userId));
+
+    // Map to the expected format
+    return result.map(row => ({
+      id: row.workspaceId,
+      name: row.workspaceName,
+      connectionUrl: row.connectionUrl || null,
+      connectionType: row.connectionType as ConnectionType | null,
+      status: row.status as ConnectionStatus | null,
+    }));
+  }
+
+  /**
+   * Get current workspace with connection for a user
+   */
+  static async getCurrentWorkspaceWithConnection(
+    userId: string
+  ): Promise<WorkspaceWithConnection | null> {
+    // Get the primary (first) workspace
+    const workspace = await this.getPrimaryWorkspace(userId);
+
+    if (!workspace) {
+      return null;
+    }
+
+    // Get the connection for this workspace
+    const [connection] = await db
+      .select()
+      .from(connections)
+      .where(eq(connections.workspaceId, workspace.id))
+      .limit(1);
+
+    return {
+      id: workspace.id,
+      name: workspace.name,
+      connectionUrl: connection?.domain || null, // Still using 'domain' field for now
+      connectionType: connection?.connectionType as ConnectionType | null,
+      status: connection?.status as ConnectionStatus | null,
+    };
   }
 }

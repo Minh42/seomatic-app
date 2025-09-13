@@ -4,8 +4,8 @@ import { authOptions } from '@/lib/auth/config';
 import { WorkspaceService } from '@/lib/services/workspace-service';
 
 /**
- * GET /api/workspace
- * Get all workspaces with connections for the current user
+ * GET /api/workspace/current
+ * Get the current workspace with connection for the authenticated user
  */
 export async function GET() {
   try {
@@ -15,13 +15,20 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const workspaces = await WorkspaceService.getWorkspacesWithConnections(
+    const workspace = await WorkspaceService.getCurrentWorkspaceWithConnection(
       session.user.id
     );
 
-    return NextResponse.json(workspaces);
+    if (!workspace) {
+      return NextResponse.json(
+        { error: 'No workspace found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(workspace);
   } catch (error) {
-    console.error('Error fetching workspaces:', error);
+    console.error('Error fetching current workspace:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

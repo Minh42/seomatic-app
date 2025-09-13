@@ -226,19 +226,19 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                           <div className="text-xs font-medium text-white flex items-center gap-1.5">
                             {workspace.name}
                             {isActive && (
-                              <span className="text-[10px] text-gray-500">
+                              <span className="text-xs text-gray-500">
                                 Current
                               </span>
                             )}
                           </div>
                           {workspace.connectionType ? (
                             <div className="flex items-center gap-1 mt-0.5">
-                              <span className="text-[10px] text-gray-500 truncate">
+                              <span className="text-xs text-gray-500 truncate">
                                 {workspace.connectionUrl}
                               </span>
                             </div>
                           ) : (
-                            <div className="text-[10px] text-amber-500 mt-0.5">
+                            <div className="text-xs text-amber-500 mt-0.5">
                               No connection configured
                             </div>
                           )}

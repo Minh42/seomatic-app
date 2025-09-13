@@ -8,11 +8,8 @@ import {
   ReactNode,
 } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  getUserWorkspaces,
-  type WorkspaceWithConnection,
-} from '@/app/dashboard/actions';
 import { toast } from 'sonner';
+import type { WorkspaceWithConnection } from '@/lib/services/workspace-service';
 
 interface WorkspaceContextType {
   selectedWorkspace: WorkspaceWithConnection | null;
@@ -37,6 +34,15 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   const [selectedWorkspace, setSelectedWorkspaceState] =
     useState<WorkspaceWithConnection | null>(null);
 
+  // Fetch workspaces from API
+  const fetchWorkspaces = async (): Promise<WorkspaceWithConnection[]> => {
+    const response = await fetch('/api/workspace');
+    if (!response.ok) {
+      throw new Error('Failed to fetch workspaces');
+    }
+    return response.json();
+  };
+
   // Use TanStack Query for fetching workspaces
   const {
     data: workspaces = [],
@@ -44,7 +50,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     error,
   } = useQuery({
     queryKey: ['workspaces'],
-    queryFn: getUserWorkspaces,
+    queryFn: fetchWorkspaces,
     // Data is considered fresh for 5 minutes
     staleTime: 5 * 60 * 1000,
     // Keep data in cache for 10 minutes

@@ -78,6 +78,8 @@ export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email').unique().notNull(),
   name: varchar('name'),
+  firstName: varchar('first_name'),
+  lastName: varchar('last_name'),
   emailVerified: timestamp('emailVerified'),
   image: varchar('image'),
   timezone: varchar('timezone').default('UTC'),

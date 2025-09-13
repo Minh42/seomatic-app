@@ -1,22 +1,16 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trash2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteSubdomainAction } from '@/app/actions';
 import { rootDomain, protocol } from '@/lib/utils';
 
 type Tenant = {
   subdomain: string;
   emoji: string;
   createdAt: number;
-};
-
-type DeleteState = {
-  error?: string;
-  success?: string;
 };
 
 function DashboardHeader() {
@@ -39,12 +33,12 @@ function DashboardHeader() {
 
 function TenantGrid({
   tenants,
-  action,
-  isPending,
+  onDelete,
+  deletingSubdomain,
 }: {
   tenants: Tenant[];
-  action: (formData: FormData) => void;
-  isPending: boolean;
+  onDelete: (subdomain: string) => void;
+  deletingSubdomain: string | null;
 }) {
   if (tenants.length === 0) {
     return (
@@ -63,26 +57,19 @@ function TenantGrid({
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl">{tenant.subdomain}</CardTitle>
-              <form action={action}>
-                <input
-                  type="hidden"
-                  name="subdomain"
-                  value={tenant.subdomain}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  type="submit"
-                  disabled={isPending}
-                  className="text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                >
-                  {isPending ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-5 w-5" />
-                  )}
-                </Button>
-              </form>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onDelete(tenant.subdomain)}
+                disabled={deletingSubdomain === tenant.subdomain}
+                className="text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              >
+                {deletingSubdomain === tenant.subdomain ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-5 w-5" />
+                )}
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -109,26 +96,66 @@ function TenantGrid({
   );
 }
 
-export function AdminDashboard({ tenants }: { tenants: Tenant[] }) {
-  const [state, action, isPending] = useActionState<DeleteState, FormData>(
-    deleteSubdomainAction,
-    {}
+export function AdminDashboard({
+  tenants: initialTenants,
+}: {
+  tenants: Tenant[];
+}) {
+  const [tenants, setTenants] = useState(initialTenants);
+  const [deletingSubdomain, setDeletingSubdomain] = useState<string | null>(
+    null
   );
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  // const router = useRouter();
+
+  const handleDelete = async (subdomain: string) => {
+    setDeletingSubdomain(subdomain);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`/api/subdomain?subdomain=${subdomain}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || 'Failed to delete subdomain');
+        return;
+      }
+
+      // Remove from local state
+      setTenants(prev => prev.filter(t => t.subdomain !== subdomain));
+      setSuccess('Subdomain deleted successfully');
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+    } catch {
+      setError('An unexpected error occurred');
+    } finally {
+      setDeletingSubdomain(null);
+    }
+  };
 
   return (
     <div className="space-y-6 relative p-4 md:p-8">
       <DashboardHeader />
-      <TenantGrid tenants={tenants} action={action} isPending={isPending} />
+      <TenantGrid
+        tenants={tenants}
+        onDelete={handleDelete}
+        deletingSubdomain={deletingSubdomain}
+      />
 
-      {state.error && (
+      {error && (
         <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-md">
-          {state.error}
+          {error}
         </div>
       )}
 
-      {state.success && (
+      {success && (
         <div className="fixed bottom-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-md">
-          {state.success}
+          {success}
         </div>
       )}
     </div>

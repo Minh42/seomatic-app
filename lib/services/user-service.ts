@@ -15,6 +15,8 @@ export interface CreateUserParams {
 
 export interface UserProfileUpdateParams {
   name?: string;
+  firstName?: string;
+  lastName?: string;
   image?: string;
 }
 
@@ -101,10 +103,18 @@ export class UserService {
     userId: string,
     updateData: UserProfileUpdateParams
   ) {
+    // If firstName and lastName are provided, sync the name field
+    const dataToUpdate = { ...updateData };
+    if ('firstName' in updateData || 'lastName' in updateData) {
+      const firstName = updateData.firstName || '';
+      const lastName = updateData.lastName || '';
+      dataToUpdate.name = `${firstName} ${lastName}`.trim();
+    }
+
     const [updated] = await db
       .update(users)
       .set({
-        ...updateData,
+        ...dataToUpdate,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId))
@@ -166,6 +176,22 @@ export class UserService {
       .update(users)
       .set({
         isActive: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    return updated;
+  }
+
+  /**
+   * Update user password
+   */
+  static async updatePassword(userId: string, passwordHash: string) {
+    const [updated] = await db
+      .update(users)
+      .set({
+        passwordHash,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId))

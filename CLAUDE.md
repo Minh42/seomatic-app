@@ -351,6 +351,17 @@ const result = await ExampleService.performOperation(params);
 - **Clear separation:** Main resources vs. specific actions/sub-resources
 - **Consistent:** All APIs follow the same organizational pattern
 
+**IMPORTANT: No Server Actions**
+
+This codebase does NOT use Next.js Server Actions (`'use server'` directives or `actions.ts` files). All server-side operations follow this pattern:
+
+1. **Client Components** call API routes using `fetch()`
+2. **API Routes** (`/app/api/`) handle HTTP requests and responses
+3. **Services** (`/lib/services/`) contain all business logic
+4. **Validation** (`/lib/validations/`) ensures data integrity
+
+Never create `actions.ts` files or use `'use server'` - this pattern creates confusion and violates our architecture.
+
 ### Rate Limiting
 
 The application uses **Upstash Redis** for distributed rate limiting across all instances. Rate limits are configured per endpoint type:
