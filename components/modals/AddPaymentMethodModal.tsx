@@ -11,9 +11,12 @@ import {
 } from '@stripe/react-stripe-js';
 import { toast } from 'sonner';
 
-// Initialize Stripe
+// Initialize Stripe with English locale
 const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+  {
+    locale: 'en', // Force English locale for error messages
+  }
 );
 
 interface AddPaymentMethodModalProps {
