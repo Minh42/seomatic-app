@@ -35,6 +35,8 @@
     "@radix-ui/react-popover": "^1.1.13",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.2",
+    "@stripe/react-stripe-js": "^4.0.2",
+    "@stripe/stripe-js": "^7.9.0",
     "@tanstack/react-form": "^1.19.3",
     "@tanstack/react-query": "^5.87.4",
     "@tanstack/zod-form-adapter": "^0.42.1",

@@ -170,6 +170,8 @@ export class SubscriptionService {
         id: subscriptions.id,
         ownerId: subscriptions.ownerId,
         status: subscriptions.status,
+        stripeSubscriptionId: subscriptions.stripeSubscriptionId,
+        stripeCustomerId: subscriptions.stripeCustomerId,
         currentPeriodStart: subscriptions.currentPeriodStart,
         currentPeriodEnd: subscriptions.currentPeriodEnd,
         cancelAtPeriodEnd: subscriptions.cancelAtPeriodEnd,

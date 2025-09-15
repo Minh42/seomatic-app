@@ -1,25 +1,45 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { useMemo } from 'react';
+import type { UserRole } from '@/lib/auth/permissions';
 
-const tabs = [
+const allTabs = [
   { id: 'profile', label: 'Profile' },
   { id: 'password', label: 'Password' },
   { id: 'team', label: 'Team' },
-  { id: 'billing', label: 'Billing Details' },
+  {
+    id: 'billing',
+    label: 'Billing Details',
+    requiresRole: 'owner' as UserRole,
+  },
 ];
 
 interface SettingsTabsProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   children: React.ReactNode;
+  userRole: UserRole;
 }
 
 export function SettingsTabs({
   activeTab,
   onTabChange,
   children,
+  userRole,
 }: SettingsTabsProps) {
+  // Filter tabs based on user role
+  const tabs = useMemo(() => {
+    return allTabs.filter(tab => {
+      // If tab requires a specific role, check if user has it
+      if (tab.requiresRole) {
+        return userRole === tab.requiresRole;
+      }
+      // Otherwise, show the tab to everyone
+      return true;
+    });
+  }, [userRole]);
+
   return (
     <>
       <div className="border-b border-gray-300 mb-8">

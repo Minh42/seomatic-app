@@ -6,6 +6,7 @@ import { ProfileTab } from '@/components/settings/ProfileTab';
 import { PasswordTab } from '@/components/settings/PasswordTab';
 import { TeamTab } from '@/components/settings/TeamTab';
 import { BillingTab } from '@/components/settings/BillingTab';
+import type { UserRole } from '@/lib/auth/permissions';
 
 interface SettingsClientProps {
   user: {
@@ -17,13 +18,18 @@ interface SettingsClientProps {
     image?: string | null;
     passwordHash?: string | null;
   };
+  userRole: UserRole;
 }
 
-export function SettingsClient({ user }: SettingsClientProps) {
+export function SettingsClient({ user, userRole }: SettingsClientProps) {
   const [activeTab, setActiveTab] = useState('profile');
 
   return (
-    <SettingsTabs activeTab={activeTab} onTabChange={setActiveTab}>
+    <SettingsTabs
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      userRole={userRole}
+    >
       {activeTab === 'profile' && (
         <div className="max-w-3xl">
           <ProfileTab user={user} />
@@ -39,7 +45,9 @@ export function SettingsClient({ user }: SettingsClientProps) {
           <TeamTab user={user} />
         </div>
       )}
-      {activeTab === 'billing' && <BillingTab user={user} />}
+      {activeTab === 'billing' && userRole === 'owner' && (
+        <BillingTab user={user} />
+      )}
     </SettingsTabs>
   );
 }

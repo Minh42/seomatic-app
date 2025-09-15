@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { DashboardPage } from '@/components/dashboard/DashboardPage';
 import { UserService } from '@/lib/services/user-service';
+import { getUserRole } from '@/lib/auth/permissions';
 import { SettingsClient } from './SettingsClient';
 
 export default async function SettingsPage() {
@@ -18,9 +19,12 @@ export default async function SettingsPage() {
     redirect('/login');
   }
 
+  // Get user's role for access control
+  const userRole = await getUserRole(user.id);
+
   return (
     <DashboardPage title="Settings">
-      <SettingsClient user={user} />
+      <SettingsClient user={user} userRole={userRole} />
     </DashboardPage>
   );
 }
