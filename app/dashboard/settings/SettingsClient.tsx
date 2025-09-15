@@ -5,6 +5,7 @@ import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { ProfileTab } from '@/components/settings/ProfileTab';
 import { PasswordTab } from '@/components/settings/PasswordTab';
 import { TeamTab } from '@/components/settings/TeamTab';
+import { WorkspacesTab } from '@/components/settings/WorkspacesTab';
 import { BillingTab } from '@/components/settings/BillingTab';
 import type { UserRole } from '@/lib/auth/permissions';
 
@@ -45,6 +46,7 @@ export function SettingsClient({ user, userRole }: SettingsClientProps) {
           <TeamTab user={user} />
         </div>
       )}
+      {activeTab === 'workspaces' && <WorkspacesTab userRole={userRole} />}
       {activeTab === 'billing' && userRole === 'owner' && (
         <BillingTab user={user} />
       )}

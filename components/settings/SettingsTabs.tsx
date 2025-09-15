@@ -8,6 +8,7 @@ const allTabs = [
   { id: 'profile', label: 'Profile' },
   { id: 'password', label: 'Password' },
   { id: 'team', label: 'Team' },
+  { id: 'workspaces', label: 'Workspaces' },
   {
     id: 'billing',
     label: 'Billing Details',

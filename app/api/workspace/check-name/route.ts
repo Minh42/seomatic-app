@@ -29,33 +29,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if workspace name already exists globally (across all users)
+    // Check if workspace name already exists for this user only
     // If currentWorkspaceId is provided, exclude it from the check (for editing existing workspace)
+    const conditions = [
+      eq(workspaces.name, name),
+      eq(workspaces.ownerId, session.user.id),
+    ];
+
+    if (currentWorkspaceId) {
+      conditions.push(ne(workspaces.id, currentWorkspaceId));
+    }
+
     const existingWorkspace = await db
-      .select({ id: workspaces.id, ownerId: workspaces.ownerId })
+      .select({ id: workspaces.id })
       .from(workspaces)
-      .where(
-        currentWorkspaceId
-          ? and(
-              eq(workspaces.name, name),
-              ne(workspaces.id, currentWorkspaceId)
-            )
-          : eq(workspaces.name, name)
-      )
+      .where(and(...conditions))
       .limit(1);
 
     const isAvailable = existingWorkspace.length === 0;
-    const isOwnWorkspace =
-      existingWorkspace.length > 0 &&
-      existingWorkspace[0].ownerId === session.user.id;
 
     return NextResponse.json({
       available: isAvailable,
       message: isAvailable
         ? 'This workspace name is available'
-        : isOwnWorkspace
-          ? `You already have a workspace named "${name}". Please choose a different name.`
-          : `This workspace name is already taken. Please choose a different name.`,
+        : `You already have a workspace named "${name}". Please choose a different name.`,
     });
   } catch (error) {
     console.error('Error checking workspace name:', error);

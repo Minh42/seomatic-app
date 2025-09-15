@@ -168,10 +168,12 @@ export class WorkspaceService {
         connectionUrl: connections.connectionUrl,
         connectionType: connections.connectionType,
         status: connections.status,
+        createdAt: workspaces.createdAt,
       })
       .from(workspaces)
       .leftJoin(connections, eq(workspaces.id, connections.workspaceId))
-      .where(eq(workspaces.ownerId, userId));
+      .where(eq(workspaces.ownerId, userId))
+      .orderBy(workspaces.createdAt);
 
     // Map to the expected format
     return result.map(row => ({

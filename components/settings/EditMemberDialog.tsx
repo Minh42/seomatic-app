@@ -203,7 +203,7 @@ export function EditMemberDialog({
                 variant="link"
                 onClick={handleResendInvite}
                 disabled={isLoading}
-                className="text-yellow-700 hover:text-yellow-800 p-0 h-auto mt-1 cursor-pointer"
+                className="text-yellow-700 hover:text-yellow-800 underline p-0 h-auto mt-1 cursor-pointer"
               >
                 Resend invitation email
               </Button>

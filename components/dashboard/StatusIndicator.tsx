@@ -32,7 +32,9 @@ export function StatusIndicator({
   status,
   className = 'h-2 w-2',
 }: StatusIndicatorProps) {
-  const config = statusConfig[status];
+  // Handle null/undefined status or map 'active' to 'connected'
+  const mappedStatus = status === 'active' ? 'connected' : status;
+  const config = statusConfig[mappedStatus] || statusConfig.pending;
 
   return (
     <div
@@ -43,7 +45,9 @@ export function StatusIndicator({
 }
 
 export function StatusBadge({ status }: { status: ConnectionStatus }) {
-  const config = statusConfig[status];
+  // Handle null/undefined status or map 'active' to 'connected'
+  const mappedStatus = status === 'active' ? 'connected' : status;
+  const config = statusConfig[mappedStatus] || statusConfig.pending;
 
   return (
     <div className="inline-flex items-center gap-1.5">

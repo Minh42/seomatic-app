@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -19,6 +19,8 @@ import {
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { StatusIndicator } from './StatusIndicator';
 import { useRouter } from 'next/navigation';
+import { CreateWorkspaceModal } from '@/components/modals/CreateWorkspaceModal';
+import { toast } from 'sonner';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -29,8 +31,36 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
-  const { selectedWorkspace, workspaces, setSelectedWorkspace, isLoading } =
-    useWorkspace();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const {
+    selectedWorkspace,
+    workspaces,
+    setSelectedWorkspace,
+    isLoading,
+    refreshWorkspaces,
+  } = useWorkspace();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsWorkspaceOpen(false);
+      }
+    };
+
+    if (isWorkspaceOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isWorkspaceOpen]);
 
   const navigationItems = [
     {
@@ -106,14 +136,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
       {/* Workspace Switcher */}
       {!isCollapsed && (
-        <div className="px-3 py-2">
+        <div className="px-3 py-2" ref={dropdownRef}>
           {selectedWorkspace ? (
             <button
               onClick={() => setIsWorkspaceOpen(!isWorkspaceOpen)}
-              className="w-full text-left group"
+              className="w-full text-left group cursor-pointer"
               disabled={isLoading}
             >
-              <div className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-800/30 transition-all">
+              <div className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-800/30 transition-all cursor-pointer">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex items-center justify-center text-gray-400 font-medium text-sm border border-gray-700/50 p-1.5">
                     {selectedWorkspace.connectionType ? (
@@ -129,22 +159,22 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-white">
+                    <div className="text-sm font-medium text-white truncate">
                       {selectedWorkspace.name}
                     </div>
                     {selectedWorkspace.connectionType ? (
-                      <button
+                      <div
                         onClick={e => {
                           e.stopPropagation();
                           router.push('/dashboard/connections');
                         }}
-                        className="flex items-center gap-1.5 mt-0.5 text-left"
+                        className="flex items-center gap-1.5 mt-0.5 text-left cursor-pointer"
                         title="Manage connection"
                       >
-                        <span className="text-xs text-gray-500 hover:text-gray-400 transition-colors truncate cursor-pointer">
+                        <span className="text-xs text-gray-500 hover:text-gray-400 transition-colors truncate">
                           {selectedWorkspace.connectionUrl}
                         </span>
-                      </button>
+                      </div>
                     ) : (
                       <div
                         onClick={e => {
@@ -181,10 +211,10 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
           {/* Workspace Dropdown */}
           {isWorkspaceOpen && (
-            <div className="absolute left-3 right-3 mt-1 bg-slate-800 border border-gray-700/30 rounded-xl shadow-xl z-10 overflow-hidden">
+            <div className="absolute left-3 right-3 mt-1 bg-slate-800 border border-gray-700/30 rounded-xl shadow-xl z-10 overflow-hidden flex flex-col">
               {/* Workspace list */}
               {workspaces.length > 1 && (
-                <div className="p-1">
+                <div className="p-1 overflow-y-auto max-h-[180px]">
                   {workspaces.map(workspace => {
                     const isActive = workspace.id === selectedWorkspace.id;
 
@@ -194,13 +224,13 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                         onClick={() => {
                           if (!isActive) {
                             setSelectedWorkspace(workspace);
-                            setIsWorkspaceOpen(false);
                           }
+                          setIsWorkspaceOpen(false);
                         }}
                         className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors flex items-center gap-2.5 ${
                           isActive
-                            ? 'bg-gray-800/40 cursor-default'
-                            : 'hover:bg-gray-800/30'
+                            ? 'bg-gray-800/40 cursor-pointer'
+                            : 'hover:bg-gray-800/30 cursor-pointer'
                         }`}
                       >
                         <div
@@ -223,13 +253,8 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs font-medium text-white flex items-center gap-1.5">
+                          <div className="text-xs font-medium text-white truncate">
                             {workspace.name}
-                            {isActive && (
-                              <span className="text-xs text-gray-500">
-                                Current
-                              </span>
-                            )}
                           </div>
                           {workspace.connectionType ? (
                             <div className="flex items-center gap-1 mt-0.5">
@@ -238,8 +263,16 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                               </span>
                             </div>
                           ) : (
-                            <div className="text-xs text-amber-500 mt-0.5">
-                              No connection configured
+                            <div
+                              className="text-xs text-orange-500 hover:text-orange-600 mt-0.5 cursor-pointer transition-colors"
+                              onClick={e => {
+                                e.stopPropagation();
+                                setSelectedWorkspace(workspace);
+                                setIsWorkspaceOpen(false);
+                                router.push('/dashboard/connections');
+                              }}
+                            >
+                              + Add connection
                             </div>
                           )}
                         </div>
@@ -255,14 +288,16 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 </div>
               )}
 
-              {/* New workspace */}
+              {/* New workspace - stays at bottom */}
               <div
-                className={`p-1 ${workspaces.length > 1 ? 'border-t border-gray-700/50' : ''}`}
+                className={`p-1 flex-shrink-0 ${workspaces.length > 1 ? 'border-t border-gray-700/50' : ''}`}
               >
-                <Link
-                  href="/dashboard/workspaces/new"
-                  onClick={() => setIsWorkspaceOpen(false)}
-                  className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-gray-800/30 transition-colors flex items-center gap-2.5 group/create"
+                <button
+                  onClick={() => {
+                    setIsWorkspaceOpen(false);
+                    setShowCreateModal(true);
+                  }}
+                  className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-gray-800/30 transition-colors flex items-center gap-2.5 group/create cursor-pointer"
                 >
                   <div className="w-7 h-7 border border-dashed border-gray-600 rounded flex items-center justify-center group-hover/create:border-gray-500 transition-colors">
                     <Plus className="h-3.5 w-3.5 text-gray-500 group-hover/create:text-gray-400" />
@@ -270,7 +305,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                   <span className="text-xs text-gray-400 group-hover/create:text-gray-300">
                     Create workspace
                   </span>
-                </Link>
+                </button>
               </div>
             </div>
           )}
@@ -357,6 +392,40 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           );
         })}
       </nav>
+
+      {/* Create Workspace Modal */}
+      <CreateWorkspaceModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onConfirm={async (name: string) => {
+          setIsCreatingWorkspace(true);
+          try {
+            const response = await fetch('/api/workspaces', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'Failed to create workspace');
+            }
+
+            toast.success('Workspace created successfully');
+            setShowCreateModal(false);
+            await refreshWorkspaces();
+          } catch (error) {
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : 'Failed to create workspace'
+            );
+          } finally {
+            setIsCreatingWorkspace(false);
+          }
+        }}
+        isLoading={isCreatingWorkspace}
+      />
     </div>
   );
 }
