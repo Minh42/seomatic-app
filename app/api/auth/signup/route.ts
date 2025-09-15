@@ -153,11 +153,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle Zod validation errors
-    if (error && typeof error === 'object' && 'errors' in error) {
+    if (error && typeof error === 'object' && 'issues' in error) {
       return NextResponse.json(
         {
           error: 'Validation failed',
-          details: (error as { errors: unknown[] }).errors,
+          details: (error as { issues: unknown[] }).issues,
         },
         { status: 400 }
       );

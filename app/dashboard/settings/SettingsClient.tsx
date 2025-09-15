@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { ProfileTab } from '@/components/settings/ProfileTab';
 import { PasswordTab } from '@/components/settings/PasswordTab';
+import { TeamTab } from '@/components/settings/TeamTab';
+import { BillingTab } from '@/components/settings/BillingTab';
 
 interface SettingsClientProps {
   user: {
@@ -22,19 +24,22 @@ export function SettingsClient({ user }: SettingsClientProps) {
 
   return (
     <SettingsTabs activeTab={activeTab} onTabChange={setActiveTab}>
-      {activeTab === 'profile' && <ProfileTab user={user} />}
-      {activeTab === 'password' && <PasswordTab user={user} />}
-      {activeTab === 'team' && (
-        <div className="text-gray-500">Team settings coming soon...</div>
-      )}
-      {activeTab === 'notification' && (
-        <div className="text-gray-500">
-          Notification settings coming soon...
+      {activeTab === 'profile' && (
+        <div className="max-w-3xl">
+          <ProfileTab user={user} />
         </div>
       )}
-      {activeTab === 'billing' && (
-        <div className="text-gray-500">Billing details coming soon...</div>
+      {activeTab === 'password' && (
+        <div className="max-w-3xl">
+          <PasswordTab user={user} />
+        </div>
       )}
+      {activeTab === 'team' && (
+        <div className="max-w-3xl">
+          <TeamTab user={user} />
+        </div>
+      )}
+      {activeTab === 'billing' && <BillingTab user={user} />}
     </SettingsTabs>
   );
 }

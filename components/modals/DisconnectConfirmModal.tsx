@@ -38,7 +38,7 @@ export function DisconnectConfirmModal({
               <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                 <AlertTriangle className="h-5 w-5 text-red-600" />
               </div>
-              <h2 className="text-lg font-bold text-gray-900">
+              <h2 className="text-xl font-bold leading-8 text-zinc-900">
                 Disconnect{' '}
                 {connectionType
                   ? connectionType.charAt(0).toUpperCase() +
@@ -48,7 +48,7 @@ export function DisconnectConfirmModal({
             </div>
             <button
               onClick={onClose}
-              className="p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
               disabled={isLoading}
             >
               <X className="h-5 w-5 text-gray-500" />
@@ -57,21 +57,21 @@ export function DisconnectConfirmModal({
 
           {/* Content */}
           <div className="px-6 pb-6">
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm font-normal leading-6 text-zinc-500 mb-2">
               Are you sure you want to disconnect from{' '}
-              <span className="font-semibold text-gray-900">
+              <span className="font-medium text-zinc-900">
                 {connectionUrl || 'this connection'}
               </span>
               ?
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm font-normal leading-6 text-zinc-500">
               This will remove the connection and you&apos;ll need to reconnect
               to sync content again.
             </p>
 
             {/* Warning */}
             <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-xs text-amber-800">
+              <p className="text-sm text-amber-800">
                 <strong>Note:</strong> This action cannot be undone. You&apos;ll
                 need to re-authenticate to restore the connection.
               </p>
@@ -84,7 +84,7 @@ export function DisconnectConfirmModal({
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-11 px-4 rounded-md border border-zinc-300 bg-white text-sm font-bold leading-6 text-zinc-600 hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -92,7 +92,7 @@ export function DisconnectConfirmModal({
               type="button"
               onClick={onConfirm}
               disabled={isLoading}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-11 px-4 rounded-md bg-red-600 text-sm font-bold leading-6 text-white hover:bg-red-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Disconnecting...' : 'Disconnect'}
             </button>

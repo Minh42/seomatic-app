@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/config';
 import { TeamService } from '@/lib/services/team-service';
 import { z } from 'zod';
 import { validateWorkEmail } from '@/lib/utils/email-validation';
+import { requireRole } from '@/lib/middleware/require-role';
 
 const inviteSchema = z.object({
   teamMembers: z.array(
@@ -16,6 +17,12 @@ const inviteSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if user has permission to invite team members
+    const roleCheck = await requireRole(request, {
+      requiredAction: 'team:invite',
+    });
+    if (roleCheck) return roleCheck;
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

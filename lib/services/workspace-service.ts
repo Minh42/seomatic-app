@@ -141,6 +141,21 @@ export class WorkspaceService {
   }
 
   /**
+   * Get all workspaces for a user (as owner or team member)
+   */
+  static async getWorkspacesForUser(userId: string) {
+    // Get workspaces where user is the owner
+    const ownedWorkspaces = await db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.ownerId, userId));
+
+    // TODO: In the future, also get workspaces where user is a team member
+    // For now, just return owned workspaces
+    return ownedWorkspaces;
+  }
+
+  /**
    * Get all workspaces with their connections for a user
    */
   static async getWorkspacesWithConnections(

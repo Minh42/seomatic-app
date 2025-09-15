@@ -23,6 +23,8 @@ export interface AcceptInvitationParams {
 export interface UpdateMemberRoleParams {
   teamMemberId: string;
   role: 'viewer' | 'member' | 'admin';
+  updatedBy: string; // User ID of person making the update
+  updaterRole?: 'owner' | 'admin' | 'member' | 'viewer'; // Role of person making update
 }
 
 export class TeamService {
@@ -41,11 +43,18 @@ export class TeamService {
         and(eq(teamMembers.userId, userId), eq(teamMembers.status, 'pending'))
       );
 
-    // Map the results to include the correct field names
+    // Map the results to match TeamMember interface
     const invitations = result.map(row => ({
-      teamMemberId: row.team_members.id,
-      email: row.team_invitations.email,
+      id: row.team_members.id,
       role: row.team_members.role,
+      status: 'pending' as const,
+      createdAt: row.team_members.createdAt.toISOString(),
+      member: {
+        id: '', // No user ID yet for pending invitations
+        email: row.team_invitations.email,
+        name: null,
+        profileImage: null,
+      },
     }));
 
     return invitations;
@@ -143,24 +152,29 @@ export class TeamService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
-    // Create team member record (pending)
-    const [teamMember] = await db
-      .insert(teamMembers)
-      .values({
-        userId: invitedBy, // plan owner
-        invitedBy,
-        role,
-        status: 'pending',
-        // memberUserId is intentionally omitted - it will be null for pending invitations
-      })
-      .returning();
+    // Use transaction to ensure consistency
+    await db.transaction(async tx => {
+      // Create team member record (pending)
+      const [member] = await tx
+        .insert(teamMembers)
+        .values({
+          userId: invitedBy, // workspace owner
+          invitedBy,
+          role,
+          status: 'pending',
+          // memberUserId is intentionally omitted - it will be null for pending invitations
+        })
+        .returning();
 
-    // Create invitation
-    await db.insert(teamInvitations).values({
-      token,
-      email: email.toLowerCase(),
-      teamMemberId: teamMember.id,
-      expiresAt,
+      // Create invitation
+      await tx.insert(teamInvitations).values({
+        token,
+        email: email.toLowerCase(),
+        teamMemberId: member.id,
+        expiresAt,
+      });
+
+      return member;
     });
 
     // Get inviter details
@@ -282,7 +296,7 @@ export class TeamService {
           id: users.id,
           email: users.email,
           name: users.name,
-          profileImage: users.profileImage,
+          profileImage: users.image,
         },
       })
       .from(teamMembers)
@@ -300,10 +314,74 @@ export class TeamService {
   static async updateMemberRole({
     teamMemberId,
     role,
+    updatedBy,
+    updaterRole,
   }: UpdateMemberRoleParams) {
-    // Verify updater has permission (should be owner or admin)
-    // This check should be done at the API route level with proper auth
+    // Get the team member to check ownership and current role
+    const [member] = await db
+      .select({
+        id: teamMembers.id,
+        userId: teamMembers.userId,
+        memberUserId: teamMembers.memberUserId,
+        currentRole: teamMembers.role,
+        status: teamMembers.status,
+      })
+      .from(teamMembers)
+      .where(eq(teamMembers.id, teamMemberId))
+      .limit(1);
 
+    if (!member) {
+      throw new Error('Team member not found');
+    }
+
+    // The member.userId is the workspace owner who invited this member
+    // We need to verify that the updater has permission in this workspace
+    const workspaceOwnerId = member.userId;
+
+    // Check if updater is the workspace owner
+    if (workspaceOwnerId === updatedBy) {
+      // Owner can update any member in their workspace
+    } else {
+      // Check if updater is an admin in this workspace
+      const [updaterMembership] = await db
+        .select({ role: teamMembers.role })
+        .from(teamMembers)
+        .where(
+          and(
+            eq(teamMembers.userId, workspaceOwnerId),
+            eq(teamMembers.memberUserId, updatedBy),
+            eq(teamMembers.status, 'active')
+          )
+        )
+        .limit(1);
+
+      if (!updaterMembership || updaterMembership.role !== 'admin') {
+        throw new Error(
+          'You do not have permission to update this team member'
+        );
+      }
+    }
+
+    // Prevent changing the workspace owner's role
+    if (member.memberUserId === workspaceOwnerId) {
+      throw new Error('Cannot change the role of the workspace owner');
+    }
+
+    // Prevent role escalation - can't give someone a higher role than you have
+    if (updaterRole && updaterRole !== 'owner') {
+      const roleHierarchy: Record<string, number> = {
+        owner: 4,
+        admin: 3,
+        member: 2,
+        viewer: 1,
+      };
+
+      if (roleHierarchy[role] > roleHierarchy[updaterRole]) {
+        throw new Error('Cannot assign a role higher than your own');
+      }
+    }
+
+    // Update the role
     const [updated] = await db
       .update(teamMembers)
       .set({
@@ -314,7 +392,7 @@ export class TeamService {
       .returning();
 
     if (!updated) {
-      throw new Error('Team member not found');
+      throw new Error('Failed to update team member role');
     }
 
     return { success: true, teamMember: updated };
@@ -323,32 +401,48 @@ export class TeamService {
   /**
    * Remove team member
    */
-  static async removeMember(teamMemberId: string) {
-    // Check if member exists
-    const [member] = await db
-      .select()
-      .from(teamMembers)
-      .where(eq(teamMembers.id, teamMemberId))
-      .limit(1);
+  static async removeMember(teamMemberId: string, removedBy: string) {
+    // Use transaction for consistency
+    return await db.transaction(async tx => {
+      // Get member details
+      const [member] = await tx
+        .select()
+        .from(teamMembers)
+        .where(eq(teamMembers.id, teamMemberId))
+        .limit(1);
 
-    if (!member) {
-      throw new Error('Team member not found');
-    }
+      if (!member) {
+        throw new Error('Team member not found');
+      }
 
-    // If pending, also delete invitation
-    if (member.status === 'pending') {
-      await db
-        .delete(teamInvitations)
-        .where(eq(teamInvitations.teamMemberId, teamMemberId));
-    }
+      // The member.userId is the workspace owner who invited this member
+      const workspaceOwnerId = member.userId;
 
-    // Delete team member
-    const [deleted] = await db
-      .delete(teamMembers)
-      .where(eq(teamMembers.id, teamMemberId))
-      .returning();
+      // Only workspace owner can remove team members
+      if (workspaceOwnerId !== removedBy) {
+        throw new Error('Only the workspace owner can remove team members');
+      }
 
-    return { success: true, deleted };
+      // Prevent removing the workspace owner from their own team
+      if (member.memberUserId === workspaceOwnerId) {
+        throw new Error('Cannot remove the workspace owner from the team');
+      }
+
+      // If pending, also delete invitation
+      if (member.status === 'pending') {
+        await tx
+          .delete(teamInvitations)
+          .where(eq(teamInvitations.teamMemberId, teamMemberId));
+      }
+
+      // Delete team member
+      const [deleted] = await tx
+        .delete(teamMembers)
+        .where(eq(teamMembers.id, teamMemberId))
+        .returning();
+
+      return { success: true, deleted };
+    });
   }
 
   /**

@@ -6,7 +6,6 @@ const tabs = [
   { id: 'profile', label: 'Profile' },
   { id: 'password', label: 'Password' },
   { id: 'team', label: 'Team' },
-  { id: 'notification', label: 'Notification' },
   { id: 'billing', label: 'Billing Details' },
 ];
 
@@ -46,7 +45,7 @@ export function SettingsTabs({
         </nav>
       </div>
 
-      <div className="max-w-3xl">{children}</div>
+      <div>{children}</div>
     </>
   );
 }

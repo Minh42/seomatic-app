@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
             available: false,
             error: 'An invitation has already been sent to this email',
           });
-        } else if (teamMember.status === 'accepted') {
+        } else if (teamMember.status === 'active') {
           return NextResponse.json({
             available: false,
             error: 'This user is already a team member',
