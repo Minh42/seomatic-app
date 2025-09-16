@@ -29,7 +29,7 @@ const TEAM_ROLES: TeamMember['role'][] = ['viewer', 'member', 'admin'];
 // Email validation cache to prevent repeated API calls
 const emailCache = new Map<string, { available: boolean; error?: string }>();
 
-export function Step4TeamMembers({ form, isSubmitting }: StepComponentProps) {
+export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<TeamMember['role']>('viewer');
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -124,10 +124,10 @@ export function Step4TeamMembers({ form, isSubmitting }: StepComponentProps) {
       setEmailAvailable(false);
       if (
         error instanceof z.ZodError &&
-        error.errors &&
-        error.errors.length > 0
+        error.issues &&
+        error.issues.length > 0
       ) {
-        setEmailError(error.errors[0].message);
+        setEmailError(error.issues[0].message);
       } else {
         setEmailError('Please enter a valid email address');
       }
@@ -197,10 +197,10 @@ export function Step4TeamMembers({ form, isSubmitting }: StepComponentProps) {
             } catch (error) {
               if (
                 error instanceof z.ZodError &&
-                error.errors &&
-                error.errors.length > 0
+                error.issues &&
+                error.issues.length > 0
               ) {
-                setEmailError(error.errors[0].message);
+                setEmailError(error.issues[0].message);
               } else {
                 setEmailError('Please enter a valid email address');
               }

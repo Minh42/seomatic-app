@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error:
-              "We couldn't find your payment information. Please check your email for the signup link.",
+              'This signup link is invalid or has expired. Please check your email for the correct link.',
           },
           { status: 400 }
         );

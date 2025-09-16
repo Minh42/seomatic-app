@@ -5,6 +5,8 @@ import { eq, and } from 'drizzle-orm';
 export interface CreateWorkspaceParams {
   name: string;
   ownerId: string;
+  organizationId: string;
+  createdById: string;
 }
 
 export interface UpdateWorkspaceParams {
@@ -38,17 +40,27 @@ export class WorkspaceService {
   /**
    * Create a new workspace for a user
    */
-  static async create({ name, ownerId }: CreateWorkspaceParams) {
-    // Check if workspace name already exists for this user
+  static async create({
+    name,
+    ownerId,
+    organizationId,
+    createdById,
+  }: CreateWorkspaceParams) {
+    // Check if workspace name already exists in this organization
     const existing = await db
       .select()
       .from(workspaces)
-      .where(and(eq(workspaces.name, name), eq(workspaces.ownerId, ownerId)))
+      .where(
+        and(
+          eq(workspaces.name, name),
+          eq(workspaces.organizationId, organizationId)
+        )
+      )
       .limit(1);
 
     if (existing.length > 0) {
       throw new Error(
-        `You already have a workspace named "${name}". Please choose a different name to avoid confusion.`
+        `A workspace named "${name}" already exists in your organization. Please choose a different name.`
       );
     }
 
@@ -57,6 +69,8 @@ export class WorkspaceService {
       .values({
         name,
         ownerId,
+        organizationId,
+        createdById,
         whiteLabelEnabled: false,
       })
       .returning();
@@ -173,6 +187,36 @@ export class WorkspaceService {
       .from(workspaces)
       .leftJoin(connections, eq(workspaces.id, connections.workspaceId))
       .where(eq(workspaces.ownerId, userId))
+      .orderBy(workspaces.createdAt);
+
+    // Map to the expected format
+    return result.map(row => ({
+      id: row.workspaceId,
+      name: row.workspaceName,
+      connectionUrl: row.connectionUrl || null,
+      connectionType: row.connectionType as ConnectionType | null,
+      status: row.status as ConnectionStatus | null,
+    }));
+  }
+
+  /**
+   * Get all workspaces with their connections for an organization
+   */
+  static async getWorkspacesWithConnectionsByOrganization(
+    organizationId: string
+  ): Promise<WorkspaceWithConnection[]> {
+    const result = await db
+      .select({
+        workspaceId: workspaces.id,
+        workspaceName: workspaces.name,
+        connectionUrl: connections.connectionUrl,
+        connectionType: connections.connectionType,
+        status: connections.status,
+        createdAt: workspaces.createdAt,
+      })
+      .from(workspaces)
+      .leftJoin(connections, eq(workspaces.id, connections.workspaceId))
+      .where(eq(workspaces.organizationId, organizationId))
       .orderBy(workspaces.createdAt);
 
     // Map to the expected format

@@ -219,14 +219,14 @@ export class OnboardingService {
           break;
 
         case 3:
-          // Step 3: CMS Integration
-          if (data.cmsIntegration !== undefined)
-            updateData.cmsIntegration = data.cmsIntegration;
-          if (data.otherCms !== undefined) updateData.otherCms = data.otherCms;
+          // Step 3: Team members - handled separately
           break;
 
         case 4:
-          // Step 4: Team members - handled separately
+          // Step 4: CMS Integration
+          if (data.cmsIntegration !== undefined)
+            updateData.cmsIntegration = data.cmsIntegration;
+          if (data.otherCms !== undefined) updateData.otherCms = data.otherCms;
           break;
 
         case 5:

@@ -4,15 +4,18 @@ import {
   teamInvitations,
   users,
   workspaces,
+  organizations,
 } from '@/lib/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import crypto from 'crypto';
 import { EmailService } from '@/lib/services/email-service';
+import { OrganizationService } from '@/lib/services/organization-service';
 
 export interface InviteTeamMemberParams {
   email: string;
   role: 'viewer' | 'member' | 'admin';
   invitedBy: string;
+  organizationId: string;
 }
 
 export interface AcceptInvitationParams {
@@ -29,9 +32,15 @@ export interface UpdateMemberRoleParams {
 
 export class TeamService {
   /**
-   * Get all pending invitations sent by a user
+   * Get all pending invitations for an organization
    */
   static async getPendingInvitations(userId: string) {
+    // First get the user's organization
+    const organization = await OrganizationService.getUserOrganization(userId);
+    if (!organization) {
+      return [];
+    }
+
     const result = await db
       .select()
       .from(teamMembers)
@@ -40,7 +49,10 @@ export class TeamService {
         eq(teamInvitations.teamMemberId, teamMembers.id)
       )
       .where(
-        and(eq(teamMembers.userId, userId), eq(teamMembers.status, 'pending'))
+        and(
+          eq(teamMembers.organizationId, organization.id),
+          eq(teamMembers.status, 'pending')
+        )
       );
 
     // Map the results to match TeamMember interface
@@ -118,17 +130,24 @@ export class TeamService {
     email,
     role,
     invitedBy,
+    organizationId,
   }: InviteTeamMemberParams) {
-    // Check if user is already a team member
+    // Check if user is already a team member in this organization
     const existingMember = await db
       .select()
       .from(teamMembers)
       .innerJoin(users, eq(users.id, teamMembers.memberUserId))
-      .where(and(eq(users.email, email), eq(teamMembers.status, 'active')))
+      .where(
+        and(
+          eq(users.email, email),
+          eq(teamMembers.organizationId, organizationId),
+          eq(teamMembers.status, 'active')
+        )
+      )
       .limit(1);
 
     if (existingMember.length > 0) {
-      throw new Error('User is already a team member');
+      throw new Error('User is already a team member of this organization');
     }
 
     // Check for pending invitation
@@ -158,10 +177,11 @@ export class TeamService {
       const [member] = await tx
         .insert(teamMembers)
         .values({
-          userId: invitedBy, // workspace owner
+          userId: invitedBy, // person inviting
           invitedBy,
           role,
           status: 'pending',
+          organizationId,
           // memberUserId is intentionally omitted - it will be null for pending invitations
         })
         .returning();
@@ -189,11 +209,11 @@ export class TeamService {
 
     const inviterName = inviter?.name || inviter?.email || 'A team member';
 
-    // Get workspace name
-    const [workspace] = await db
-      .select({ name: workspaces.name })
-      .from(workspaces)
-      .where(eq(workspaces.ownerId, invitedBy))
+    // Get organization name
+    const [organization] = await db
+      .select({ name: organizations.name })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
       .limit(1);
 
     // Send invitation email
@@ -203,7 +223,7 @@ export class TeamService {
     await EmailService.sendTeamInvitation({
       email: email.toLowerCase(),
       inviterName,
-      workspaceName: workspace?.name,
+      organizationName: organization?.name,
       inviteUrl,
       expiresAt,
     });
@@ -283,9 +303,15 @@ export class TeamService {
   }
 
   /**
-   * Get team members for a user
+   * Get team members for a user's organization
    */
   static async getTeamMembers(userId: string) {
+    // First get the user's organization
+    const organization = await OrganizationService.getUserOrganization(userId);
+    if (!organization) {
+      return [];
+    }
+
     const members = await db
       .select({
         id: teamMembers.id,
@@ -302,7 +328,10 @@ export class TeamService {
       .from(teamMembers)
       .innerJoin(users, eq(users.id, teamMembers.memberUserId))
       .where(
-        and(eq(teamMembers.userId, userId), eq(teamMembers.status, 'active'))
+        and(
+          eq(teamMembers.organizationId, organization.id),
+          eq(teamMembers.status, 'active')
+        )
       );
 
     return members;
@@ -321,7 +350,7 @@ export class TeamService {
     const [member] = await db
       .select({
         id: teamMembers.id,
-        userId: teamMembers.userId,
+        organizationId: teamMembers.organizationId,
         memberUserId: teamMembers.memberUserId,
         currentRole: teamMembers.role,
         status: teamMembers.status,
@@ -334,21 +363,32 @@ export class TeamService {
       throw new Error('Team member not found');
     }
 
-    // The member.userId is the workspace owner who invited this member
-    // We need to verify that the updater has permission in this workspace
-    const workspaceOwnerId = member.userId;
+    if (!member.organizationId) {
+      throw new Error('Team member not associated with an organization');
+    }
 
-    // Check if updater is the workspace owner
-    if (workspaceOwnerId === updatedBy) {
-      // Owner can update any member in their workspace
+    // Get the organization to verify permissions
+    const [org] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, member.organizationId))
+      .limit(1);
+
+    if (!org) {
+      throw new Error('Organization not found');
+    }
+
+    // Check if updater is the organization owner
+    if (org.ownerId === updatedBy) {
+      // Owner can update any member in their organization
     } else {
-      // Check if updater is an admin in this workspace
+      // Check if updater is an admin in this organization
       const [updaterMembership] = await db
         .select({ role: teamMembers.role })
         .from(teamMembers)
         .where(
           and(
-            eq(teamMembers.userId, workspaceOwnerId),
+            eq(teamMembers.organizationId, member.organizationId),
             eq(teamMembers.memberUserId, updatedBy),
             eq(teamMembers.status, 'active')
           )
@@ -362,9 +402,9 @@ export class TeamService {
       }
     }
 
-    // Prevent changing the workspace owner's role
-    if (member.memberUserId === workspaceOwnerId) {
-      throw new Error('Cannot change the role of the workspace owner');
+    // Prevent changing the organization owner's role
+    if (member.memberUserId === org.ownerId) {
+      throw new Error('Cannot change the role of the organization owner');
     }
 
     // Prevent role escalation - can't give someone a higher role than you have
@@ -415,17 +455,24 @@ export class TeamService {
         throw new Error('Team member not found');
       }
 
-      // The member.userId is the workspace owner who invited this member
-      const workspaceOwnerId = member.userId;
-
-      // Only workspace owner can remove team members
-      if (workspaceOwnerId !== removedBy) {
-        throw new Error('Only the workspace owner can remove team members');
+      // Check if the remover has permission (must be organization owner)
+      if (!member.organizationId) {
+        throw new Error('Team member not associated with an organization');
       }
 
-      // Prevent removing the workspace owner from their own team
-      if (member.memberUserId === workspaceOwnerId) {
-        throw new Error('Cannot remove the workspace owner from the team');
+      const [org] = await tx
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, member.organizationId))
+        .limit(1);
+
+      if (!org || org.ownerId !== removedBy) {
+        throw new Error('Only the organization owner can remove team members');
+      }
+
+      // Prevent removing the organization owner from their own team
+      if (member.memberUserId === org.ownerId) {
+        throw new Error('Cannot remove the organization owner from the team');
       }
 
       // If pending, also delete invitation
@@ -487,12 +534,16 @@ export class TeamService {
 
     const inviterName = inviter?.name || inviter?.email || 'A team member';
 
-    // Get workspace name
-    const [workspace] = await db
-      .select({ name: workspaces.name })
-      .from(workspaces)
-      .where(eq(workspaces.ownerId, invitation.team_members.invitedBy))
-      .limit(1);
+    // Get organization name
+    let organizationName: string | undefined;
+    if (invitation.team_members.organizationId) {
+      const [org] = await db
+        .select({ name: organizations.name })
+        .from(organizations)
+        .where(eq(organizations.id, invitation.team_members.organizationId))
+        .limit(1);
+      organizationName = org?.name;
+    }
 
     // Send new invitation email
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
@@ -501,7 +552,7 @@ export class TeamService {
     await EmailService.sendTeamInvitation({
       email: invitation.team_invitations.email,
       inviterName,
-      workspaceName: workspace?.name,
+      organizationName,
       inviteUrl,
       expiresAt,
     });
@@ -553,18 +604,13 @@ export class TeamService {
       return { valid: false, error: 'Team member record not found' };
     }
 
-    // Get workspace details
-    const [workspace] = await db
-      .select({
-        id: workspaces.id,
-        name: workspaces.name,
-      })
-      .from(workspaces)
-      .where(eq(workspaces.ownerId, teamMember.userId))
-      .limit(1);
+    // Get organization details
+    const organization = await OrganizationService.getUserOrganization(
+      teamMember.userId
+    );
 
-    if (!workspace) {
-      return { valid: false, error: 'Workspace not found' };
+    if (!organization) {
+      return { valid: false, error: 'Organization not found' };
     }
 
     // Get inviter details
@@ -586,9 +632,9 @@ export class TeamService {
         email: invitation.email,
         expiresAt: invitation.expiresAt,
         role: teamMember.role,
-        workspace: {
-          id: workspace.id,
-          name: workspace.name,
+        organization: {
+          id: organization.id,
+          name: organization.name,
         },
         inviter: {
           name: inviterName,

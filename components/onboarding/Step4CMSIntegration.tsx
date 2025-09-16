@@ -73,7 +73,7 @@ const OTHER_PLATFORMS = [
   { value: 'other', label: 'Other' },
 ];
 
-export function Step3CMSIntegration({
+export function Step4CMSIntegration({
   form,
   isSubmitting,
 }: StepComponentProps) {

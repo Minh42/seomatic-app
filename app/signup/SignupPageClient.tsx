@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { AuthLayout } from '@/components/auth/AuthLayout';
@@ -17,36 +18,52 @@ import { CheckoutSessionWithPlan } from '@/lib/services/checkout-service';
 interface SignupPageClientProps {
   token?: string;
   checkoutSession: CheckoutSessionWithPlan | null;
-  sessionError: string | null;
   stripeError?: boolean;
 }
 
 export default function SignupPageClient({
   token,
   checkoutSession,
-  sessionError,
   stripeError,
 }: SignupPageClientProps) {
   const [fingerprint, setFingerprint] = useState<string | null>(null);
+  const searchParams = useSearchParams();
 
-  // Handle session errors - show toast but don't redirect
+  // Check URL params for OAuth errors using Next.js hook
   useEffect(() => {
-    // Show error for already used tokens but let user stay on the page
-    if (sessionError === 'already_used' && checkoutSession) {
-      toast.error(
-        'This signup link has already been used. Please sign in to your account.'
-      );
-      // Don't redirect - let user stay on the page
-    }
+    const urlError = searchParams.get('error');
 
+    if (urlError) {
+      // Small timeout to ensure component is fully mounted
+      setTimeout(() => {
+        if (urlError === 'no-payment-info') {
+          toast.error(
+            "We couldn't find your payment information. Please check your email for the signup link."
+          );
+        } else if (urlError === 'already_used') {
+          toast.error(
+            'This signup link has already been used. Please log in to your account.'
+          );
+        } else if (urlError === 'invalid') {
+          toast.error(
+            'This signup link is invalid or has expired. Please check your email for the correct link.'
+          );
+        } else if (urlError === 'no-subscription') {
+          toast.error(
+            'You need an active subscription. Please complete your purchase first.'
+          );
+        }
+      }, 100);
+    }
+  }, [searchParams]);
+
+  // Handle Stripe errors
+  useEffect(() => {
     // Show Stripe error if OAuth callback failed to set up subscription
     if (stripeError) {
       toast.error('Failed to retrieve subscription details from Stripe');
     }
-
-    // Don't show errors for invalid/expired tokens on page load
-    // These will be handled when the user tries to submit the form
-  }, [sessionError, checkoutSession, stripeError]);
+  }, [stripeError]);
 
   // Initialize fingerprinting
   useEffect(() => {
@@ -119,7 +136,8 @@ export default function SignupPageClient({
       },
     });
 
-  const handleSocialAuth = useSocialAuth('/onboarding', token);
+  // Always use oauth-callback for signup to ensure token validation
+  const handleSocialAuth = useSocialAuth('/api/auth/oauth-callback', token);
 
   // Determine title and subtitle based on whether we have a checkout session
   const title = checkoutSession

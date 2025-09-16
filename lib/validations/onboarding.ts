@@ -20,15 +20,14 @@ export const step1Schema = z
     }
   );
 
-// Workspace name validation
-export const workspaceNameSchema = z
+// Organization name validation
+export const organizationNameSchema = z
   .string()
-  .min(1, 'Workspace name is required')
-  .min(2, 'Workspace name must be at least 2 characters')
-  .max(50, 'Workspace name must be less than 50 characters')
+  .min(3, 'Organization name must be at least 3 characters')
+  .max(50, 'Organization name must be less than 50 characters')
   .regex(
     /^[a-zA-Z0-9][a-zA-Z0-9\s-]*[a-zA-Z0-9]$/,
-    'Workspace name must start and end with a letter or number, and can only contain letters, numbers, spaces, and hyphens'
+    'Must start and end with a letter or number'
   )
   .refine(
     name => {
@@ -36,7 +35,7 @@ export const workspaceNameSchema = z
       return !/(  |--|\s-|-\s)/.test(name);
     },
     {
-      message: 'Workspace name cannot have consecutive spaces or hyphens',
+      message: 'Organization name cannot have consecutive spaces or hyphens',
     }
   )
   .refine(
@@ -45,14 +44,14 @@ export const workspaceNameSchema = z
       return !/^\d+$/.test(name);
     },
     {
-      message: 'Workspace name cannot be only numbers',
+      message: 'Organization name cannot be only numbers',
     }
   );
 
-// Step 2: Workspace Information
+// Step 2: Organization Information
 export const step2Schema = z
   .object({
-    workspaceName: workspaceNameSchema,
+    organizationName: organizationNameSchema,
     professionalRole: z.string().min(1, 'Please select your professional role'),
     otherProfessionalRole: z.string().optional(),
     companySize: z.string().min(1, 'Please select your company size'),
@@ -128,18 +127,18 @@ export const teamMemberSchema = z.object({
   role: z.enum(['viewer', 'member', 'admin']),
 });
 
-// Step 3: CMS Integration
+// Step 3: Team Collaboration
 export const step3Schema = z.object({
+  teamMembers: z.array(teamMemberSchema).default([]),
+});
+
+// Step 4: CMS Integration
+export const step4Schema = z.object({
   cmsIntegration: z.string().min(1, 'Please select your CMS platform'),
   otherCms: z.string().optional(), // Can be a dropdown selection or custom text
 });
 
-// Step 4: Team Collaboration (was Step 3)
-export const step4Schema = z.object({
-  teamMembers: z.array(teamMemberSchema).default([]),
-});
-
-// Step 5: Discovery (was Step 4)
+// Step 5: Discovery
 export const step5Schema = z
   .object({
     discoverySource: z.string().min(1, 'Please tell us how you heard about us'),
@@ -162,14 +161,13 @@ export const step5Schema = z
     }
   );
 
-// Complete onboarding schema (includes workspaceName for workspace creation)
+// Complete onboarding schema (for final submission)
 export const onboardingSchema = z.object({
   // Step 1
   useCases: z.array(z.string()).min(1, 'Please select at least one use case'),
   otherUseCase: z.string().optional(),
 
-  // Step 2
-  workspaceName: workspaceNameSchema, // For workspace creation, not stored in user
+  // Step 2 (excluding organizationName which is handled separately in step2)
   professionalRole: z.string().min(1, 'Please select your professional role'),
   otherProfessionalRole: z.string().optional(),
   companySize: z.string().min(1, 'Please select your company size'),
@@ -177,11 +175,11 @@ export const onboardingSchema = z.object({
   otherIndustry: z.string().optional(),
 
   // Step 3
-  cmsIntegration: z.string().min(1, 'Please select your CMS platform'),
-  otherCms: z.string().optional(),
+  teamMembers: z.array(teamMemberSchema).default([]),
 
   // Step 4
-  teamMembers: z.array(teamMemberSchema).default([]),
+  cmsIntegration: z.string().min(1, 'Please select your CMS platform'),
+  otherCms: z.string().optional(),
 
   // Step 5
   discoverySource: z.string().min(1, 'Please tell us how you heard about us'),
@@ -197,9 +195,8 @@ export const progressSchema = z.object({
 });
 
 // Extended submission schema - for final onboarding completion
-export const onboardingSubmissionSchema = onboardingSchema.extend({
-  workspaceId: z.string().optional(),
-});
+// Currently same as onboardingSchema but kept separate for potential future extensions
+export const onboardingSubmissionSchema = onboardingSchema;
 
 export type OnboardingFormData = z.infer<typeof onboardingSchema>;
 export type Step1Data = z.infer<typeof step1Schema>;
@@ -215,15 +212,14 @@ export type OnboardingSubmission = z.infer<typeof onboardingSubmissionSchema>;
 export const defaultOnboardingValues: OnboardingFormData = {
   useCases: [],
   otherUseCase: '',
-  workspaceName: '',
   professionalRole: '',
   otherProfessionalRole: '',
   companySize: '',
   industry: '',
   otherIndustry: '',
+  teamMembers: [],
   cmsIntegration: '',
   otherCms: '',
-  teamMembers: [],
   discoverySource: '',
   otherDiscoverySource: '',
   previousAttempts: '',

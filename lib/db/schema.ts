@@ -74,6 +74,18 @@ export const connectionStatusEnum = pgEnum('connection_status', [
   'error',
 ]);
 
+// Organizations table (multi-tenant support)
+export const organizations = pgTable('organizations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: varchar('name').notNull(),
+  ownerId: uuid('owner_id')
+    .notNull()
+    .references(() => users.id),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email').unique().notNull(),
@@ -104,7 +116,7 @@ export const users = pgTable('users', {
   useCases: text('use_cases').array(), // Array of use case IDs
   otherUseCase: text('other_use_case'),
 
-  // Step 2: Workspace Info (professional info)
+  // Step 2: Professional info
   professionalRole: varchar('professional_role'),
   otherProfessionalRole: varchar('other_professional_role'),
   companySize: varchar('company_size'),
@@ -212,9 +224,10 @@ export const subscriptions = pgTable('subscriptions', {
 // Team members (count against subscription limits)
 export const teamMembers = pgTable('team_members', {
   id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: uuid('organization_id').references(() => organizations.id), // Nullable initially for migration
   userId: uuid('user_id')
     .notNull()
-    .references(() => users.id), // plan owner
+    .references(() => users.id), // plan owner (deprecated - use organizationId)
   memberUserId: uuid('member_user_id').references(() => users.id), // team member - nullable for pending invitations
   invitedBy: uuid('invited_by')
     .notNull()
@@ -278,9 +291,11 @@ export const whiteLabelBrandings = pgTable('white_label_brandings', {
 export const workspaces = pgTable('workspaces', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name').notNull(), // "Nike Main Site"
+  organizationId: uuid('organization_id').references(() => organizations.id), // Nullable initially for migration
+  createdById: uuid('created_by_id').references(() => users.id), // User who created this workspace - nullable initially
   ownerId: uuid('owner_id')
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id), // Keep for backwards compatibility
 
   // White labeling (Agency/Enterprise plans only)
   whiteLabelEnabled: boolean('white_label_enabled').default(false).notNull(),

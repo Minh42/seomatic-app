@@ -60,7 +60,7 @@ export function Step1UseCases({ form, isSubmitting }: StepComponentProps) {
           </span>
         </h1>
         <p className="text-gray-600">
-          This will help us personalize your experience in SEOmatic. You can
+          Tell us your use cases so we can personalize your experience. You can
           select multiple options.
         </p>
       </div>

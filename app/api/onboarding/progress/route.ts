@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { OnboardingService } from '@/lib/services/onboarding-service';
-import { WorkspaceService } from '@/lib/services/workspace-service';
+import { OrganizationService } from '@/lib/services/organization-service';
 import { progressSchema } from '@/lib/validations/onboarding';
 
 // GET endpoint to fetch user's onboarding progress
@@ -16,10 +16,10 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    // Fetch both in parallel for better performance
-    const [progress, workspace] = await Promise.all([
+    // Fetch progress and organization in parallel
+    const [progress, organization] = await Promise.all([
       OnboardingService.getProgress(userId),
-      WorkspaceService.getPrimaryWorkspace(userId),
+      OrganizationService.getUserOrganization(userId),
     ]);
 
     if (!progress) {
@@ -35,19 +35,19 @@ export async function GET() {
       });
     }
 
-    // Return unified response format that works for both old and new endpoints
+    // Return unified response format including organization info if it exists
     return NextResponse.json({
       completed: false,
       onboardingCompleted: false,
       data: {
         ...progress.onboardingData,
-        workspaceId: workspace?.id || null,
-        workspaceName: workspace?.name || '',
+        organizationId: organization?.id || null,
+        organizationName: organization?.name || '',
       },
       // Also include these at root level for backward compatibility
       onboardingData: progress.onboardingData,
-      workspaceId: workspace?.id || null,
-      workspaceName: workspace?.name || '',
+      organizationId: organization?.id || null,
+      organizationName: organization?.name || '',
     });
   } catch (error) {
     console.error('Error fetching onboarding progress:', error);

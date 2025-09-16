@@ -8,7 +8,13 @@ import {
   OnboardingFormData,
   defaultOnboardingValues,
 } from '@/lib/validations/onboarding';
-import { OnboardingError } from '@/lib/errors/onboarding-errors';
+import {
+  OnboardingError,
+  AlreadyCompletedError,
+  SessionError,
+  ValidationError,
+  ServerError,
+} from '@/lib/errors/onboarding-errors';
 import { useOnboardingValidation } from './useOnboardingValidation';
 import { useOnboardingProgress } from './useOnboardingProgress';
 import { useOnboardingStepHandlers } from './useOnboardingStepHandlers';
@@ -33,10 +39,10 @@ export interface UseOnboardingFormReturn {
   canGoPrevious: boolean;
   canSkip: boolean;
   retrySubmission: () => Promise<void>;
-  retryWorkspaceCreation: (newName: string) => Promise<void>;
-  clearWorkspaceError: () => void;
+  retryOrganizationCreation: (newName: string) => Promise<void>;
+  clearOrganizationError: () => void;
   isLoadingProgress: boolean;
-  workspaceId: string | null;
+  organizationId: string | null;
   showConfetti: boolean;
 }
 
@@ -56,10 +62,10 @@ interface InitialData {
     otherDiscoverySource: string;
     previousAttempts: string;
     teamMembers: Array<{ email: string; role: string }>;
-    workspaceName?: string;
+    organizationName?: string;
   };
-  workspaceId: string | null;
-  workspaceName: string;
+  organizationId: string | null;
+  organizationName: string;
 }
 
 /**
@@ -80,8 +86,8 @@ export function useOnboardingForm(
   const [showConfetti, setShowConfetti] = useState(false);
   const [lastSubmissionData, setLastSubmissionData] =
     useState<OnboardingFormData | null>(null);
-  const [workspaceId, setWorkspaceId] = useState<string | null>(
-    initialData?.workspaceId || null
+  const [organizationId, setOrganizationId] = useState<string | null>(
+    initialData?.organizationId || null
   );
   const [isLoadingProgress] = useState(false);
 
@@ -90,9 +96,9 @@ export function useOnboardingForm(
     ? {
         useCases: initialData.onboardingData.useCases || [],
         otherUseCase: initialData.onboardingData.otherUseCase || '',
-        workspaceName:
-          initialData.onboardingData.workspaceName ||
-          initialData.workspaceName ||
+        organizationName:
+          initialData.onboardingData.organizationName ||
+          initialData.organizationName ||
           '',
         professionalRole: initialData.onboardingData.professionalRole || '',
         otherProfessionalRole:
@@ -119,17 +125,11 @@ export function useOnboardingForm(
       setLastSubmissionData(value);
 
       try {
-        // Include workspaceId in the submission
-        const submissionData = {
-          ...value,
-          workspaceId,
-        };
-
         // Use the main onboarding endpoint for completion
         const response = await fetch('/api/onboarding', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(submissionData),
+          body: JSON.stringify(value),
         });
 
         const data = await response.json();
@@ -137,29 +137,16 @@ export function useOnboardingForm(
         if (!response.ok) {
           // Handle specific error cases
           if (response.status === 409) {
-            throw new OnboardingError(
-              data.error || 'Onboarding already completed',
-              undefined,
-              'ALREADY_COMPLETED'
-            );
+            throw new AlreadyCompletedError();
           } else if (response.status === 400) {
-            throw new OnboardingError(
+            throw new ValidationError(
               data.error || 'Invalid form data',
-              data.field,
-              'VALIDATION_ERROR'
+              data.field
             );
           } else if (response.status === 401) {
-            throw new OnboardingError(
-              'Session expired. Please sign in again.',
-              undefined,
-              'UNAUTHORIZED'
-            );
+            throw new SessionError();
           } else if (response.status >= 500) {
-            throw new OnboardingError(
-              'Server error. Please try again later.',
-              undefined,
-              'SERVER_ERROR'
-            );
+            throw new ServerError();
           } else {
             throw new OnboardingError(
               data.error || 'Failed to complete onboarding',
@@ -184,11 +171,18 @@ export function useOnboardingForm(
               ? err.message
               : 'An unexpected error occurred';
 
-        setError(
-          err instanceof OnboardingError
-            ? err
-            : { message: errorMessage, code: 'UNKNOWN' }
-        );
+        // Only set error state for critical errors (not validation)
+        if (
+          err instanceof OnboardingError &&
+          err.code !== 'VALIDATION_ERROR' &&
+          err.code !== 'ALREADY_COMPLETED'
+        ) {
+          setError(err);
+        } else if (!(err instanceof OnboardingError)) {
+          setError({ message: errorMessage, code: 'UNKNOWN' });
+        }
+
+        // Always show toast for user feedback
         toast.error(errorMessage);
 
         // Handle specific error codes
@@ -207,7 +201,7 @@ export function useOnboardingForm(
   // Use step handlers hook
   const stepHandlers = useOnboardingStepHandlers({
     form,
-    setWorkspaceId,
+    setOrganizationId,
     setError,
     saveStepProgress,
   });
@@ -261,7 +255,7 @@ export function useOnboardingForm(
       // Retry with the last submission data
       const submissionData = {
         ...lastSubmissionData,
-        workspaceId,
+        workspaceId: null, // Will be created during onboarding
       };
 
       // Use the main onboarding endpoint for completion
@@ -300,15 +294,15 @@ export function useOnboardingForm(
     } finally {
       setIsSubmitting(false);
     }
-  }, [lastSubmissionData, isSubmitting, workspaceId, router]);
+  }, [lastSubmissionData, isSubmitting, organizationId, router]);
 
   // Retry workspace creation with a different name
-  const retryWorkspaceCreation = useCallback(
+  const retryOrganizationCreation = useCallback(
     async (newName: string) => {
       if (isSubmitting) return;
 
       setIsSubmitting(true);
-      const success = await stepHandlers.retryWorkspaceCreation(newName);
+      const success = await stepHandlers.retryOrganizationCreation(newName);
 
       if (success) {
         // Move to next step
@@ -323,7 +317,7 @@ export function useOnboardingForm(
   );
 
   // Clear workspace error
-  const clearWorkspaceError = useCallback(() => {
+  const clearOrganizationError = useCallback(() => {
     setError(null);
   }, []);
 
@@ -340,10 +334,10 @@ export function useOnboardingForm(
     canGoPrevious,
     canSkip,
     retrySubmission,
-    retryWorkspaceCreation,
-    clearWorkspaceError,
+    retryOrganizationCreation,
+    clearOrganizationError,
     isLoadingProgress,
-    workspaceId,
+    organizationId,
     showConfetti,
   };
 }

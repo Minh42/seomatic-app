@@ -12,7 +12,7 @@ import Link from 'next/link';
 interface InvitationData {
   email: string;
   role: string;
-  workspaceName: string;
+  organizationName: string;
   inviterName: string;
   expiresAt: string;
 }
@@ -181,9 +181,9 @@ export default function InvitePage() {
               </p>
 
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <p className="text-sm text-gray-600 mb-1">Workspace</p>
+                <p className="text-sm text-gray-600 mb-1">Organization</p>
                 <p className="font-semibold text-lg mb-3">
-                  {invitation.workspaceName}
+                  {invitation.organizationName}
                 </p>
 
                 <p className="text-sm text-gray-600 mb-1">Your Role</p>

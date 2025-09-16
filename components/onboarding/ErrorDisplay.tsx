@@ -20,8 +20,8 @@ export function ErrorDisplay({
 
   const getErrorTitle = () => {
     switch (error.code) {
-      case 'DUPLICATE_WORKSPACE':
-        return 'Workspace Name Taken';
+      case 'DUPLICATE_ORGANIZATION':
+        return 'Organization Name Taken';
       case 'UNAUTHORIZED':
         return 'Session Expired';
       case 'SERVER_ERROR':
@@ -30,8 +30,8 @@ export function ErrorDisplay({
         return 'Validation Error';
       case 'ALREADY_COMPLETED':
         return 'Onboarding Already Completed';
-      case 'WORKSPACE_ERROR':
-        return 'Workspace Creation Failed';
+      case 'ORGANIZATION_ERROR':
+        return 'Organization Creation Failed';
       default:
         return 'Something went wrong';
     }
@@ -40,7 +40,7 @@ export function ErrorDisplay({
   const showRetryButton =
     canRetry &&
     error.code !== 'ALREADY_COMPLETED' &&
-    error.code !== 'DUPLICATE_WORKSPACE' &&
+    error.code !== 'DUPLICATE_ORGANIZATION' &&
     error.code !== 'VALIDATION_ERROR';
 
   return (

@@ -10,7 +10,8 @@ declare module 'next-auth' {
       image?: string | null;
       createdAt?: string | Date | null;
       workspaceId?: string | null;
-      workspaceName?: string | null;
+      organizationId?: string | null;
+      organizationName?: string | null;
       plan?: string | null;
     };
     rememberMe?: boolean;

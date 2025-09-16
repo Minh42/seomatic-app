@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { OnboardingService } from '@/lib/services/onboarding-service';
 import { WorkspaceService } from '@/lib/services/workspace-service';
+import { OrganizationService } from '@/lib/services/organization-service';
 import { EmailService } from '@/lib/services/email-service';
 import { AnalyticsService } from '@/lib/services/analytics-service';
 import { onboardingSubmissionSchema } from '@/lib/validations/onboarding';
@@ -29,17 +30,17 @@ export async function GET() {
     }
 
     // Get current progress for incomplete onboarding
-    const [progress, workspace] = await Promise.all([
+    const [progress, organization] = await Promise.all([
       OnboardingService.getProgress(userId),
-      WorkspaceService.getPrimaryWorkspace(userId),
+      OrganizationService.getUserOrganization(userId),
     ]);
 
     return NextResponse.json({
       completed: false,
       currentStep: progress?.onboardingData?.currentStep || 1,
-      hasWorkspace: !!workspace,
-      workspaceId: workspace?.id || null,
-      workspaceName: workspace?.name || '',
+      hasOrganization: !!organization,
+      organizationId: organization?.id || null,
+      organizationName: organization?.name || '',
     });
   } catch (error) {
     console.error('Error checking onboarding status:', error);
@@ -89,66 +90,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Use the provided workspaceId or get user's workspace
-    let workspaceId: string;
+    // Verify user has an organization and workspace (should have been created in Step 2)
+    const organization = await OrganizationService.getUserOrganization(userId);
 
-    if (data.workspaceId) {
-      // Verify the workspace belongs to the user
-      const isOwner = await WorkspaceService.verifyOwnership(
-        data.workspaceId,
-        userId
+    if (!organization) {
+      return NextResponse.json(
+        { error: 'Organization not found. Please complete Step 2 first.' },
+        { status: 400 }
       );
-      if (!isOwner) {
-        return NextResponse.json(
-          { error: 'Invalid workspace' },
-          { status: 400 }
-        );
-      }
-      workspaceId = data.workspaceId;
-    } else {
-      // Get or create user's workspace with proper error handling
-      let workspace = await WorkspaceService.getPrimaryWorkspace(userId);
-
-      if (!workspace) {
-        try {
-          workspace = await WorkspaceService.create({
-            name: data.workspaceName || 'My Workspace',
-            ownerId: userId,
-          });
-        } catch (error) {
-          console.error('Failed to create workspace during onboarding:', error);
-
-          // Provide helpful error message based on the error type
-          if (error instanceof Error) {
-            if (
-              error.message.includes('duplicate') ||
-              error.message.includes('already exists')
-            ) {
-              return NextResponse.json(
-                {
-                  error:
-                    'A workspace with this name already exists. Please choose a different name.',
-                  code: 'DUPLICATE_WORKSPACE',
-                  field: 'workspaceName',
-                },
-                { status: 409 }
-              );
-            }
-          }
-
-          return NextResponse.json(
-            {
-              error: 'Failed to create workspace. Please try again.',
-              code: 'WORKSPACE_ERROR',
-              field: 'workspaceName',
-            },
-            { status: 500 }
-          );
-        }
-      }
-
-      workspaceId = workspace.id;
     }
+
+    // Get the primary workspace
+    const workspace = await WorkspaceService.getPrimaryWorkspace(userId);
+
+    if (!workspace) {
+      return NextResponse.json(
+        { error: 'Workspace not found. Please complete Step 2 first.' },
+        { status: 400 }
+      );
+    }
+
+    const workspaceId = workspace.id;
 
     // Team invitations are now sent in Step 3, not during final completion
 

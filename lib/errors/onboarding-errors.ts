@@ -14,21 +14,21 @@ export class OnboardingError extends Error {
   }
 }
 
-export class WorkspaceError extends OnboardingError {
-  constructor(message: string, field: string = 'workspaceName') {
-    super(message, field, 'WORKSPACE_ERROR');
-    this.name = 'WorkspaceError';
+export class OrganizationError extends OnboardingError {
+  constructor(message: string, field: string = 'organizationName') {
+    super(message, field, 'ORGANIZATION_ERROR');
+    this.name = 'OrganizationError';
   }
 }
 
-export class DuplicateWorkspaceError extends WorkspaceError {
-  constructor(workspaceName: string) {
+export class DuplicateOrganizationError extends OrganizationError {
+  constructor(organizationName: string) {
     super(
-      `A workspace with the name "${workspaceName}" already exists. Please choose a different name.`,
-      'workspaceName'
+      `An organization with the name "${organizationName}" already exists. Please choose a different name.`,
+      'organizationName'
     );
-    this.code = 'DUPLICATE_WORKSPACE';
-    this.name = 'DuplicateWorkspaceError';
+    this.code = 'DUPLICATE_ORGANIZATION';
+    this.name = 'DuplicateOrganizationError';
   }
 }
 
@@ -43,5 +43,19 @@ export class AlreadyCompletedError extends OnboardingError {
   constructor() {
     super('Onboarding already completed', undefined, 'ALREADY_COMPLETED');
     this.name = 'AlreadyCompletedError';
+  }
+}
+
+export class ValidationError extends OnboardingError {
+  constructor(message: string = 'Invalid form data', field?: string) {
+    super(message, field, 'VALIDATION_ERROR');
+    this.name = 'ValidationError';
+  }
+}
+
+export class ServerError extends OnboardingError {
+  constructor(message: string = 'Server error. Please try again later.') {
+    super(message, undefined, 'SERVER_ERROR');
+    this.name = 'ServerError';
   }
 }

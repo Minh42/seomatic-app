@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { OnboardingTestimonial } from '@/components/common/OnboardingTestimonial';
 import { SocialProof } from '@/components/common/SocialProof';
 import { Step1UseCases } from '@/components/onboarding/Step1UseCases';
-import { Step2WorkspaceInfo } from '@/components/onboarding/Step2WorkspaceInfo';
-import { Step3CMSIntegration } from '@/components/onboarding/Step3CMSIntegration';
-import { Step4TeamMembers } from '@/components/onboarding/Step4TeamMembers';
+import { Step2OrganizationInfo } from '@/components/onboarding/Step2OrganizationInfo';
+import { Step3TeamMembers } from '@/components/onboarding/Step3TeamMembers';
+import { Step4CMSIntegration } from '@/components/onboarding/Step4CMSIntegration';
 import { Step5Discovery } from '@/components/onboarding/Step5Discovery';
 import { ProgressBar } from '@/components/onboarding/ProgressBar';
 import { ErrorDisplay } from '@/components/onboarding/ErrorDisplay';
@@ -31,10 +31,10 @@ interface OnboardingPageClientProps {
       otherDiscoverySource: string;
       previousAttempts: string;
       teamMembers: { email: string; role: 'viewer' | 'member' | 'admin' }[];
-      workspaceName?: string;
+      organizationName?: string;
     };
-    workspaceId: string | null;
-    workspaceName: string;
+    organizationId: string | null;
+    organizationName: string;
   };
 }
 
@@ -54,9 +54,9 @@ export function OnboardingPageClient({
     canGoPrevious,
     canSkip,
     retrySubmission,
-    retryWorkspaceCreation,
-    clearWorkspaceError,
-    workspaceId,
+    retryOrganizationCreation,
+    clearOrganizationError,
+    organizationId,
     showConfetti,
   } = useOnboardingForm(initialData);
 
@@ -89,13 +89,13 @@ export function OnboardingPageClient({
 
           <ProgressBar currentStep={currentStep} totalSteps={5} />
 
-          {/* Error Display - Hide workspace errors in Step 2 as they're handled by WorkspaceRecovery */}
+          {/* Error Display - Hide organization errors in Step 2 as they're handled by OrganizationRecovery */}
           {!(
             currentStep === 2 &&
             error &&
-            (error.code === 'DUPLICATE_WORKSPACE' ||
-              error.code === 'WORKSPACE_ERROR' ||
-              error.field === 'workspaceName')
+            (error.code === 'DUPLICATE_ORGANIZATION' ||
+              error.code === 'ORGANIZATION_ERROR' ||
+              error.field === 'organizationName')
           ) && (
             <ErrorDisplay
               error={error}
@@ -109,20 +109,20 @@ export function OnboardingPageClient({
             <Step1UseCases form={form} isSubmitting={isSubmitting} />
           )}
           {currentStep === 2 && (
-            <Step2WorkspaceInfo
+            <Step2OrganizationInfo
               form={form}
               isSubmitting={isSubmitting}
               error={error}
-              onRetryWorkspace={retryWorkspaceCreation}
-              onCancelWorkspaceRecovery={clearWorkspaceError}
-              workspaceId={workspaceId}
+              onRetryOrganization={retryOrganizationCreation}
+              onCancelOrganizationRecovery={clearOrganizationError}
+              organizationId={organizationId}
             />
           )}
           {currentStep === 3 && (
-            <Step3CMSIntegration form={form} isSubmitting={isSubmitting} />
+            <Step3TeamMembers form={form} isSubmitting={isSubmitting} />
           )}
           {currentStep === 4 && (
-            <Step4TeamMembers form={form} isSubmitting={isSubmitting} />
+            <Step4CMSIntegration form={form} isSubmitting={isSubmitting} />
           )}
           {currentStep === 5 && (
             <Step5Discovery form={form} isSubmitting={isSubmitting} />

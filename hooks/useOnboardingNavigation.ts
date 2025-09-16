@@ -69,7 +69,7 @@ export function useOnboardingNavigation({
           break;
         case 2:
           stepValues = {
-            workspaceName: values.workspaceName,
+            organizationName: values.organizationName,
             professionalRole: values.professionalRole,
             otherProfessionalRole: values.otherProfessionalRole,
             companySize: values.companySize,
@@ -79,13 +79,13 @@ export function useOnboardingNavigation({
           break;
         case 3:
           stepValues = {
-            cmsIntegration: values.cmsIntegration,
-            otherCms: values.otherCms,
+            teamMembers: values.teamMembers,
           };
           break;
         case 4:
           stepValues = {
-            teamMembers: values.teamMembers,
+            cmsIntegration: values.cmsIntegration,
+            otherCms: values.otherCms,
           };
           break;
         case 5:
@@ -205,13 +205,13 @@ export function useOnboardingNavigation({
           break;
         case 3:
           await saveStepProgress(3, {
-            cmsIntegration: values.cmsIntegration || '',
-            otherCms: values.otherCms || '',
+            teamMembers: values.teamMembers || [],
           });
           break;
         case 4:
           await saveStepProgress(4, {
-            teamMembers: values.teamMembers || [],
+            cmsIntegration: values.cmsIntegration || '',
+            otherCms: values.otherCms || '',
           });
           break;
         case 5:

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, RefreshCw, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface WorkspaceRecoveryProps {
+interface OrganizationRecoveryProps {
   error: {
     message: string;
     code?: string;
@@ -19,13 +19,13 @@ interface WorkspaceRecoveryProps {
   onCancel: () => void;
 }
 
-export function WorkspaceRecovery({
+export function OrganizationRecovery({
   error,
   originalName,
   onRetry,
   onCancel,
-}: WorkspaceRecoveryProps) {
-  const [workspaceName, setWorkspaceName] = useState(originalName);
+}: OrganizationRecoveryProps) {
+  const [organizationName, setOrganizationName] = useState(originalName);
   const [isRetrying, setIsRetrying] = useState(false);
   const [suggestions] = useState(() => {
     // Generate name suggestions
@@ -39,14 +39,14 @@ export function WorkspaceRecovery({
   });
 
   const handleRetry = async () => {
-    if (!workspaceName.trim()) {
-      toast.error('Please enter a workspace name');
+    if (!organizationName.trim()) {
+      toast.error('Please enter an organization name');
       return;
     }
 
     setIsRetrying(true);
     try {
-      await onRetry(workspaceName);
+      await onRetry(organizationName);
     } catch {
       // Error handling is done in parent component
     } finally {
@@ -54,7 +54,7 @@ export function WorkspaceRecovery({
     }
   };
 
-  const isDuplicateError = error.code === 'DUPLICATE_WORKSPACE';
+  const isDuplicateError = error.code === 'DUPLICATE_ORGANIZATION';
 
   return (
     <div className="space-y-4">
@@ -62,27 +62,27 @@ export function WorkspaceRecovery({
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>
           {isDuplicateError
-            ? 'Workspace Name Taken'
-            : 'Workspace Creation Failed'}
+            ? 'Organization Name Taken'
+            : 'Organization Creation Failed'}
         </AlertTitle>
         <AlertDescription>{error.message}</AlertDescription>
       </Alert>
 
       <div className="space-y-4">
         <div>
-          <Label htmlFor="workspace-name">Workspace Name</Label>
+          <Label htmlFor="organization-name">Organization Name</Label>
           <Input
-            id="workspace-name"
-            value={workspaceName}
-            onChange={e => setWorkspaceName(e.target.value)}
-            placeholder="Enter a unique workspace name"
+            id="organization-name"
+            value={organizationName}
+            onChange={e => setOrganizationName(e.target.value)}
+            placeholder="Enter a unique organization name"
             className="mt-1"
             maxLength={50}
             disabled={isRetrying}
           />
-          {workspaceName.length > 40 && (
+          {organizationName.length > 40 && (
             <p className="text-xs text-yellow-600 mt-1">
-              {50 - workspaceName.length} characters remaining
+              {50 - organizationName.length} characters remaining
             </p>
           )}
         </div>
@@ -94,7 +94,7 @@ export function WorkspaceRecovery({
               {suggestions.map(suggestion => (
                 <button
                   key={suggestion}
-                  onClick={() => setWorkspaceName(suggestion)}
+                  onClick={() => setOrganizationName(suggestion)}
                   className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                   disabled={isRetrying}
                 >
@@ -108,7 +108,7 @@ export function WorkspaceRecovery({
         <div className="flex gap-3">
           <Button
             onClick={handleRetry}
-            disabled={isRetrying || !workspaceName.trim()}
+            disabled={isRetrying || !organizationName.trim()}
             className="flex-1"
           >
             {isRetrying ? (
@@ -119,7 +119,7 @@ export function WorkspaceRecovery({
             ) : (
               <>
                 <CheckCircle className="mr-2 h-4 w-4" />
-                Create Workspace
+                Create Organization
               </>
             )}
           </Button>

@@ -4,7 +4,7 @@ import { WorkspaceErrorHandler } from '@/lib/errors/workspace-errors';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { UserService } from '@/lib/services/user-service';
-import { getUserRole } from '@/lib/auth/permissions';
+import { getUserWorkspaceRole } from '@/lib/auth/permissions';
 import { db } from '@/lib/db';
 import { workspaces } from '@/lib/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
@@ -28,11 +28,14 @@ export async function PUT(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Check if user has permission to update workspaces (owner/admin)
-    const userRole = await getUserRole(user.id);
+    const workspaceId = params.id;
+
+    // Check if user has permission to update this specific workspace
+    const userRole = await getUserWorkspaceRole(user.id, workspaceId);
     if (!userRole || (userRole !== 'owner' && userRole !== 'admin')) {
       const error = WorkspaceErrorHandler.parseWorkspaceError({
-        message: 'Only owners and admins can update workspaces',
+        message:
+          'Only workspace owners and organization admins can update workspaces',
         code: 'admin_required',
         statusCode: 403,
       });
@@ -42,7 +45,6 @@ export async function PUT(
     }
 
     const { name } = await request.json();
-    const workspaceId = params.id;
 
     // Validate workspace name if provided
     if (name) {
@@ -68,15 +70,15 @@ export async function PUT(
       });
     }
 
-    // Check if the new name already exists for this user (excluding current workspace)
-    if (name && name.trim() !== workspace.name) {
+    // Check if the new name already exists in the organization (excluding current workspace)
+    if (name && name.trim() !== workspace.name && workspace.organizationId) {
       const existingWorkspace = await db
         .select({ id: workspaces.id })
         .from(workspaces)
         .where(
           and(
             eq(workspaces.name, name.trim()),
-            eq(workspaces.ownerId, workspace.ownerId),
+            eq(workspaces.organizationId, workspace.organizationId),
             ne(workspaces.id, workspaceId)
           )
         )
@@ -84,7 +86,7 @@ export async function PUT(
 
       if (existingWorkspace.length > 0) {
         const error = WorkspaceErrorHandler.parseWorkspaceError({
-          message: `You already have a workspace named "${name}". Please choose a different name.`,
+          message: `A workspace named "${name}" already exists in your organization. Please choose a different name.`,
           code: 'duplicate_workspace_name',
           statusCode: 400,
         });
@@ -134,11 +136,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Check if user has permission to delete workspaces (owner/admin)
-    const userRole = await getUserRole(user.id);
+    const workspaceId = params.id;
+
+    // Check if user has permission to delete this specific workspace
+    const userRole = await getUserWorkspaceRole(user.id, workspaceId);
     if (!userRole || (userRole !== 'owner' && userRole !== 'admin')) {
       const error = WorkspaceErrorHandler.parseWorkspaceError({
-        message: 'Only owners and admins can delete workspaces',
+        message:
+          'Only workspace owners and organization admins can delete workspaces',
         code: 'admin_required',
         statusCode: 403,
       });
@@ -146,8 +151,6 @@ export async function DELETE(
         status: 403,
       });
     }
-
-    const workspaceId = params.id;
 
     // Check if workspace exists
     const workspace = await WorkspaceService.getById(workspaceId);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { TeamService } from '@/lib/services/team-service';
+import { OrganizationService } from '@/lib/services/organization-service';
 import { z } from 'zod';
 import { validateWorkEmail } from '@/lib/utils/email-validation';
 import { requireRole } from '@/lib/middleware/require-role';
@@ -45,6 +46,21 @@ export async function POST(request: NextRequest) {
     const userId = session.user.id;
     const invitationResults = [];
 
+    // Get user's organization
+    let organizationId: string;
+    const organization = await OrganizationService.getUserOrganization(userId);
+
+    if (!organization) {
+      // Create organization for user if they don't have one
+      const newOrg = await OrganizationService.create({
+        name: 'My Organization',
+        ownerId: userId,
+      });
+      organizationId = newOrg.id;
+    } else {
+      organizationId = organization.id;
+    }
+
     // First, get all existing pending invitations for this user
     const existingInvitations = await TeamService.getPendingInvitations(userId);
 
@@ -54,11 +70,12 @@ export async function POST(request: NextRequest) {
     // Delete invitations that are no longer in the list
     const deletionResults = [];
     for (const existing of existingInvitations) {
-      if (!currentEmails.has(existing.email.toLowerCase())) {
+      const memberEmail = (existing as any).member?.email?.toLowerCase();
+      if (memberEmail && !currentEmails.has(memberEmail)) {
         try {
-          await TeamService.deleteInvitation(existing.teamMemberId, userId);
+          await TeamService.deleteInvitation(existing.id, userId);
           deletionResults.push({
-            email: existing.email,
+            email: memberEmail,
             status: 'deleted',
           });
         } catch (error) {
@@ -114,6 +131,7 @@ export async function POST(request: NextRequest) {
           email: normalizedEmail,
           role: member.role,
           invitedBy: userId,
+          organizationId,
         });
 
         // Check if invitation was already sent

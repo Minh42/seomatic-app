@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { OnboardingFormData } from '@/lib/validations/onboarding';
 
-const SKIPPABLE_STEPS = [4]; // Only team members step is skippable
+const SKIPPABLE_STEPS = [3]; // Only team members step is skippable
 
 interface UseOnboardingValidationReturn {
   canGoNext: boolean;
@@ -41,7 +41,7 @@ export function useOnboardingValidation(
 
       case 2:
         // Step 2: Must have all required fields
-        if (!formValues.workspaceName?.trim()) return false;
+        if (!formValues.organizationName?.trim()) return false;
         if (!formValues.professionalRole) return false;
         if (
           formValues.professionalRole === 'Other' &&
@@ -58,14 +58,14 @@ export function useOnboardingValidation(
         return true;
 
       case 3:
-        // Step 3: Must have CMS integration selected
-        if (!formValues.cmsIntegration) return false;
-        // otherCms is optional - users can select both a main CMS and additional platforms
+        // Step 3: Team members is optional (skippable)
         return true;
 
       case 4:
-        // Step 4: Team members is optional (skippable)
-        return true;
+        // Step 4: Must have CMS integration selected (either main platform or dropdown)
+        const hasCmsSelection =
+          formValues.cmsIntegration || formValues.otherCms;
+        return !!hasCmsSelection;
 
       case 5:
         // Step 5: Must have discovery source

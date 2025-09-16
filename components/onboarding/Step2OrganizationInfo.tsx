@@ -12,9 +12,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { StepComponentProps } from '@/types/form';
-import { workspaceNameSchema } from '@/lib/validations/onboarding';
+import { organizationNameSchema } from '@/lib/validations/onboarding';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { WorkspaceRecovery } from './WorkspaceRecovery';
+import { OrganizationRecovery } from './OrganizationRecovery';
 
 const PROFESSIONAL_ROLES = [
   'Founder',
@@ -53,16 +53,18 @@ const INDUSTRIES = [
 ];
 
 interface Step2Props extends StepComponentProps {
-  workspaceId?: string | null;
+  organizationId?: string | null;
+  onRetryOrganization: (newName: string) => Promise<void>;
+  onCancelOrganizationRecovery: () => void;
 }
 
-export function Step2WorkspaceInfo({
+export function Step2OrganizationInfo({
   form,
   isSubmitting,
   error,
-  onRetryWorkspace,
-  onCancelWorkspaceRecovery,
-  workspaceId,
+  onRetryOrganization,
+  onCancelOrganizationRecovery,
+  organizationId,
 }: Step2Props) {
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<{
@@ -70,9 +72,9 @@ export function Step2WorkspaceInfo({
     message?: string;
   }>({});
 
-  // Get current workspace name value
-  const [workspaceName, setWorkspaceName] = useState('');
-  const debouncedWorkspaceName = useDeferredValue(workspaceName);
+  // Get current organization name value
+  const [organizationName, setOrganizationName] = useState('');
+  const debouncedOrganizationName = useDeferredValue(organizationName);
 
   // Check workspace name availability
   const checkAvailability = useCallback(
@@ -84,7 +86,7 @@ export function Step2WorkspaceInfo({
 
       // First validate the format
       try {
-        workspaceNameSchema.parse(name);
+        organizationNameSchema.parse(name);
       } catch {
         // Format is invalid, no need to check availability
         setAvailabilityStatus({});
@@ -95,14 +97,14 @@ export function Step2WorkspaceInfo({
       setAvailabilityStatus({});
 
       try {
-        const response = await fetch('/api/workspace/check-name', {
+        const response = await fetch('/api/organization/check-name', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             name,
-            currentWorkspaceId: workspaceId,
+            currentOrganizationId: organizationId,
           }),
         });
 
@@ -120,7 +122,7 @@ export function Step2WorkspaceInfo({
           });
         }
       } catch (error) {
-        console.error('Error checking workspace name:', error);
+        console.error('Error checking organization name:', error);
         setAvailabilityStatus({
           available: false,
           message: 'Failed to check availability',
@@ -129,43 +131,47 @@ export function Step2WorkspaceInfo({
         setIsCheckingAvailability(false);
       }
     },
-    [workspaceId]
+    [organizationId]
   );
 
   // Check availability when name changes (debounced)
   useEffect(() => {
-    if (debouncedWorkspaceName) {
-      checkAvailability(debouncedWorkspaceName);
+    if (debouncedOrganizationName) {
+      checkAvailability(debouncedOrganizationName);
     } else {
       setAvailabilityStatus({});
     }
-  }, [debouncedWorkspaceName, checkAvailability]);
+  }, [debouncedOrganizationName, checkAvailability]);
 
-  // Show workspace recovery UI if there's a workspace-related error
-  const isWorkspaceError =
+  // Show organization recovery UI if there's an organization-related error
+  const isOrganizationError =
     error &&
-    (error.code === 'DUPLICATE_WORKSPACE' ||
-      error.code === 'WORKSPACE_ERROR' ||
-      error.field === 'workspaceName');
+    (error.code === 'DUPLICATE_ORGANIZATION' ||
+      error.code === 'ORGANIZATION_ERROR' ||
+      error.field === 'organizationName');
 
-  if (isWorkspaceError && onRetryWorkspace && onCancelWorkspaceRecovery) {
+  if (
+    isOrganizationError &&
+    onRetryOrganization &&
+    onCancelOrganizationRecovery
+  ) {
     return (
       <div>
         <div className="mb-6 md:mb-8">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
-            Let&apos;s fix your workspace setup
+            Let&apos;s fix your organization setup
           </h1>
           <p className="text-gray-600">
-            We encountered an issue creating your workspace. Let&apos;s resolve
-            it together.
+            We encountered an issue creating your organization. Let&apos;s
+            resolve it together.
           </p>
         </div>
 
-        <WorkspaceRecovery
+        <OrganizationRecovery
           error={error}
-          originalName={form.state.values.workspaceName || 'My Workspace'}
-          onRetry={onRetryWorkspace}
-          onCancel={onCancelWorkspaceRecovery}
+          originalName={form.state.values.organizationName || 'My Organization'}
+          onRetry={onRetryOrganization}
+          onCancel={onCancelOrganizationRecovery}
         />
       </div>
     );
@@ -175,59 +181,59 @@ export function Step2WorkspaceInfo({
     <div>
       <div className="mb-6 md:mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
-          What would you like to name your Workspace?{' '}
+          What would you like to name your organization?{' '}
           <span className="text-gray-500 text-base md:text-lg font-normal">
             (~ 1 min)
           </span>
         </h1>
         <p className="text-gray-600">
-          Your Workspace is where you can find all your projects and collaborate
-          with your team.
+          Share your company details and role so we can set up your
+          organization.
         </p>
       </div>
 
       <div className="space-y-4 md:space-y-6">
         <form.Field
-          name="workspaceName"
+          name="organizationName"
           validators={{
             onBlur: ({ value }: { value: any }) => {
               // Validate format first
               try {
                 if (!value) {
-                  return 'Workspace name is required';
+                  return 'Organization name is required';
                 }
-                workspaceNameSchema.parse(value);
+                organizationNameSchema.parse(value);
 
                 // If format is valid and we have availability info, check if it's taken
                 if (
                   availabilityStatus.available === false &&
-                  value === debouncedWorkspaceName
+                  value === debouncedOrganizationName
                 ) {
-                  return 'Workspace name is already taken';
+                  return 'Organization name is already taken';
                 }
 
                 return undefined;
               } catch (error: any) {
                 // Return the validation error message
-                if (error.errors && error.errors[0]) {
-                  return error.errors[0].message;
+                if (error.issues && error.issues[0]) {
+                  return error.issues[0].message;
                 }
-                return 'Invalid workspace name';
+                return 'Invalid organization name';
               }
             },
           }}
         >
           {(field: any) => (
             <div>
-              <Label htmlFor="workspace-name">Workspace name</Label>
+              <Label htmlFor="organization-name">Organization name</Label>
               <div className="relative">
                 <Input
-                  id="workspace-name"
-                  placeholder="My Workspace"
+                  id="organization-name"
+                  placeholder="My Organization"
                   value={field.state.value || ''}
                   onChange={e => {
                     field.handleChange(e.target.value);
-                    setWorkspaceName(e.target.value);
+                    setOrganizationName(e.target.value);
                   }}
                   onBlur={field.handleBlur}
                   disabled={isSubmitting}
@@ -236,11 +242,11 @@ export function Step2WorkspaceInfo({
                       field.state.meta.errors.length > 0) ||
                     (field.state.meta.isTouched &&
                       availabilityStatus.available === false &&
-                      field.state.value === debouncedWorkspaceName)
+                      field.state.value === debouncedOrganizationName)
                       ? 'border-red-500'
                       : field.state.meta.isTouched &&
                           availabilityStatus.available === true &&
-                          field.state.value === debouncedWorkspaceName
+                          field.state.value === debouncedOrganizationName
                         ? 'border-green-500'
                         : ''
                   }`}
@@ -252,43 +258,37 @@ export function Step2WorkspaceInfo({
                   {!isCheckingAvailability &&
                     field.state.meta.isTouched &&
                     availabilityStatus.available === true &&
-                    field.state.value === debouncedWorkspaceName && (
+                    field.state.value === debouncedOrganizationName && (
                       <CheckCircle2 className="h-4 w-4 text-green-500" />
                     )}
                   {!isCheckingAvailability &&
                     field.state.meta.isTouched &&
                     availabilityStatus.available === false &&
-                    field.state.value === debouncedWorkspaceName && (
+                    field.state.value === debouncedOrganizationName && (
                       <XCircle className="h-4 w-4 text-red-500" />
                     )}
                 </div>
               </div>
-              <p className="text-sm mt-1">
-                {field.state.meta.isTouched &&
-                field.state.meta.errors.length > 0 ? (
-                  <span className="text-red-600">
-                    {field.state.meta.errors[0]}
-                  </span>
-                ) : field.state.meta.isTouched &&
-                  availabilityStatus.available === false &&
-                  field.state.value === debouncedWorkspaceName ? (
-                  <span className="text-red-600">
-                    {availabilityStatus.message ||
-                      'Workspace name is not available'}
-                  </span>
-                ) : field.state.meta.isTouched &&
-                  availabilityStatus.available === true &&
-                  field.state.value === debouncedWorkspaceName ? (
-                  <span className="text-green-600">
-                    Workspace name is available
-                  </span>
-                ) : (
-                  <span className="text-gray-500">
-                    Must be 2-50 characters, start and end with a letter or
-                    number
-                  </span>
-                )}
-              </p>
+              {field.state.meta.isTouched && (
+                <p className="text-sm mt-1">
+                  {field.state.meta.errors.length > 0 ? (
+                    <span className="text-red-600">
+                      {field.state.meta.errors[0]}
+                    </span>
+                  ) : availabilityStatus.available === false &&
+                    field.state.value === debouncedOrganizationName ? (
+                    <span className="text-red-600">
+                      {availabilityStatus.message ||
+                        'Organization name is not available'}
+                    </span>
+                  ) : availabilityStatus.available === true &&
+                    field.state.value === debouncedOrganizationName ? (
+                    <span className="text-green-600">
+                      Organization name is available
+                    </span>
+                  ) : null}
+                </p>
+              )}
             </div>
           )}
         </form.Field>
@@ -328,8 +328,10 @@ export function Step2WorkspaceInfo({
           )}
         </form.Field>
 
-        <form.Subscribe selector={state => state.values.professionalRole}>
-          {professionalRole =>
+        <form.Subscribe
+          selector={(state: any) => state.values.professionalRole}
+        >
+          {(professionalRole: any) =>
             professionalRole === 'Other' && (
               <form.Field name="otherProfessionalRole">
                 {(field: any) => (
@@ -389,7 +391,7 @@ export function Step2WorkspaceInfo({
           {(field: any) => (
             <div>
               <Label htmlFor="industry">
-                Which industry best describes your organization?
+                Which industry best describes you?
               </Label>
               <Select
                 value={field.state.value || ''}
@@ -420,8 +422,8 @@ export function Step2WorkspaceInfo({
           )}
         </form.Field>
 
-        <form.Subscribe selector={state => state.values.industry}>
-          {industry =>
+        <form.Subscribe selector={(state: any) => state.values.industry}>
+          {(industry: any) =>
             industry === 'Other' && (
               <form.Field name="otherIndustry">
                 {(field: any) => (

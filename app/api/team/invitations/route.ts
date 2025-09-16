@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TeamService } from '@/lib/services/team-service';
+import { OrganizationService } from '@/lib/services/organization-service';
 import { z } from 'zod';
 import {
   withRateLimit,
@@ -43,11 +44,34 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = inviteSchema.parse(body);
 
+    // Get user's organization
+    const organization = await OrganizationService.getUserOrganization(user.id);
+
+    if (!organization) {
+      // Create organization for user if they don't have one
+      const newOrg = await OrganizationService.create({
+        name: 'My Organization',
+        ownerId: user.id,
+      });
+
+      // Send invitation with new organization
+      const result = await TeamService.inviteMember({
+        email: validatedData.email,
+        role: validatedData.role,
+        invitedBy: user.id,
+        organizationId: newOrg.id,
+      });
+
+      const response = NextResponse.json(result);
+      return addRateLimitHeaders(response, request);
+    }
+
     // Send invitation
     const result = await TeamService.inviteMember({
       email: validatedData.email,
       role: validatedData.role,
       invitedBy: user.id,
+      organizationId: organization.id,
     });
 
     const response = NextResponse.json(result);

@@ -62,9 +62,9 @@ export function PostHogAuthProvider({
       });
 
       // Set user properties
-      if (session.user.workspaceId) {
-        posthog.group('workspace', session.user.workspaceId, {
-          name: session.user.workspaceName,
+      if (session.user.organizationId) {
+        posthog.group('organization', session.user.organizationId, {
+          name: session.user.organizationName,
           plan: session.user.plan,
         });
       }

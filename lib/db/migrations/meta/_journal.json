@@ -127,6 +127,20 @@
       "when": 1757773173750,
       "tag": "0017_glamorous_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1757947766278,
+      "tag": "0018_amusing_madripoor",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1757947796041,
+      "tag": "0019_eminent_pete_wisdom",
+      "breakpoints": true
     }
   ]
 }

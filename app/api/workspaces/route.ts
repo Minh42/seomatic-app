@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { UserService } from '@/lib/services/user-service';
 import { getUserRole } from '@/lib/auth/permissions';
+import { OrganizationService } from '@/lib/services/organization-service';
 
 /**
  * GET /api/workspaces
@@ -22,10 +23,18 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get workspaces with their connections
-    const workspaces = await WorkspaceService.getWorkspacesWithConnections(
-      user.id
-    );
+    // Get the user's organization
+    const organization = await OrganizationService.getUserOrganization(user.id);
+    if (!organization) {
+      // User is not part of any organization, return empty list
+      return NextResponse.json({ workspaces: [] });
+    }
+
+    // Get workspaces with their connections for the organization
+    const workspaces =
+      await WorkspaceService.getWorkspacesWithConnectionsByOrganization(
+        organization.id
+      );
 
     return NextResponse.json({ workspaces });
   } catch (error) {
@@ -81,21 +90,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create workspace - always owned by the organization owner
-    // For now, we'll use the current user as owner if they are an owner,
-    // otherwise we need to find the actual owner
-    let ownerId = user.id;
+    // Get or create organization for the user
+    let organization = await OrganizationService.getUserOrganization(user.id);
 
-    if (userRole !== 'owner') {
-      // Find the actual owner of the organization
-      // This would need to be implemented based on your organization structure
-      // For now, we'll use the current user
-      ownerId = user.id;
+    if (!organization) {
+      // Create organization for new user
+      organization = await OrganizationService.create({
+        name: 'My Organization',
+        ownerId: user.id,
+      });
     }
 
     const workspace = await WorkspaceService.create({
       name: name.trim(),
-      ownerId,
+      ownerId: user.id, // Workspace owned by creator
+      organizationId: organization.id,
+      createdById: user.id,
     });
 
     return NextResponse.json({ workspace }, { status: 201 });

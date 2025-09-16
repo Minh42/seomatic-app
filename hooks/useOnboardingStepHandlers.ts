@@ -3,16 +3,12 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { OnboardingFormData } from '@/lib/validations/onboarding';
-import {
-  OnboardingError,
-  DuplicateWorkspaceError,
-  WorkspaceError,
-} from '@/lib/errors/onboarding-errors';
+import { OnboardingError } from '@/lib/errors/onboarding-errors';
 import { FormApi } from '@tanstack/react-form';
 
 interface StepHandlersProps {
   form: FormApi<OnboardingFormData, any>;
-  setWorkspaceId: (id: string | null) => void;
+  setOrganizationId: (id: string | null) => void;
   setError: (error: any) => void;
   saveStepProgress: (
     step: number,
@@ -25,7 +21,7 @@ interface StepHandlersProps {
  */
 export function useOnboardingStepHandlers({
   form,
-  setWorkspaceId,
+  setOrganizationId,
   setError,
   saveStepProgress,
 }: StepHandlersProps) {
@@ -41,57 +37,62 @@ export function useOnboardingStepHandlers({
     [saveStepProgress]
   );
 
-  // Step 2: Create workspace and save profile data
+  // Step 2: Create organization, workspace, and save profile data
   const handleStep2Submit = useCallback(
     async (values: OnboardingFormData) => {
-      const workspaceName = values.workspaceName;
-      if (!workspaceName) {
-        toast.error('Please enter a workspace name');
+      const organizationName = values.organizationName;
+      if (!organizationName) {
+        toast.error('Please enter an organization name');
         return false;
       }
 
       try {
-        // Create workspace via API
-        const response = await fetch('/api/workspace', {
+        // Create organization and default workspace
+        const response = await fetch('/api/onboarding/step2', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: workspaceName }),
+          body: JSON.stringify({
+            organizationName,
+            professionalRole: values.professionalRole || '',
+            otherProfessionalRole: values.otherProfessionalRole || '',
+            companySize: values.companySize || '',
+            industry: values.industry || '',
+            otherIndustry: values.otherIndustry || '',
+          }),
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-          // Handle duplicate workspace name
-          if (response.status === 409) {
-            throw new DuplicateWorkspaceError(workspaceName);
-          }
-          throw new WorkspaceError(data.error || 'Failed to create workspace');
+          const errorMessage = data.error || 'Failed to create organization';
+          setError({
+            message: errorMessage,
+            code: data.code || 'ORGANIZATION_ERROR',
+            field: data.field || 'organizationName',
+          });
+          toast.error(errorMessage);
+          return false;
         }
 
-        // Store workspace ID for final submission
-        setWorkspaceId(data.workspace.id);
-
-        // Save the Step 2 form data
-        await saveStepProgress(2, {
-          professionalRole: values.professionalRole || '',
-          otherProfessionalRole: values.otherProfessionalRole || '',
-          companySize: values.companySize || '',
-          industry: values.industry || '',
-          otherIndustry: values.otherIndustry || '',
-        });
+        // Save the organization ID for later use
+        if (data.organizationId) {
+          setOrganizationId(data.organizationId);
+        }
 
         return true;
       } catch (err) {
         const errorMessage =
-          err instanceof Error ? err.message : 'Failed to create workspace';
+          err instanceof Error
+            ? err.message
+            : 'Failed to update organization name';
 
         setError(
           err instanceof OnboardingError
             ? err
             : {
                 message: errorMessage,
-                code: 'WORKSPACE_ERROR',
-                field: 'workspaceName',
+                code: 'ORGANIZATION_ERROR',
+                field: 'organizationName',
               }
         );
 
@@ -99,83 +100,68 @@ export function useOnboardingStepHandlers({
         return false;
       }
     },
-    [setWorkspaceId, setError, saveStepProgress]
+    [saveStepProgress, setError]
   );
 
-  // Step 3: Save CMS integration
-  const handleStep3Submit = useCallback(
+  // Step 3: Send team invitations
+  const handleStep3Submit = useCallback(async (values: OnboardingFormData) => {
+    try {
+      // Use the team API endpoint to handle invitations
+      const response = await fetch('/api/team/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamMembers: values.teamMembers || [] }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Failed to process team members');
+        return false;
+      }
+
+      // Show appropriate feedback
+      if (data.invitations) {
+        const sentCount =
+          data.invitations?.filter(
+            (i: { status: string }) => i.status === 'sent'
+          ).length || 0;
+        const failCount =
+          data.invitations?.filter(
+            (i: { status: string }) => i.status === 'failed'
+          ).length || 0;
+
+        if (sentCount > 0 && failCount === 0) {
+          toast.success(
+            `${sentCount} invitation${sentCount > 1 ? 's' : ''} sent successfully`
+          );
+        } else if (sentCount > 0 && failCount > 0) {
+          toast.warning(
+            `${sentCount} invitation${sentCount > 1 ? 's' : ''} sent, ${failCount} failed`
+          );
+        } else if (failCount > 0) {
+          toast.error(
+            `Failed to send ${failCount} invitation${failCount > 1 ? 's' : ''}`
+          );
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error processing team invitations:', error);
+      toast.error('Failed to process team invitations');
+      return false;
+    }
+  }, []);
+
+  // Step 4: Save CMS integration
+  const handleStep4Submit = useCallback(
     async (values: OnboardingFormData) => {
-      await saveStepProgress(3, {
+      await saveStepProgress(4, {
         cmsIntegration: values.cmsIntegration || '',
         otherCms: values.otherCms || '',
       });
       return true;
-    },
-    [saveStepProgress]
-  );
-
-  // Step 4: Send team invitations
-  const handleStep4Submit = useCallback(
-    async (values: OnboardingFormData) => {
-      try {
-        // Use the team API endpoint to handle invitations
-        const response = await fetch('/api/team/invite', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teamMembers: values.teamMembers || [] }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          toast.error(data.error || 'Failed to process team members');
-          return false;
-        }
-
-        // Show appropriate feedback
-        if (data.invitations) {
-          const sentCount =
-            data.invitations?.filter(
-              (i: { status: string }) => i.status === 'sent'
-            ).length || 0;
-          const failCount =
-            data.invitations?.filter(
-              (i: { status: string }) => i.status === 'failed'
-            ).length || 0;
-          // Skipped count is tracked but not shown in UI (silent handling)
-          // const skippedCount = data.invitations?.filter(
-          //   (i: { status: string }) => i.status === 'skipped'
-          // ).length || 0;
-
-          // Only show success toast if new invitations were sent
-          if (sentCount > 0) {
-            toast.success(
-              `${sentCount} invitation${sentCount !== 1 ? 's' : ''} sent successfully`
-            );
-          }
-
-          // Only show error toast for actual failures (not duplicates)
-          if (failCount > 0) {
-            toast.error(
-              `${failCount} invitation${failCount !== 1 ? 's' : ''} could not be sent`
-            );
-          }
-
-          // Silent handling of duplicates - no toast needed
-        }
-
-        // Save team members data
-        await saveStepProgress(4, {
-          teamMembers: values.teamMembers || [],
-        });
-
-        return true;
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to send invitations';
-        toast.error(errorMessage);
-        return false;
-      }
     },
     [saveStepProgress]
   );
@@ -194,55 +180,30 @@ export function useOnboardingStepHandlers({
   );
 
   // Retry workspace creation with a new name
-  const retryWorkspaceCreation = useCallback(
+  const retryOrganizationCreation = useCallback(
     async (newName: string) => {
       try {
         // Update the form value with the new name
-        form.setFieldValue('workspaceName', newName);
+        form.setFieldValue('organizationName', newName);
 
-        const response = await fetch('/api/workspace', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: newName }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          // Handle duplicate workspace name
-          if (response.status === 409) {
-            throw new DuplicateWorkspaceError(workspaceName);
-          }
-          throw new WorkspaceError(data.error || 'Failed to create workspace');
-        }
-
-        // Store workspace ID for final submission
-        setWorkspaceId(data.workspace.id);
-
-        // Save the workspace data and other Step 2 form data
-        const values = form.state.values;
-        await saveStepProgress(2, {
-          professionalRole: values.professionalRole || '',
-          otherProfessionalRole: values.otherProfessionalRole || '',
-          companySize: values.companySize || '',
-          industry: values.industry || '',
-          otherIndustry: values.otherIndustry || '',
-        });
-
-        // Clear error
+        // This is actually retrying the organization creation during onboarding
+        // We just need to update the form value and return success
+        // The actual organization creation happens in the onboarding submission
         setError(null);
         return true;
       } catch (err) {
         const errorMessage =
-          err instanceof Error ? err.message : 'Failed to create workspace';
+          err instanceof Error
+            ? err.message
+            : 'Failed to update organization name';
 
         setError(
           err instanceof OnboardingError
             ? err
             : {
                 message: errorMessage,
-                code: 'WORKSPACE_ERROR',
-                field: 'workspaceName',
+                code: 'ORGANIZATION_ERROR',
+                field: 'organizationName',
               }
         );
 
@@ -250,7 +211,7 @@ export function useOnboardingStepHandlers({
         return false;
       }
     },
-    [form, setWorkspaceId, setError, saveStepProgress]
+    [form, setError]
   );
 
   return {
@@ -259,6 +220,6 @@ export function useOnboardingStepHandlers({
     handleStep3Submit,
     handleStep4Submit,
     handleStep5Submit,
-    retryWorkspaceCreation,
+    retryOrganizationCreation,
   };
 }

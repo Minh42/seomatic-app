@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       invitation: {
         email: result.invitation!.email,
         role: result.invitation!.role,
-        workspaceName: result.invitation!.workspace.name,
+        organizationName: result.invitation!.organization.name,
         inviterName: result.invitation!.inviter.name,
         expiresAt: result.invitation!.expiresAt.toISOString(),
       },

@@ -22,7 +22,7 @@ export interface WelcomeEmailParams {
 export interface TeamInvitationEmailParams {
   email: string;
   inviterName?: string;
-  workspaceName?: string;
+  organizationName?: string;
   inviteUrl: string;
   expiresAt: Date;
 }
@@ -167,7 +167,7 @@ export class EmailService {
   static async sendTeamInvitation({
     email,
     inviterName,
-    workspaceName,
+    organizationName,
     inviteUrl,
     expiresAt,
   }: TeamInvitationEmailParams): Promise<boolean> {
@@ -180,7 +180,7 @@ export class EmailService {
         type: '$team_member_invited',
         fields: {
           inviter_name: inviterName,
-          workspace_name: workspaceName,
+          organization_name: organizationName,
           invite_url: inviteUrl,
           expires_at: expiresAt.toISOString(),
         },

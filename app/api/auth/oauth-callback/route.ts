@@ -30,9 +30,12 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const token = searchParams.get('token');
 
-    // If no token, just redirect to onboarding
+    // Token is required for signup - same as email/password flow
     if (!token) {
-      return NextResponse.redirect(new URL('/onboarding', request.url));
+      // Redirect to signup page where error will be shown as toast
+      const signupUrl = new URL('/signup', request.url);
+      signupUrl.searchParams.set('error', 'no-payment-info');
+      return NextResponse.redirect(signupUrl);
     }
 
     // Validate checkout session
@@ -40,12 +43,15 @@ export async function GET(request: NextRequest) {
     const validation = CheckoutService.validateSession(checkoutSession);
 
     if (!validation.isValid) {
-      // If already used, they likely already have an account - just continue
+      // Handle different validation errors
       if (validation.error === 'already_used') {
-        return NextResponse.redirect(new URL('/onboarding', request.url));
+        // Token has already been used - redirect to signup with error
+        const signupUrl = new URL('/signup', request.url);
+        signupUrl.searchParams.set('error', 'already_used');
+        return NextResponse.redirect(signupUrl);
       }
 
-      // For invalid tokens, redirect to signup with error
+      // For other invalid tokens, redirect to signup with error
       const signupUrl = new URL('/signup', request.url);
       signupUrl.searchParams.set('token', token);
       signupUrl.searchParams.set('error', 'invalid');
