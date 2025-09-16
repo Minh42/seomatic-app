@@ -9,7 +9,7 @@ import { StripeErrorHandler } from '@/lib/errors/stripe-errors';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Get URL params (declare outside try block for catch block access)
   const { searchParams } = new URL(request.url);
@@ -20,7 +20,7 @@ export async function GET(
     const roleCheck = await requireRole(request, { requiredRole: 'owner' });
     if (roleCheck) return roleCheck;
 
-    const invoiceId = params.id;
+    const invoiceId = (await params).id;
     const { user } = getUserFromRequest(request);
 
     if (!user) {
@@ -63,7 +63,10 @@ export async function GET(
       error,
       action === 'pdf' ? 'download' : 'fetch'
     );
-    StripeErrorHandler.logError(`GET /api/invoices/${params.id}`, stripeError);
+    StripeErrorHandler.logError(
+      `GET /api/invoices/${(await params).id}`,
+      stripeError
+    );
     return NextResponse.json(
       StripeErrorHandler.formatApiResponse(stripeError),
       { status: StripeErrorHandler.getStatusCode(stripeError) }

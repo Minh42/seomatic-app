@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UserService } from '@/lib/services/user-service';
 import { AnalyticsService } from '@/lib/services/analytics-service';
-import { CheckoutService } from '@/lib/services/checkout-service';
 import { SubscriptionService } from '@/lib/services/subscription-service';
-import { StripeService } from '@/lib/services/stripe-service';
+import { PlanService } from '@/lib/services/plan-service';
 import { signupApiSchema } from '@/lib/validations/auth';
 import { db } from '@/lib/db';
 import {
@@ -21,9 +20,9 @@ export async function POST(request: NextRequest) {
 
     // Validate the input
     const validatedData = signupApiSchema.parse(body);
-    const { email, password, fingerprint, token } = validatedData;
+    const { email, password, fingerprint } = validatedData;
 
-    // Check if user already exists BEFORE checking token
+    // Check if user already exists
     const existingUser = await UserService.findByEmail(email);
     if (existingUser) {
       return NextResponse.json(
@@ -32,86 +31,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Token is required for signup
-    if (!token) {
+    // Get the trial plan
+    const trialPlan = await PlanService.getPlanByName('Trial');
+    if (!trialPlan) {
+      console.error('Trial plan not found');
       return NextResponse.json(
-        {
-          error:
-            "We couldn't find your payment information. Please check your email for the signup link.",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate checkout session
-    const checkoutSession = await CheckoutService.getSessionByToken(token);
-    const validation = CheckoutService.validateSession(checkoutSession);
-
-    if (!validation.isValid) {
-      if (validation.error === 'already_used') {
-        return NextResponse.json(
-          {
-            error:
-              'This signup link has already been used. Please log in to your account.',
-          },
-          { status: 400 }
-        );
-      } else if (validation.error === 'Session not found') {
-        return NextResponse.json(
-          {
-            error:
-              'This signup link is invalid or has expired. Please check your email for the correct link.',
-          },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Fetch subscription details from Stripe
-    const stripeData = await StripeService.getCheckoutSessionWithSubscription(
-      checkoutSession!.stripeSessionId
-    );
-
-    if (!stripeData) {
-      console.error(
-        'No stripe data returned for session:',
-        checkoutSession!.stripeSessionId
-      );
-      return NextResponse.json(
-        {
-          error: 'Failed to retrieve subscription details from Stripe',
-        },
+        { error: 'Unable to create account. Please try again later.' },
         { status: 500 }
       );
     }
 
-    // Create user with subscription in a transaction
+    // Create user with trial subscription in a transaction
     let newUser;
     await db.transaction(async () => {
-      // Create the user with billing email from checkout
+      // Create the user
       newUser = await UserService.createUser({
         email,
         password,
         fingerprint,
-        billingEmail: checkoutSession!.email, // Store the Stripe checkout email
+        billingEmail: email, // Use signup email as billing email
       });
 
-      // Create the subscription with accurate Stripe data
+      // Create a 14-day trial subscription
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
       const subscriptionData = {
         ownerId: newUser.id,
-        planId: checkoutSession!.planId,
-        status: stripeData.status === 'trialing' ? 'trialing' : 'active',
-        stripeCustomerId: stripeData.customerId,
-        stripeSubscriptionId: stripeData.subscriptionId,
-        currentPeriodStart: stripeData.currentPeriodStart,
-        currentPeriodEnd: stripeData.currentPeriodEnd,
-        trialEndsAt: stripeData.trialEnd || undefined,
+        planId: trialPlan.id,
+        status: 'trialing' as const,
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: trialEndsAt,
+        trialEndsAt: trialEndsAt,
+        // No Stripe IDs for trial - they'll be added when user upgrades
       };
 
       await SubscriptionService.createSubscription(subscriptionData);
-
-      // Mark checkout session as completed
-      await CheckoutService.completeSignup(token);
     });
 
     // Track email signup event

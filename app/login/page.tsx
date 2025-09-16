@@ -19,9 +19,6 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const [useMagicLink, setUseMagicLink] = useState(false);
 
-  // Get token from URL if present (from checkout flow)
-  const token = searchParams.get('token');
-
   // Handle success messages from signup or other redirects
   useEffect(() => {
     const newAccount = searchParams.get('newAccount');
@@ -121,9 +118,7 @@ function LoginPageContent() {
           },
           {
             text: 'Forgot your password?',
-            href: token
-              ? `/forgot-password?token=${token}`
-              : '/forgot-password',
+            href: '/forgot-password',
           },
         ].filter(
           link => !useMagicLink || link.text !== 'Forgot your password?'
@@ -131,7 +126,7 @@ function LoginPageContent() {
         bottomLink={{
           text: "Don't have an account?",
           linkText: 'Sign up',
-          href: token ? `/signup?token=${token}` : '/signup',
+          href: '/signup',
         }}
       >
         {useMagicLink ? (

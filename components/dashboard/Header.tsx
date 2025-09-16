@@ -41,7 +41,7 @@ export function Header() {
       {user && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer">
+            <button className="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 cursor-pointer transition-colors">
               {user.image ? (
                 <img
                   src={user.image}

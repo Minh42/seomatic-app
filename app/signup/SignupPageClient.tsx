@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
-import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { AuthLayout } from '@/components/auth/AuthLayout';
@@ -13,57 +12,20 @@ import { type SignupFormData } from '@/lib/validations/auth';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { useSocialAuth } from '@/hooks/useSocialAuth';
 import { AuthErrorHandler } from '@/lib/errors/auth-errors';
-import { CheckoutSessionWithPlan } from '@/lib/services/checkout-service';
 
 interface SignupPageClientProps {
-  token?: string;
-  checkoutSession: CheckoutSessionWithPlan | null;
-  stripeError?: boolean;
+  error?: string;
 }
 
-export default function SignupPageClient({
-  token,
-  checkoutSession,
-  stripeError,
-}: SignupPageClientProps) {
+export default function SignupPageClient({ error }: SignupPageClientProps) {
   const [fingerprint, setFingerprint] = useState<string | null>(null);
-  const searchParams = useSearchParams();
 
-  // Check URL params for OAuth errors using Next.js hook
+  // Check URL params for errors
   useEffect(() => {
-    const urlError = searchParams.get('error');
-
-    if (urlError) {
-      // Small timeout to ensure component is fully mounted
-      setTimeout(() => {
-        if (urlError === 'no-payment-info') {
-          toast.error(
-            "We couldn't find your payment information. Please check your email for the signup link."
-          );
-        } else if (urlError === 'already_used') {
-          toast.error(
-            'This signup link has already been used. Please log in to your account.'
-          );
-        } else if (urlError === 'invalid') {
-          toast.error(
-            'This signup link is invalid or has expired. Please check your email for the correct link.'
-          );
-        } else if (urlError === 'no-subscription') {
-          toast.error(
-            'You need an active subscription. Please complete your purchase first.'
-          );
-        }
-      }, 100);
+    if (error === 'no-subscription') {
+      toast.error('Unable to create account. Please try again later.');
     }
-  }, [searchParams]);
-
-  // Handle Stripe errors
-  useEffect(() => {
-    // Show Stripe error if OAuth callback failed to set up subscription
-    if (stripeError) {
-      toast.error('Failed to retrieve subscription details from Stripe');
-    }
-  }, [stripeError]);
+  }, [error]);
 
   // Initialize fingerprinting
   useEffect(() => {
@@ -83,7 +45,7 @@ export default function SignupPageClient({
   const { form, isLoading, emailError, passwordError, handleAuthError } =
     useAuthForm<SignupFormData>({
       defaultValues: {
-        email: checkoutSession?.email || '',
+        email: '',
         password: '',
         fingerprint: '',
       },
@@ -99,7 +61,6 @@ export default function SignupPageClient({
               email: values.email,
               password: values.password,
               fingerprint,
-              token, // Include token if present
             }),
           });
 
@@ -136,17 +97,12 @@ export default function SignupPageClient({
       },
     });
 
-  // Always use oauth-callback for signup to ensure token validation
-  const handleSocialAuth = useSocialAuth('/api/auth/oauth-callback', token);
+  // Use simple social auth without token
+  const handleSocialAuth = useSocialAuth();
 
-  // Determine title and subtitle based on whether we have a checkout session
-  const title = checkoutSession
-    ? `Complete your ${checkoutSession.plan.name} signup`
-    : 'Start your 14-day free trial';
-
-  const subtitle = checkoutSession
-    ? `You're just one step away from launching your SEO pages with our ${checkoutSession.plan.name} plan.`
-    : 'Launch your first SEO pages today — start scaling your content marketing to drive traffic, leads, and sales.';
+  const title = 'Start your 14-day free trial';
+  const subtitle =
+    'Launch your first SEO pages today — start scaling your content marketing to drive traffic, leads, and sales.';
 
   return (
     <AuthLayout testimonialContent={<SignupFeatures />}>
@@ -160,7 +116,7 @@ export default function SignupPageClient({
         bottomLink={{
           text: 'Already have an account?',
           linkText: 'Login Now',
-          href: token ? `/login?token=${token}` : '/login',
+          href: '/login',
         }}
       >
         <SignupForm

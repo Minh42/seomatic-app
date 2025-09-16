@@ -45,10 +45,6 @@ export const billingFrequencyEnum = pgEnum('billing_frequency', [
   'monthly',
   'yearly',
 ]);
-export const checkoutSessionStatusEnum = pgEnum('checkout_session_status', [
-  'pending',
-  'completed',
-]);
 export const invoiceStatusEnum = pgEnum('invoice_status', [
   'draft',
   'open',
@@ -148,8 +144,8 @@ export const plans = pgTable('plans', {
   id: uuid('id').defaultRandom().primaryKey(),
 
   // Stripe integration
-  stripeProductId: varchar('stripe_product_id').notNull(),
-  stripePriceId: varchar('stripe_price_id').notNull(),
+  stripeProductId: varchar('stripe_product_id'),
+  stripePriceId: varchar('stripe_price_id'),
   stripePaymentLink: varchar('stripe_payment_link'),
 
   // Plan details
@@ -176,24 +172,6 @@ export const plans = pgTable('plans', {
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
-
-// Checkout sessions for secure signup flow
-export const checkoutSessions = pgTable('checkout_sessions', {
-  id: uuid('id').defaultRandom().primaryKey(),
-
-  // Stripe session info
-  stripeSessionId: varchar('stripe_session_id').unique().notNull(),
-  email: varchar('email').notNull(),
-  planId: uuid('plan_id')
-    .notNull()
-    .references(() => plans.id),
-
-  // Security token
-  signupToken: varchar('signup_token').unique().notNull(),
-  status: checkoutSessionStatusEnum('status').default('pending').notNull(),
-
-  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // Updated subscriptions table

@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { OnboardingService } from '@/lib/services/onboarding-service';
 import { OrganizationService } from '@/lib/services/organization-service';
-import { SubscriptionService } from '@/lib/services/subscription-service';
 import { OnboardingPageClient } from './OnboardingPageClient';
 
 export default async function OnboardingPage() {
@@ -15,13 +14,6 @@ export default async function OnboardingPage() {
   }
 
   const userId = session.user.id;
-
-  // Check if user has a valid subscription
-  const subscription = await SubscriptionService.getUserSubscription(userId);
-
-  if (!subscription) {
-    redirect('/signup?error=no-subscription');
-  }
 
   // Fetch data in parallel on server
   const [progress, organization] = await Promise.all([

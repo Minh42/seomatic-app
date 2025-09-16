@@ -67,4 +67,65 @@ export class AuthErrorHandler {
         break;
     }
   }
+
+  static getErrorMessage(error: string): string {
+    // Handle NextAuth OAuth error codes
+    const errorMap: Record<string, string> = {
+      // OAuth provider errors
+      OAuthSignin:
+        'There was an error signing in with this provider. Please try again.',
+      OAuthCallback:
+        'There was an error during authentication. Please try again.',
+      OAuthCreateAccount:
+        'Could not create an account with this provider. Please try a different method.',
+      EmailCreateAccount:
+        'Could not create an account with this email. Please try a different method.',
+      Callback:
+        'There was an error during the authentication callback. Please try again.',
+
+      // OAuth account linking errors
+      OAuthAccountNotLinked:
+        'This email is already associated with another account. Please sign in with your original method.',
+      EmailSignin: 'There was an error sending the email. Please try again.',
+
+      // Credential errors
+      CredentialsSignin: 'Invalid email or password. Please try again.',
+
+      // Session errors
+      SessionRequired: 'Please sign in to access this page.',
+
+      // General errors
+      Default: 'An unexpected error occurred. Please try again.',
+      Configuration: 'There is a configuration issue. Please contact support.',
+      AccessDenied: 'Access denied. You do not have permission to sign in.',
+      Verification:
+        'The verification link has expired or has already been used.',
+
+      // Custom errors
+      no_payment_info:
+        "We couldn't find your payment information. Please check your email for the signup link.",
+      already_used:
+        'This signup link has already been used. Please log in to your account.',
+      invalid:
+        'This signup link is invalid or has expired. Please check your email for the correct link.',
+      no_subscription:
+        'You need an active subscription to access this page. Please complete your purchase first.',
+    };
+
+    // Check if error matches a known error code
+    const message = errorMap[error];
+    if (message) {
+      return message;
+    }
+
+    // Check if error contains a known error pattern
+    for (const [key, value] of Object.entries(errorMap)) {
+      if (error.toLowerCase().includes(key.toLowerCase())) {
+        return value;
+      }
+    }
+
+    // Default fallback message
+    return 'An error occurred during authentication. Please try again.';
+  }
 }

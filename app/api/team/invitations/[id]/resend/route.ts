@@ -10,7 +10,7 @@ import { WorkspaceService } from '@/lib/services/workspace-service';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession();
@@ -38,7 +38,7 @@ export async function POST(
     }
 
     // Resend invitation
-    const result = await TeamService.resendInvitation(params.id);
+    const result = await TeamService.resendInvitation((await params).id);
 
     return NextResponse.json(result);
   } catch (error) {

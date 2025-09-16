@@ -13,7 +13,7 @@ const updateRoleSchema = z.object({
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check if user has permission to update team member roles
@@ -37,7 +37,7 @@ export async function PATCH(
 
     // Update member role with security checks
     const result = await TeamService.updateMemberRole({
-      teamMemberId: params.id,
+      teamMemberId: (await params).id,
       role: validatedData.role,
       updatedBy: user.id,
       updaterRole: userRole,
@@ -70,7 +70,7 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check if user has permission to remove team members
@@ -89,7 +89,7 @@ export async function DELETE(
     }
 
     // Remove team member with security checks
-    const result = await TeamService.removeMember(params.id, user.id);
+    const result = await TeamService.removeMember((await params).id, user.id);
 
     return NextResponse.json(result);
   } catch (error) {

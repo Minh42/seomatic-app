@@ -15,7 +15,7 @@ import { eq, and, ne } from 'drizzle-orm';
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -28,7 +28,7 @@ export async function PUT(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const workspaceId = params.id;
+    const workspaceId = (await params).id;
 
     // Check if user has permission to update this specific workspace
     const userRole = await getUserWorkspaceRole(user.id, workspaceId);
@@ -123,7 +123,7 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -136,7 +136,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const workspaceId = params.id;
+    const workspaceId = (await params).id;
 
     // Check if user has permission to delete this specific workspace
     const userRole = await getUserWorkspaceRole(user.id, workspaceId);

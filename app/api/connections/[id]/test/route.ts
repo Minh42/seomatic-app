@@ -13,7 +13,7 @@ import {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -26,7 +26,7 @@ export async function POST(
     }
 
     // Get the connection
-    const connection = await ConnectionService.getById(params.id);
+    const connection = await ConnectionService.getById((await params).id);
     if (!connection) {
       return NextResponse.json(
         { success: false, error: 'Connection not found' },

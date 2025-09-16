@@ -10,6 +10,8 @@ import { eq } from 'drizzle-orm';
 import { createBentoEmailProvider } from '@/lib/providers/auth-email';
 import { credentialsProvider } from '@/lib/providers/auth-credentials';
 import { AnalyticsService } from '@/lib/services/analytics-service';
+import { SubscriptionService } from '@/lib/services/subscription-service';
+import { PlanService } from '@/lib/services/plan-service';
 
 // Session configuration constants
 const SESSION_MAX_AGE = 24 * 60 * 60; // 24 hours in seconds
@@ -259,6 +261,29 @@ export const authOptions: NextAuthOptions = {
         // For OAuth providers, isNewUser=true means it's a signup
         // For email, signup is handled in /api/auth/signup route
         if (isNewUser && account?.provider) {
+          // Check if user already has a subscription (shouldn't happen, but safety check)
+          const existingSubscription =
+            await SubscriptionService.getUserSubscription(user.id);
+
+          if (!existingSubscription) {
+            // Get the trial plan
+            const trialPlan = await PlanService.getPlanByName('Trial');
+            if (trialPlan) {
+              // Create a 14-day trial subscription
+              const trialEndsAt = new Date();
+              trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
+              await SubscriptionService.createSubscription({
+                ownerId: user.id,
+                planId: trialPlan.id,
+                status: 'trialing' as const,
+                currentPeriodStart: new Date(),
+                currentPeriodEnd: trialEndsAt,
+                trialEndsAt: trialEndsAt,
+              });
+            }
+          }
+
           // OAuth signup - track it with the provider name
           await AnalyticsService.trackEvent(user.id, 'user_signed_up', {
             method: account.provider, // 'google', 'linkedin', 'twitter', 'facebook'

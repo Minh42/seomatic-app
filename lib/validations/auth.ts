@@ -16,7 +16,6 @@ export const signupApiSchema = z.object({
       'Password must contain at least one lowercase letter, one uppercase letter, and one number'
     ),
   fingerprint: z.string().optional(),
-  token: z.string().optional(), // Checkout session token
 });
 
 // Form schema - used by the signup form

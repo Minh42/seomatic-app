@@ -27,7 +27,7 @@ export function SignupFeatures() {
   return (
     <div>
       <h2 className="text-2xl md:text-3xl font-bold mb-6 leading-tight">
-        What&apos;s included in your 14-day free trial
+        What&apos;s included in your 14-day free trial. No credit card required.
       </h2>
 
       <div className="space-y-2">

@@ -5,7 +5,7 @@ import { ConnectionService } from '@/lib/services/connection-service';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check authentication
@@ -17,7 +17,7 @@ export async function DELETE(
       );
     }
 
-    const connectionId = params.id;
+    const connectionId = (await params).id;
 
     // Get the connection to verify it exists and user has access
     const connection = await ConnectionService.getById(connectionId);

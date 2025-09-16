@@ -8,7 +8,7 @@ import { requireRole, getUserFromRequest } from '@/lib/middleware/require-role';
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Check if user has permission to cancel invitations
@@ -27,7 +27,7 @@ export async function DELETE(
     }
 
     // Delete invitation
-    await TeamService.deleteInvitation(params.id, user.id);
+    await TeamService.deleteInvitation((await params).id, user.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

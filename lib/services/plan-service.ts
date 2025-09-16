@@ -15,8 +15,8 @@ export interface Plan {
   maxNbOfPages: number;
   maxNbOfSeats: number;
   maxNbOfSites: number;
-  stripePriceId: string;
-  stripeProductId: string;
+  stripePriceId: string | null;
+  stripeProductId: string | null;
   stripePaymentLink: string | null;
 }
 
@@ -53,6 +53,19 @@ export class PlanService {
       .select()
       .from(plans)
       .where(eq(plans.stripePriceId, stripePriceId))
+      .limit(1);
+
+    return plan || null;
+  }
+
+  /**
+   * Get a plan by name
+   */
+  static async getPlanByName(name: string): Promise<Plan | null> {
+    const [plan] = await db
+      .select()
+      .from(plans)
+      .where(eq(plans.name, name))
       .limit(1);
 
     return plan || null;
