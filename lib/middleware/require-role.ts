@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { UserService } from '@/lib/services/user-service';
+import { TeamService } from '@/lib/services/team-service';
+import { OrganizationService } from '@/lib/services/organization-service';
 import {
   getUserRole,
   hasRole,
@@ -58,6 +60,29 @@ export async function requireRole(
 
     // Get user's role
     const userRole = await getUserRole(user.id);
+
+    // Check if user is suspended (for non-owners)
+    if (userRole !== 'owner') {
+      const organization = await OrganizationService.getUserOrganization(
+        user.id
+      );
+      if (organization) {
+        const memberStatus = await TeamService.getMemberStatus(
+          user.id,
+          organization.id
+        );
+        if (memberStatus?.status === 'suspended') {
+          return NextResponse.json(
+            {
+              error: 'Account suspended',
+              message:
+                'Your access is suspended. Please contact your organization owner.',
+            },
+            { status: 403 }
+          );
+        }
+      }
+    }
 
     // Check role requirement
     if (requiredRole && !hasRole(userRole, requiredRole)) {

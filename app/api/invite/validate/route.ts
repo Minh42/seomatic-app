@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
         email: result.invitation!.email,
         role: result.invitation!.role,
         organizationName: result.invitation!.organization.name,
-        inviterName: result.invitation!.inviter.name,
+        inviterEmail: result.invitation!.inviter.email,
         expiresAt: result.invitation!.expiresAt.toISOString(),
       },
     });

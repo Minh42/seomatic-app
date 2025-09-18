@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
 import { AuthLayout } from '@/components/auth/AuthLayout';
@@ -17,6 +17,7 @@ import { AuthErrorHandler } from '@/lib/errors/auth-errors';
 
 function LoginPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [useMagicLink, setUseMagicLink] = useState(false);
 
   // Handle success messages from signup or other redirects
@@ -52,6 +53,7 @@ function LoginPageContent() {
             const result = await signIn('email', {
               email: values.email,
               redirect: false,
+              callbackUrl: '/dashboard',
             });
 
             if (result?.error) {
@@ -60,7 +62,10 @@ function LoginPageContent() {
               );
               handleAuthError(authError);
             } else if (result?.ok) {
-              toast.success('Magic link sent! Check your email to sign in.');
+              // Redirect to verify-request page with email as query param
+              router.push(
+                `/auth/verify-request?email=${encodeURIComponent(values.email)}`
+              );
             }
           } else {
             // Handle password login

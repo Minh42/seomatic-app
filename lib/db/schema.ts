@@ -33,7 +33,12 @@ export const clientRoleEnum = pgEnum('client_role', [
   'client_member',
   'client_viewer',
 ]);
-export const statusEnum = pgEnum('status', ['pending', 'active', 'removed']);
+export const statusEnum = pgEnum('status', [
+  'pending',
+  'active',
+  'removed',
+  'suspended',
+]);
 export const subscriptionStatusEnum = pgEnum('subscription_status', [
   'active',
   'canceled',
@@ -94,6 +99,7 @@ export const users = pgTable('users', {
 
   // Authentication
   passwordHash: varchar('password_hash'),
+  signupMethod: varchar('signup_method').default('email'), // 'email', 'oauth', 'team_invitation'
 
   // OAuth provider IDs (NextAuth.js compatible)
   googleId: varchar('google_id'),
@@ -146,7 +152,6 @@ export const plans = pgTable('plans', {
   // Stripe integration
   stripeProductId: varchar('stripe_product_id'),
   stripePriceId: varchar('stripe_price_id'),
-  stripePaymentLink: varchar('stripe_payment_link'),
 
   // Plan details
   name: varchar('name').notNull(), // Starter, Growth, Agency
@@ -194,6 +199,10 @@ export const subscriptions = pgTable('subscriptions', {
   currentPeriodEnd: timestamp('current_period_end'),
   cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false).notNull(),
   trialEndsAt: timestamp('trial_ends_at'),
+
+  // Pause functionality
+  pausedAt: timestamp('paused_at'),
+  pauseEndsAt: timestamp('pause_ends_at'),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

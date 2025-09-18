@@ -9,13 +9,13 @@ export function createBentoEmailProvider(): EmailConfig {
     server: '',
     from: 'noreply@seomatic.ai',
     maxAge: 24 * 60 * 60,
+    allowDangerousEmailAccountLinking: true,
     options: {},
-    async sendVerificationRequest({ identifier: email, url, token }) {
+    async sendVerificationRequest({ identifier: email, url }) {
       // Send magic link email
       const result = await EmailService.sendMagicLink({
         email,
         url,
-        token,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       });
 

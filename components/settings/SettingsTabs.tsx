@@ -10,6 +10,11 @@ const allTabs = [
   { id: 'team', label: 'Team' },
   { id: 'workspaces', label: 'Workspaces' },
   {
+    id: 'plans',
+    label: 'Plans',
+    requiresRole: 'owner' as UserRole,
+  },
+  {
     id: 'billing',
     label: 'Billing Details',
     requiresRole: 'owner' as UserRole,

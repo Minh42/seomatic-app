@@ -17,7 +17,6 @@ export interface Plan {
   maxNbOfSites: number;
   stripePriceId: string | null;
   stripeProductId: string | null;
-  stripePaymentLink: string | null;
 }
 
 export class PlanService {

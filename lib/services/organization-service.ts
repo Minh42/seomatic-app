@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { organizations, users, workspaces, teamMembers } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 export interface CreateOrganizationParams {
   name: string;
@@ -84,6 +84,89 @@ export class OrganizationService {
     }
 
     return null;
+  }
+
+  /**
+   * Get all organizations a user belongs to
+   * Returns organizations where user is owner or team member
+   */
+  static async getAllUserOrganizations(userId: string) {
+    const userOrgs = [];
+
+    // Get organizations where user is the owner
+    const ownedOrgs = await db
+      .select({
+        id: organizations.id,
+        name: organizations.name,
+        createdAt: organizations.createdAt,
+      })
+      .from(organizations)
+      .where(eq(organizations.ownerId, userId));
+
+    // Add owned organizations with owner role and member count
+    for (const org of ownedOrgs) {
+      // Count members (excluding owner who isn't in teamMembers)
+      const [memberResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(teamMembers)
+        .where(
+          and(
+            eq(teamMembers.organizationId, org.id),
+            eq(teamMembers.status, 'active')
+          )
+        );
+
+      userOrgs.push({
+        ...org,
+        role: 'owner' as const,
+        memberCount: Number(memberResult?.count || 0) + 1, // +1 for owner
+      });
+    }
+
+    // Get organizations where user is a team member
+    const memberOrgs = await db
+      .select({
+        id: organizations.id,
+        name: organizations.name,
+        createdAt: organizations.createdAt,
+        role: teamMembers.role,
+      })
+      .from(teamMembers)
+      .innerJoin(
+        organizations,
+        eq(organizations.id, teamMembers.organizationId)
+      )
+      .where(
+        and(
+          eq(teamMembers.memberUserId, userId),
+          eq(teamMembers.status, 'active')
+        )
+      );
+
+    // Add member organizations with member count
+    for (const org of memberOrgs) {
+      // Count members (excluding owner who isn't in teamMembers)
+      const [memberResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(teamMembers)
+        .where(
+          and(
+            eq(teamMembers.organizationId, org.id),
+            eq(teamMembers.status, 'active')
+          )
+        );
+
+      userOrgs.push({
+        ...org,
+        memberCount: Number(memberResult?.count || 0) + 1, // +1 for owner
+      });
+    }
+
+    // Sort by creation date (newest first)
+    return userOrgs.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   }
 
   /**

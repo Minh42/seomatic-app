@@ -52,6 +52,8 @@ interface SubscriptionData {
   status: string;
   cancelAtPeriodEnd: boolean;
   cancelledAt?: string | null;
+  pausedAt?: string | null;
+  pauseEndsAt?: string | null;
 }
 
 interface BillingTabProps {
@@ -71,6 +73,7 @@ export function BillingTab({}: BillingTabProps) {
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     useState<PaymentMethod | null>(null);
+  const [skipPauseInCancel, setSkipPauseInCancel] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionData>({
     plan: 'No Plan',
     price: 0,
@@ -166,6 +169,22 @@ export function BillingTab({}: BillingTabProps) {
             })
           : null;
 
+        const pausedAt = sub.pausedAt
+          ? new Date(sub.pausedAt).toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })
+          : null;
+
+        const pauseEndsAt = sub.pauseEndsAt
+          ? new Date(sub.pauseEndsAt).toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })
+          : null;
+
         setSubscription({
           plan: sub.planName || 'No Plan',
           price: parseFloat(sub.planPrice) || 0,
@@ -175,6 +194,8 @@ export function BillingTab({}: BillingTabProps) {
           status: sub.status || 'inactive',
           cancelAtPeriodEnd: sub.cancelAtPeriodEnd || false,
           cancelledAt,
+          pausedAt,
+          pauseEndsAt,
         });
       }
     } catch (error) {
@@ -231,9 +252,14 @@ export function BillingTab({}: BillingTabProps) {
   const handleResumeSubscription = async () => {
     setIsCanceling(true);
     try {
-      const response = await fetch('/api/subscription/cancel', {
-        method: 'DELETE',
-      });
+      // Check if subscription is paused or cancelled
+      const endpoint = subscription.pausedAt
+        ? '/api/subscription/resume'
+        : '/api/subscription/cancel';
+
+      const method = subscription.pausedAt ? 'POST' : 'DELETE';
+
+      const response = await fetch(endpoint, { method });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -242,13 +268,21 @@ export function BillingTab({}: BillingTabProps) {
 
       await response.json();
 
-      // Update local state
-      setSubscription(prev => ({
-        ...prev,
-        cancelAtPeriodEnd: false,
-      }));
-
-      toast.success('Your subscription has been resumed');
+      // Update local state based on what was resumed
+      if (subscription.pausedAt) {
+        setSubscription(prev => ({
+          ...prev,
+          pausedAt: null,
+          pauseEndsAt: null,
+        }));
+        toast.success('Subscription resumed successfully');
+      } else {
+        setSubscription(prev => ({
+          ...prev,
+          cancelAtPeriodEnd: false,
+        }));
+        toast.success('Subscription reactivated');
+      }
 
       // Close modal
       setShowResumeModal(false);
@@ -264,6 +298,20 @@ export function BillingTab({}: BillingTabProps) {
     } finally {
       setIsCanceling(false);
     }
+  };
+
+  const handleCancelInstead = () => {
+    // Close resume modal and open cancel modal
+    setShowResumeModal(false);
+    setSkipPauseInCancel(true); // Skip pause option when coming from paused state
+    setShowCancelModal(true);
+  };
+
+  const handleBackToResume = () => {
+    // Close cancel modal and reopen resume modal
+    setShowCancelModal(false);
+    setSkipPauseInCancel(false);
+    setShowResumeModal(true);
   };
 
   const handleAddPaymentMethod = () => {
@@ -446,26 +494,43 @@ export function BillingTab({}: BillingTabProps) {
       <div>
         <div className="flex items-start justify-between mb-4 pb-4 border-b border-zinc-200">
           <div>
-            <h3 className="text-base font-bold leading-6 text-zinc-900">
-              Subscription Plan:{' '}
-              <span className="text-indigo-600">{subscription.plan}</span>
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold leading-6 text-zinc-900">
+                Subscription Plan:{' '}
+                <span className="text-indigo-600">{subscription.plan}</span>
+              </h3>
+              {subscription.pausedAt && (
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
+                  Paused
+                </span>
+              )}
+            </div>
             <p className="text-sm font-normal leading-5 text-zinc-500">
               {subscription.frequency === 'yearly' ? 'Yearly' : 'Monthly'} Plan
             </p>
           </div>
           {subscription.plan !== 'No Plan' &&
-            (subscription.cancelAtPeriodEnd ? (
+            (subscription.pausedAt ? (
               <Button
                 onClick={() => setShowResumeModal(true)}
                 className="!h-10 px-4 text-sm font-medium leading-5 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer"
               >
                 Resume Subscription
               </Button>
+            ) : subscription.cancelAtPeriodEnd ? (
+              <Button
+                onClick={() => setShowResumeModal(true)}
+                className="!h-10 px-4 text-sm font-medium leading-5 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer"
+              >
+                Reactivate Subscription
+              </Button>
             ) : (
               <Button
                 variant="outline"
-                onClick={() => setShowCancelModal(true)}
+                onClick={() => {
+                  setSkipPauseInCancel(false); // Show pause option for regular cancel flow
+                  setShowCancelModal(true);
+                }}
                 className="!h-10 px-4 text-sm font-medium leading-5 text-zinc-600 hover:text-zinc-900 border border-zinc-300 hover:bg-zinc-50 rounded-lg cursor-pointer"
               >
                 Cancel Subscription
@@ -473,10 +538,21 @@ export function BillingTab({}: BillingTabProps) {
             ))}
         </div>
 
-        {subscription.nextPaymentDate && (
+        {(subscription.nextPaymentDate || subscription.pausedAt) && (
           <div className="flex items-center justify-between">
             <p className="text-sm leading-5 text-zinc-900">
-              {subscription.cancelAtPeriodEnd ? (
+              {subscription.pausedAt ? (
+                <>
+                  <span className="font-medium">Your next payment is</span>{' '}
+                  <strong className="font-bold">
+                    ${subscription.price.toFixed(2)} {subscription.currency}
+                  </strong>
+                  <span className="font-medium">, to be charged on</span>{' '}
+                  <strong className="font-bold">
+                    {subscription.pauseEndsAt || subscription.nextPaymentDate}
+                  </strong>
+                </>
+              ) : subscription.cancelAtPeriodEnd ? (
                 <>
                   <span className="font-medium">Your subscription ends on</span>{' '}
                   <strong className="font-bold">
@@ -496,7 +572,23 @@ export function BillingTab({}: BillingTabProps) {
                 </>
               )}
             </p>
-            {subscription.cancelAtPeriodEnd ? (
+            {subscription.pausedAt ? (
+              <p className="text-xs font-normal leading-5 text-zinc-500">
+                {(() => {
+                  if (subscription.pausedAt && subscription.pauseEndsAt) {
+                    // Calculate the pause duration in months
+                    const pauseStart = new Date(subscription.pausedAt);
+                    const pauseEnd = new Date(subscription.pauseEndsAt);
+                    const monthsDiff = Math.round(
+                      (pauseEnd.getTime() - pauseStart.getTime()) /
+                        (1000 * 60 * 60 * 24 * 30)
+                    );
+                    return `Subscription paused for ${monthsDiff} month${monthsDiff !== 1 ? 's' : ''} until ${subscription.pauseEndsAt}`;
+                  }
+                  return 'Subscription paused';
+                })()}
+              </p>
+            ) : subscription.cancelAtPeriodEnd ? (
               subscription.cancelledAt && (
                 <p className="text-xs font-normal leading-5 text-red-600">
                   This subscription was cancelled on {subscription.cancelledAt}.
@@ -777,11 +869,16 @@ export function BillingTab({}: BillingTabProps) {
       {/* Cancel Subscription Modal */}
       <CancelSubscriptionModal
         isOpen={showCancelModal}
-        onClose={() => setShowCancelModal(false)}
+        onClose={() => {
+          setShowCancelModal(false);
+          setSkipPauseInCancel(false); // Reset skip flag when modal closes
+        }}
         onConfirm={handleCancelSubscription}
         isLoading={isCanceling}
         planName={subscription.plan}
         nextPaymentDate={subscription.nextPaymentDate}
+        skipPauseOption={skipPauseInCancel}
+        onBackToResume={skipPauseInCancel ? handleBackToResume : undefined}
       />
 
       {/* Resume Subscription Modal */}
@@ -789,6 +886,7 @@ export function BillingTab({}: BillingTabProps) {
         isOpen={showResumeModal}
         onClose={() => setShowResumeModal(false)}
         onConfirm={handleResumeSubscription}
+        onCancelInstead={handleCancelInstead}
         isLoading={isCanceling}
         planName={subscription.plan}
         nextPaymentDate={subscription.nextPaymentDate}

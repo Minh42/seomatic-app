@@ -83,19 +83,118 @@ export class StripeService {
   }
 
   /**
+   * Update subscription to a new plan/price
+   * Stripe automatically handles proration
+   */
+  static async updateSubscriptionPlan(
+    subscriptionId: string,
+    newPriceId: string
+  ): Promise<Stripe.Subscription | null> {
+    try {
+      // Get the current subscription to find the item to update
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+      if (!subscription || subscription.items.data.length === 0) {
+        throw new Error('Subscription not found or has no items');
+      }
+
+      // Update the subscription with the new price
+      const updatedSubscription = await stripe.subscriptions.update(
+        subscriptionId,
+        {
+          items: [
+            {
+              id: subscription.items.data[0].id,
+              price: newPriceId,
+            },
+          ],
+          // Prorate immediately (this is the default behavior)
+          proration_behavior: 'always_invoice',
+        }
+      );
+
+      return updatedSubscription;
+    } catch (error) {
+      const stripeError = StripeErrorHandler.handleSubscriptionError(
+        error,
+        'update'
+      );
+      StripeErrorHandler.logError('updateSubscriptionPlan', stripeError);
+      return null;
+    }
+  }
+
+  /**
+   * Create a checkout session for upgrading from trial
+   */
+  static async createCheckoutSession(
+    priceId: string,
+    customerEmail: string,
+    userId: string,
+    successUrl: string,
+    cancelUrl: string
+  ): Promise<string | null> {
+    try {
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        customer_email: customerEmail,
+        client_reference_id: userId,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        // Allow promotion codes
+        allow_promotion_codes: true,
+        // Collect billing address
+        billing_address_collection: 'required',
+        // Set up trial if needed
+        subscription_data: {
+          metadata: {
+            userId: userId,
+          },
+        },
+      });
+
+      return session.url;
+    } catch (error) {
+      const stripeError = StripeErrorHandler.handleSubscriptionError(
+        error,
+        'create'
+      );
+      StripeErrorHandler.logError('createCheckoutSession', stripeError);
+      return null;
+    }
+  }
+
+  /**
    * Get upcoming invoice for a customer
    * This shows the next payment amount and date
    */
   static async getUpcomingInvoice(
     customerId: string
-  ): Promise<Stripe.UpcomingInvoice | null> {
+  ): Promise<Stripe.Invoice | null> {
     try {
-      const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+      // Using createPreview for newer API versions (2025+)
+      const upcomingInvoice = await stripe.invoices.createPreview({
         customer: customerId,
       });
 
       return upcomingInvoice;
     } catch (error) {
+      // If no upcoming invoice exists, Stripe will throw an error
+      // This is expected behavior, so we return null
+      if (
+        (error as any)?.statusCode === 404 ||
+        (error as any)?.message?.includes('No upcoming invoices')
+      ) {
+        return null;
+      }
+
       const stripeError = StripeErrorHandler.handleInvoiceError(error, 'fetch');
       StripeErrorHandler.logError('getUpcomingInvoice', stripeError);
       return null;
@@ -358,6 +457,96 @@ export class StripeService {
         'download'
       );
       StripeErrorHandler.logError('getInvoicePdfUrl', stripeError);
+      return null;
+    }
+  }
+
+  /**
+   * Pause subscription payment collection
+   */
+  static async pausePaymentCollection(
+    subscriptionId: string
+  ): Promise<Stripe.Subscription | null> {
+    try {
+      const subscription = await stripe.subscriptions.update(subscriptionId, {
+        pause_collection: {
+          behavior: 'mark_uncollectible', // Mark invoices as uncollectible during pause
+        },
+      });
+
+      return subscription;
+    } catch (error) {
+      const stripeError = StripeErrorHandler.handleSubscriptionError(
+        error,
+        'update'
+      );
+      StripeErrorHandler.logError('pausePaymentCollection', stripeError);
+      return null;
+    }
+  }
+
+  /**
+   * Resume subscription payment collection
+   */
+  static async resumePaymentCollection(
+    subscriptionId: string
+  ): Promise<Stripe.Subscription | null> {
+    try {
+      const subscription = await stripe.subscriptions.update(subscriptionId, {
+        pause_collection: null, // Remove pause to resume
+      });
+
+      return subscription;
+    } catch (error) {
+      const stripeError = StripeErrorHandler.handleSubscriptionError(
+        error,
+        'update'
+      );
+      StripeErrorHandler.logError('resumePaymentCollection', stripeError);
+      return null;
+    }
+  }
+
+  /**
+   * Cancel subscription at period end
+   */
+  static async cancelSubscriptionAtPeriodEnd(
+    subscriptionId: string
+  ): Promise<Stripe.Subscription | null> {
+    try {
+      const subscription = await stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: true,
+      });
+
+      return subscription;
+    } catch (error) {
+      const stripeError = StripeErrorHandler.handleSubscriptionError(
+        error,
+        'update'
+      );
+      StripeErrorHandler.logError('cancelSubscriptionAtPeriodEnd', stripeError);
+      return null;
+    }
+  }
+
+  /**
+   * Reactivate subscription (stop scheduled cancellation)
+   */
+  static async reactivateSubscription(
+    subscriptionId: string
+  ): Promise<Stripe.Subscription | null> {
+    try {
+      const subscription = await stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: false,
+      });
+
+      return subscription;
+    } catch (error) {
+      const stripeError = StripeErrorHandler.handleSubscriptionError(
+        error,
+        'update'
+      );
+      StripeErrorHandler.logError('reactivateSubscription', stripeError);
       return null;
     }
   }

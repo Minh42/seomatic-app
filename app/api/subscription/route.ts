@@ -90,6 +90,8 @@ export async function GET(request: NextRequest) {
           stripeDetails?.cancelAtPeriodEnd ?? subscription.cancelAtPeriodEnd,
         cancelledAt: stripeDetails?.cancelledAt || null,
         trialEndsAt: subscription.trialEndsAt,
+        pausedAt: subscription.pausedAt,
+        pauseEndsAt: subscription.pauseEndsAt,
         limits: {
           maxPages:
             subscription.plan.maxNbOfPages === -1

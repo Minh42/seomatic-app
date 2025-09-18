@@ -93,7 +93,6 @@ export class AuthService {
       await EmailService.sendPasswordResetEmail({
         email: normalizedEmail,
         resetUrl,
-        token,
         expiresAt: expires,
       });
 

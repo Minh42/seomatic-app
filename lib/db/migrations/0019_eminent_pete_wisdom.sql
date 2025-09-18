@@ -1,0 +1,2 @@
+-- This migration was referenced in the journal but the file was missing
+-- No changes in this migration

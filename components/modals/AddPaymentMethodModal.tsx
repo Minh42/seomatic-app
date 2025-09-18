@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { X, CreditCard } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -182,9 +183,15 @@ export function AddPaymentMethodModal({
   onClose,
   onSuccess,
 }: AddPaymentMethodModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/30 z-50" onClick={onClose} />
@@ -197,14 +204,9 @@ export function AddPaymentMethodModal({
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                <CreditCard className="h-5 w-5 text-indigo-600" />
-              </div>
-              <h2 className="text-xl font-bold leading-8 text-zinc-900">
-                Add Payment Method
-              </h2>
-            </div>
+            <h2 className="text-xl font-bold leading-8 text-zinc-900">
+              Add Payment Method
+            </h2>
             <button
               onClick={onClose}
               className="p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
@@ -221,4 +223,11 @@ export function AddPaymentMethodModal({
       </div>
     </>
   );
+
+  // Render modal in portal to ensure it's not constrained by parent containers
+  if (mounted && typeof window !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+
+  return null;
 }

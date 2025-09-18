@@ -1,11 +1,14 @@
 'use client';
 
-import { CheckCircle, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { X, ArrowRight } from 'lucide-react';
 
 interface ResumeSubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  onCancelInstead?: () => void;
   isLoading?: boolean;
   planName?: string;
   nextPaymentDate?: string;
@@ -17,35 +20,37 @@ export function ResumeSubscriptionModal({
   isOpen,
   onClose,
   onConfirm,
+  onCancelInstead,
   isLoading = false,
   planName = 'subscription',
   nextPaymentDate,
   nextPaymentAmount,
   currency = 'USD',
 }: ResumeSubscriptionModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/30 z-50" onClick={onClose} />
 
       {/* Modal */}
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
         <div
-          className="bg-white rounded-xl shadow-xl w-full max-w-md relative"
+          className="bg-white rounded-xl shadow-xl w-full max-w-md relative pointer-events-auto"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-5 w-5 text-indigo-600" />
-              </div>
-              <h2 className="text-xl font-bold leading-8 text-zinc-900">
-                Resume Subscription
-              </h2>
-            </div>
+            <h2 className="text-xl font-bold leading-8 text-zinc-900">
+              Resume Subscription
+            </h2>
             <button
               onClick={onClose}
               className="p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
@@ -103,6 +108,21 @@ export function ResumeSubscriptionModal({
                 </li>
               </ul>
             </div>
+
+            {/* Cancel instead option */}
+            {onCancelInstead && (
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={onCancelInstead}
+                  className="text-sm text-zinc-500 hover:text-zinc-700 underline transition-colors flex items-center gap-1 mx-auto cursor-pointer"
+                  disabled={isLoading}
+                >
+                  Cancel subscription instead
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -128,4 +148,11 @@ export function ResumeSubscriptionModal({
       </div>
     </>
   );
+
+  // Render modal in portal to ensure it's not constrained by parent containers
+  if (mounted && typeof window !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+
+  return null;
 }

@@ -9,7 +9,6 @@ export interface EmailEventData {
 export interface PasswordResetEmailParams {
   email: string;
   resetUrl: string;
-  token: string;
   expiresAt: Date;
 }
 
@@ -21,8 +20,9 @@ export interface WelcomeEmailParams {
 
 export interface TeamInvitationEmailParams {
   email: string;
-  inviterName?: string;
+  inviterEmail: string;
   organizationName?: string;
+  role: 'viewer' | 'member' | 'admin';
   inviteUrl: string;
   expiresAt: Date;
 }
@@ -37,7 +37,6 @@ export interface OnboardingCompleteParams {
 export interface MagicLinkEmailParams {
   email: string;
   url: string;
-  token: string;
   expiresAt: Date;
 }
 
@@ -54,7 +53,6 @@ export class EmailService {
   static async sendPasswordResetEmail({
     email,
     resetUrl,
-    token,
     expiresAt,
   }: PasswordResetEmailParams): Promise<boolean> {
     const bentoClient = getBentoClient();
@@ -66,10 +64,9 @@ export class EmailService {
     try {
       await bentoClient.triggerEvent({
         email,
-        type: '$password_reset_requested',
+        type: '$password_reset_requested_V2',
         fields: {
           reset_url: resetUrl,
-          token,
           expires_at: expiresAt.toISOString(),
         },
       });
@@ -119,12 +116,16 @@ export class EmailService {
     const bentoClient = getBentoClient();
     if (!bentoClient) return false;
 
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const loginUrl = `${baseUrl}/login`;
+
     try {
       await bentoClient.triggerEvent({
         email,
-        type: '$password_reset_completed',
+        type: '$password_reset_completed_V2',
         fields: {
           reset_at: new Date().toISOString(),
+          login_url: loginUrl,
         },
       });
       return true;
@@ -166,21 +167,30 @@ export class EmailService {
    */
   static async sendTeamInvitation({
     email,
-    inviterName,
+    inviterEmail,
     organizationName,
+    role,
     inviteUrl,
     expiresAt,
   }: TeamInvitationEmailParams): Promise<boolean> {
     const bentoClient = getBentoClient();
     if (!bentoClient) return false;
 
+    // Format role for better display in email
+    const roleDisplay = {
+      admin: 'an Admin',
+      member: 'a Member',
+      viewer: 'a Viewer',
+    }[role];
+
     try {
       await bentoClient.triggerEvent({
         email,
-        type: '$team_member_invited',
+        type: '$team_member_invited_V2',
         fields: {
-          inviter_name: inviterName,
+          inviter_email: inviterEmail,
           organization_name: organizationName,
+          role: roleDisplay,
           invite_url: inviteUrl,
           expires_at: expiresAt.toISOString(),
         },
@@ -198,19 +208,33 @@ export class EmailService {
   static async sendInvitationAcceptedNotification(
     inviterEmail: string,
     acceptedByEmail: string,
-    acceptedByName?: string
+    organizationName: string,
+    role: 'admin' | 'member' | 'viewer'
   ): Promise<boolean> {
     const bentoClient = getBentoClient();
     if (!bentoClient) return false;
 
+    // Format role for better display in email
+    const roleDisplay = {
+      admin: 'an Admin',
+      member: 'a Member',
+      viewer: 'a Viewer',
+    }[role];
+
+    // Get the base URL for the team settings link
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const teamSettingsUrl = `${baseUrl}/dashboard/settings?tab=team`;
+
     try {
       await bentoClient.triggerEvent({
         email: inviterEmail,
-        type: '$team_invitation_accepted',
+        type: '$team_invitation_accepted_V2',
         fields: {
           accepted_by_email: acceptedByEmail,
-          accepted_by_name: acceptedByName,
+          organization_name: organizationName,
+          role: roleDisplay,
           accepted_at: new Date().toISOString(),
+          team_settings_url: teamSettingsUrl,
         },
       });
       return true;
@@ -226,7 +250,6 @@ export class EmailService {
   static async sendMagicLink({
     email,
     url,
-    token,
     expiresAt,
   }: MagicLinkEmailParams): Promise<{ success: boolean; messageId?: string }> {
     const bentoClient = getBentoClient();
@@ -237,10 +260,9 @@ export class EmailService {
     try {
       const result = await bentoClient.triggerEvent({
         email,
-        type: '$magic_link_requested',
+        type: '$magic_link_requested_V2',
         fields: {
           magic_link: url,
-          token,
           expires_at: expiresAt.toISOString(),
         },
       });

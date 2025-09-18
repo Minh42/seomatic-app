@@ -141,6 +141,34 @@
       "when": 1757947796041,
       "tag": "0019_eminent_pete_wisdom",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1758037702431,
+      "tag": "0020_chief_blockbuster",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1758111892920,
+      "tag": "0021_thin_tyger_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1758114048824,
+      "tag": "0022_friendly_sprite",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1758126824551,
+      "tag": "0023_magenta_darkhawk",
+      "breakpoints": true
     }
   ]
 }

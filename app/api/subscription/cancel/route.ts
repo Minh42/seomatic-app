@@ -33,8 +33,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If there's a Stripe subscription, cancel it in Stripe
+    // If there's a Stripe subscription, handle it properly
     if (subscription.stripeSubscriptionId) {
+      // If subscription is paused, we need to resume it first before cancelling
+      // Otherwise Stripe keeps the pause_collection state even after cancel_at_period_end
+      if (subscription.pausedAt) {
+        await StripeService.resumePaymentCollection(
+          subscription.stripeSubscriptionId
+        );
+      }
+
+      // Now cancel the subscription at period end
       const canceled = await StripeService.cancelSubscription(
         subscription.stripeSubscriptionId
       );
@@ -52,10 +61,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Update local database
+    // When cancelling, clear any pause state to avoid confusion
     const [updated] = await db
       .update(subscriptions)
       .set({
         cancelAtPeriodEnd: true,
+        pausedAt: null, // Clear pause state when cancelling
+        pauseEndsAt: null, // Clear pause end date
         updatedAt: new Date(),
       })
       .where(eq(subscriptions.ownerId, user.id))

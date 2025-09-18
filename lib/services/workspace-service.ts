@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
-import { workspaces, connections } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { workspaces, connections, organizations } from '@/lib/db/schema';
+import { eq, and, inArray } from 'drizzle-orm';
 
 export interface CreateWorkspaceParams {
   name: string;
@@ -34,6 +34,8 @@ export interface WorkspaceWithConnection {
   connectionUrl: string | null;
   connectionType: ConnectionType | null;
   status: ConnectionStatus | null;
+  organizationId?: string;
+  organizationName?: string;
 }
 
 export class WorkspaceService {
@@ -171,10 +173,24 @@ export class WorkspaceService {
 
   /**
    * Get all workspaces with their connections for a user
+   * This includes workspaces from all organizations the user belongs to
    */
   static async getWorkspacesWithConnections(
     userId: string
   ): Promise<WorkspaceWithConnection[]> {
+    // Get all organizations the user belongs to
+    const { OrganizationService } = await import('./organization-service');
+    const userOrganizations =
+      await OrganizationService.getAllUserOrganizations(userId);
+
+    if (userOrganizations.length === 0) {
+      return [];
+    }
+
+    // Get all organization IDs
+    const organizationIds = userOrganizations.map(org => org.id);
+
+    // Fetch workspaces from all organizations with organization names
     const result = await db
       .select({
         workspaceId: workspaces.id,
@@ -183,19 +199,24 @@ export class WorkspaceService {
         connectionType: connections.connectionType,
         status: connections.status,
         createdAt: workspaces.createdAt,
+        organizationId: workspaces.organizationId,
+        organizationName: organizations.name,
       })
       .from(workspaces)
       .leftJoin(connections, eq(workspaces.id, connections.workspaceId))
-      .where(eq(workspaces.ownerId, userId))
-      .orderBy(workspaces.createdAt);
+      .innerJoin(organizations, eq(workspaces.organizationId, organizations.id))
+      .where(inArray(workspaces.organizationId, organizationIds))
+      .orderBy(organizations.name, workspaces.name);
 
-    // Map to the expected format
+    // Map to the expected format with organization info
     return result.map(row => ({
       id: row.workspaceId,
       name: row.workspaceName,
       connectionUrl: row.connectionUrl || null,
       connectionType: row.connectionType as ConnectionType | null,
       status: row.status as ConnectionStatus | null,
+      organizationId: row.organizationId || undefined,
+      organizationName: row.organizationName || undefined,
     }));
   }
 

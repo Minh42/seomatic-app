@@ -33,17 +33,20 @@ interface AddMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  currentUserEmail?: string | null;
 }
 
 export function AddMemberDialog({
   open,
   onOpenChange,
   onSuccess,
+  currentUserEmail,
 }: AddMemberDialogProps) {
   const [members, setMembers] = useState<TeamMember[]>([
     { email: '', role: 'member', touched: false },
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [existingEmails, setExistingEmails] = useState<Set<string>>(new Set());
   const debounceTimers = useRef<{ [key: number]: NodeJS.Timeout }>({});
 
   const addMember = () => {
@@ -59,8 +62,36 @@ export function AddMemberDialog({
     setMembers(members.filter((_, i) => i !== index));
   };
 
-  const validateEmail = (email: string) => {
+  const validateEmail = (email: string, currentIndex?: number) => {
     if (!email) return undefined;
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if trying to invite yourself
+    if (
+      currentUserEmail &&
+      normalizedEmail === currentUserEmail.toLowerCase()
+    ) {
+      return 'You are already a member of this team';
+    }
+
+    // Check if email already exists in team
+    if (existingEmails.has(normalizedEmail)) {
+      return 'This user is already a team member or has a pending invitation';
+    }
+
+    // Check for duplicates within the current form
+    if (currentIndex !== undefined) {
+      const duplicate = members.some(
+        (m, idx) =>
+          idx !== currentIndex &&
+          m.email.toLowerCase().trim() === normalizedEmail
+      );
+      if (duplicate) {
+        return 'This email address has already been added';
+      }
+    }
+
     const validation = validateWorkEmail(email);
     return !validation.isValid ? validation.error : undefined;
   };
@@ -86,7 +117,7 @@ export function AddMemberDialog({
           const updatedWithValidation = [...prev];
           updatedWithValidation[index] = {
             ...updatedWithValidation[index],
-            error: validateEmail(value),
+            error: validateEmail(value, index),
             touched: true,
           };
           return updatedWithValidation;
@@ -98,6 +129,13 @@ export function AddMemberDialog({
     setMembers(updated);
   };
 
+  // Fetch existing team members when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchExistingMembers();
+    }
+  }, [open]);
+
   // Clean up debounce timers on unmount
   useEffect(() => {
     return () => {
@@ -107,16 +145,80 @@ export function AddMemberDialog({
     };
   }, []);
 
-  // Check if there are any valid email addresses entered and no errors
+  const fetchExistingMembers = async () => {
+    try {
+      const response = await fetch('/api/team/members');
+      if (response.ok) {
+        const data = await response.json();
+        const emails = new Set<string>();
+
+        // Add active and suspended members
+        if (data.members) {
+          data.members.forEach((member: any) => {
+            if (member.member?.email) {
+              emails.add(member.member.email.toLowerCase());
+            }
+          });
+        }
+
+        // Add pending invitations
+        if (data.invitations) {
+          data.invitations.forEach((invitation: any) => {
+            if (invitation.member?.email) {
+              emails.add(invitation.member.email.toLowerCase());
+            }
+          });
+        }
+
+        setExistingEmails(emails);
+      }
+    } catch (error) {
+      console.error('Failed to fetch existing members:', error);
+    }
+  };
+
+  // Check if all email addresses are valid (no empty fields, no errors)
   const hasValidEmails =
-    members.some(m => m.email.trim() !== '') &&
-    !members.some(m => m.error && m.touched);
+    members.length > 0 &&
+    members.every(m => {
+      const trimmedEmail = m.email.trim();
+      // Email must be non-empty
+      if (trimmedEmail === '') return false;
+      // If touched and has error, it's invalid
+      if (m.touched && m.error) return false;
+      // If not touched yet, validate it now
+      if (!m.touched) {
+        const error = validateEmail(trimmedEmail, members.indexOf(m));
+        return !error;
+      }
+      return true;
+    });
 
   const handleSubmit = async () => {
-    // Filter out empty email addresses
-    const validMembers = members.filter(m => m.email.trim() !== '');
-    if (validMembers.length === 0) {
-      toast.error('Please enter at least one email address');
+    // Validate all emails before submitting (final check)
+    const updatedMembers = [...members];
+    let hasErrors = false;
+
+    for (let i = 0; i < updatedMembers.length; i++) {
+      const trimmedEmail = updatedMembers[i].email.trim();
+      if (!trimmedEmail) {
+        updatedMembers[i] = {
+          ...updatedMembers[i],
+          error: 'Email address is required',
+          touched: true,
+        };
+        hasErrors = true;
+      } else {
+        const error = validateEmail(trimmedEmail, i);
+        if (error) {
+          updatedMembers[i] = { ...updatedMembers[i], error, touched: true };
+          hasErrors = true;
+        }
+      }
+    }
+
+    if (hasErrors) {
+      setMembers(updatedMembers);
       return;
     }
 
@@ -129,7 +231,7 @@ export function AddMemberDialog({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          teamMembers: validMembers.map(m => ({
+          teamMembers: members.map(m => ({
             email: m.email.trim().toLowerCase(),
             role: m.role,
           })),
@@ -161,7 +263,7 @@ export function AddMemberDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[70vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold leading-8 text-zinc-900">
             Invite Team Members
@@ -185,6 +287,20 @@ export function AddMemberDialog({
                     placeholder="colleague@company.com"
                     value={member.email}
                     onChange={e => updateMember(index, 'email', e.target.value)}
+                    onBlur={() => {
+                      // Validate immediately on blur
+                      const updatedMembers = [...members];
+                      const trimmedEmail = updatedMembers[index].email.trim();
+                      updatedMembers[index] = {
+                        ...updatedMembers[index],
+                        error:
+                          trimmedEmail === ''
+                            ? 'Email address is required'
+                            : validateEmail(trimmedEmail, index),
+                        touched: true,
+                      };
+                      setMembers(updatedMembers);
+                    }}
                     className={`mt-1 !h-12 rounded-lg border border-zinc-300 text-sm font-medium leading-5 placeholder:text-zinc-400 ${member.error && member.touched ? 'border-red-500' : ''} ${member.email ? 'text-zinc-900' : ''}`}
                   />
                 </div>

@@ -29,7 +29,15 @@ const TEAM_ROLES: TeamMember['role'][] = ['viewer', 'member', 'admin'];
 // Email validation cache to prevent repeated API calls
 const emailCache = new Map<string, { available: boolean; error?: string }>();
 
-export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
+interface Step3TeamMembersProps extends StepComponentProps {
+  currentUserEmail?: string;
+}
+
+export function Step3TeamMembers({
+  form,
+  isSubmitting,
+  currentUserEmail,
+}: Step3TeamMembersProps) {
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<TeamMember['role']>('viewer');
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -73,6 +81,7 @@ export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
         setEmailError(null);
       } else {
         setEmailAvailable(false);
+        // Use the error message from the API if provided
         if (data.error) {
           setEmailError(data.error);
         }
@@ -98,6 +107,16 @@ export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
       // Basic Zod validation first
       teamMemberSchema.shape.email.parse(normalizedEmail);
 
+      // Check if trying to invite yourself
+      if (
+        currentUserEmail &&
+        normalizedEmail === currentUserEmail.toLowerCase()
+      ) {
+        setEmailError('You are already a member of this team');
+        setEmailAvailable(false);
+        return;
+      }
+
       // Check if already added to the list
       const field = form.getFieldValue('teamMembers') || [];
       if (
@@ -105,7 +124,7 @@ export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
           (member: TeamMember) => member.email.toLowerCase() === normalizedEmail
         )
       ) {
-        setEmailError('This team member has already been added');
+        setEmailError('This email address has already been added');
         setEmailAvailable(false);
         return;
       }
@@ -164,6 +183,15 @@ export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
                 role: newRole,
               });
 
+              // Check if trying to invite yourself
+              if (
+                currentUserEmail &&
+                validatedMember.email === currentUserEmail.toLowerCase()
+              ) {
+                setEmailError('You are already a member of this team');
+                return;
+              }
+
               // Duplicate check is already done in validateEmailAfterTyping
               // Just double-check here for safety
               if (
@@ -172,7 +200,7 @@ export function Step3TeamMembers({ form, isSubmitting }: StepComponentProps) {
                     member.email.toLowerCase() === validatedMember.email
                 )
               ) {
-                setEmailError('This team member has already been added');
+                setEmailError('This email address has already been added');
                 return;
               }
 

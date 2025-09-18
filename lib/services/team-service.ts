@@ -6,7 +6,7 @@ import {
   workspaces,
   organizations,
 } from '@/lib/db/schema';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, or, not, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { EmailService } from '@/lib/services/email-service';
 import { OrganizationService } from '@/lib/services/organization-service';
@@ -200,14 +200,11 @@ export class TeamService {
     // Get inviter details
     const [inviter] = await db
       .select({
-        name: users.name,
         email: users.email,
       })
       .from(users)
       .where(eq(users.id, invitedBy))
       .limit(1);
-
-    const inviterName = inviter?.name || inviter?.email || 'A team member';
 
     // Get organization name
     const [organization] = await db
@@ -222,8 +219,9 @@ export class TeamService {
 
     await EmailService.sendTeamInvitation({
       email: email.toLowerCase(),
-      inviterName,
+      inviterEmail: inviter!.email,
       organizationName: organization?.name,
+      role,
       inviteUrl,
       expiresAt,
     });
@@ -259,12 +257,53 @@ export class TeamService {
       throw new Error('Invitation has expired');
     }
 
-    // Update team member record
+    // Get team member info to find organization
+    const [teamMember] = await db
+      .select()
+      .from(teamMembers)
+      .where(eq(teamMembers.id, invitation.teamMemberId))
+      .limit(1);
+
+    if (!teamMember || !teamMember.organizationId) {
+      throw new Error('Team member record not found');
+    }
+
+    // Check if member should be active or suspended based on seat limits
+    let memberStatus: 'active' | 'suspended' = 'active';
+
+    // Get organization owner to check subscription limits
+    const [org] = await db
+      .select({ ownerId: organizations.ownerId })
+      .from(organizations)
+      .where(eq(organizations.id, teamMember.organizationId))
+      .limit(1);
+
+    if (org) {
+      // Check current active member count
+      const currentActiveCount = await this.getActiveMemberCount(
+        teamMember.organizationId
+      );
+
+      // Get subscription limits
+      const { SubscriptionService } = await import('./subscription-service');
+      const subscription = await SubscriptionService.getSubscriptionWithPlan(
+        org.ownerId
+      );
+
+      if (subscription && subscription.plan.maxNbOfSeats !== -1) {
+        // If we're at or over the limit, new member should be suspended
+        if (currentActiveCount >= subscription.plan.maxNbOfSeats) {
+          memberStatus = 'suspended';
+        }
+      }
+    }
+
+    // Update team member record with appropriate status
     const [updated] = await db
       .update(teamMembers)
       .set({
         memberUserId: userId,
-        status: 'active',
+        status: memberStatus,
         updatedAt: new Date(),
       })
       .where(eq(teamMembers.id, invitation.teamMemberId))
@@ -303,7 +342,7 @@ export class TeamService {
   }
 
   /**
-   * Get team members for a user's organization
+   * Get team members for a user's organization (including suspended)
    */
   static async getTeamMembers(userId: string) {
     // First get the user's organization
@@ -330,7 +369,10 @@ export class TeamService {
       .where(
         and(
           eq(teamMembers.organizationId, organization.id),
-          eq(teamMembers.status, 'active')
+          or(
+            eq(teamMembers.status, 'active'),
+            eq(teamMembers.status, 'suspended')
+          )
         )
       );
 
@@ -525,14 +567,11 @@ export class TeamService {
     // Get inviter details
     const [inviter] = await db
       .select({
-        name: users.name,
         email: users.email,
       })
       .from(users)
       .where(eq(users.id, invitation.team_members.invitedBy))
       .limit(1);
-
-    const inviterName = inviter?.name || inviter?.email || 'A team member';
 
     // Get organization name
     let organizationName: string | undefined;
@@ -551,8 +590,9 @@ export class TeamService {
 
     await EmailService.sendTeamInvitation({
       email: invitation.team_invitations.email,
-      inviterName,
+      inviterEmail: inviter!.email,
       organizationName,
+      role: invitation.team_members.role,
       inviteUrl,
       expiresAt,
     });
@@ -680,6 +720,7 @@ export class TeamService {
           role: teamMembers.role,
           userId: teamMembers.userId, // This is the workspace owner
           invitedBy: teamMembers.invitedBy,
+          organizationId: teamMembers.organizationId,
         })
         .from(teamMembers)
         .where(eq(teamMembers.id, invitation.teamMemberId))
@@ -758,6 +799,19 @@ export class TeamService {
         .delete(teamInvitations)
         .where(eq(teamInvitations.id, invitation.id));
 
+      // Get organization name for the email
+      let organizationName = 'the workspace';
+      if (teamMember.organizationId) {
+        const [org] = await tx
+          .select({ name: organizations.name })
+          .from(organizations)
+          .where(eq(organizations.id, teamMember.organizationId))
+          .limit(1);
+        if (org) {
+          organizationName = org.name;
+        }
+      }
+
       // Notify inviter about acceptance
       const [inviter] = await tx
         .select({ email: users.email })
@@ -769,7 +823,8 @@ export class TeamService {
         await EmailService.sendInvitationAcceptedNotification(
           inviter.email,
           currentUser.email,
-          currentUser.name || undefined
+          organizationName,
+          teamMember.role
         );
       }
 
@@ -929,5 +984,146 @@ export class TeamService {
       .limit(1);
 
     return !!member;
+  }
+
+  /**
+   * Suspend multiple team members
+   */
+  static async suspendMembers(memberIds: string[]) {
+    if (memberIds.length === 0) return [];
+
+    const suspended = await db
+      .update(teamMembers)
+      .set({
+        status: 'suspended',
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          teamMembers.id as any,
+          memberIds
+            .map(id => eq(teamMembers.id, id))
+            .reduce((acc, curr) => (acc ? or(acc, curr) : curr))
+        )
+      )
+      .returning();
+
+    return suspended;
+  }
+
+  /**
+   * Reactivate suspended members for an organization
+   */
+  static async reactivateMembers(organizationId: string, limit?: number) {
+    // Get suspended members sorted by original join date
+    const suspendedMembers = await db
+      .select()
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.organizationId, organizationId),
+          eq(teamMembers.status, 'suspended')
+        )
+      )
+      .orderBy(teamMembers.joinedAt);
+
+    // If no limit, reactivate all
+    const membersToReactivate = limit
+      ? suspendedMembers.slice(0, limit)
+      : suspendedMembers;
+
+    if (membersToReactivate.length === 0) return [];
+
+    const reactivated = await db
+      .update(teamMembers)
+      .set({
+        status: 'active',
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          teamMembers.id as any,
+          membersToReactivate
+            .map(m => eq(teamMembers.id, m.id))
+            .reduce((acc, curr) => (acc ? or(acc, curr) : curr))
+        )
+      )
+      .returning();
+
+    return reactivated;
+  }
+
+  /**
+   * Get count of active team members for an organization
+   */
+  static async getActiveMemberCount(organizationId: string) {
+    const result = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.organizationId, organizationId),
+          eq(teamMembers.status, 'active')
+        )
+      );
+
+    // Owner is not counted in seat limits
+    return result[0]?.count || 0;
+  }
+
+  /**
+   * Suspend all non-owner members of an organization
+   */
+  static async suspendAllMembers(organizationId: string) {
+    // Get the organization to find the owner
+    const [org] = await db
+      .select({ ownerId: organizations.ownerId })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+
+    if (!org) {
+      throw new Error('Organization not found');
+    }
+
+    // Suspend all active members except the owner
+    const suspended = await db
+      .update(teamMembers)
+      .set({
+        status: 'suspended',
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(teamMembers.organizationId, organizationId),
+          eq(teamMembers.status, 'active'),
+          not(eq(teamMembers.memberUserId, org.ownerId))
+        )
+      )
+      .returning();
+
+    return suspended;
+  }
+
+  /**
+   * Get member status
+   */
+  static async getMemberStatus(userId: string, organizationId: string) {
+    const [member] = await db
+      .select({
+        id: teamMembers.id,
+        status: teamMembers.status,
+        role: teamMembers.role,
+      })
+      .from(teamMembers)
+      .where(
+        and(
+          eq(teamMembers.organizationId, organizationId),
+          eq(teamMembers.memberUserId, userId)
+        )
+      )
+      .limit(1);
+
+    return member || null;
   }
 }

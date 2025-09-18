@@ -1,26 +1,25 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface InvitationData {
   email: string;
   role: string;
   organizationName: string;
-  inviterName: string;
+  inviterEmail: string;
   expiresAt: string;
 }
 
 export default function InvitePage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const token = searchParams.get('token');
 
   const [isLoading, setIsLoading] = useState(true);
@@ -66,34 +65,15 @@ export default function InvitePage() {
     validateInvitation();
   }, [token]);
 
-  const handleAcceptInvitation = async () => {
+  const handleJoinTeam = async () => {
     if (!token || !invitation) return;
-
-    // Check for email mismatch before attempting
-    if (
-      session?.user?.email &&
-      session.user.email.toLowerCase() !== invitation.email.toLowerCase()
-    ) {
-      setError(
-        `This invitation is for ${invitation.email}. You are currently logged in as ${session.user.email}. Please log out and sign in with the correct account.`
-      );
-      return;
-    }
 
     setIsAccepting(true);
     setError(null);
 
     try {
-      // Check if user is logged in
-      if (!session) {
-        // Store invitation token in session storage for after login/signup
-        sessionStorage.setItem('pendingInvitation', token);
-        router.push(`/signup?email=${encodeURIComponent(invitation.email)}`);
-        return;
-      }
-
-      // User is logged in, accept the invitation
-      const response = await fetch('/api/invite/accept', {
+      // Use the new magic link join endpoint
+      const response = await fetch('/api/invite/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
@@ -102,17 +82,24 @@ export default function InvitePage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'Failed to accept invitation');
+        setError(data.error || 'Failed to join team');
         return;
       }
 
-      setSuccess(true);
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 2000);
+      // If successful, redirect to the magic link URL
+      // The backend has created/validated the user and accepted the invitation
+      if (data.magicLinkUrl) {
+        setSuccess(true);
+        setTimeout(() => {
+          // Redirect to the magic link URL which will authenticate the user
+          window.location.href = data.magicLinkUrl;
+        }, 1500);
+      } else {
+        setError('Failed to generate authentication link. Please try again.');
+      }
     } catch (err) {
-      setError('Failed to accept invitation. Please try again.');
-      console.error('Accept invitation error:', err);
+      setError('Failed to join team. Please try again.');
+      console.error('Join team error:', err);
     } finally {
       setIsAccepting(false);
     }
@@ -163,9 +150,6 @@ export default function InvitePage() {
             </div>
           ) : success ? (
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
               <h1 className="text-2xl font-bold mb-2">Invitation Accepted!</h1>
               <p className="text-gray-600 mb-4">
                 You&apos;ve successfully joined the workspace. Redirecting to
@@ -176,7 +160,7 @@ export default function InvitePage() {
             <div className="text-center">
               <h1 className="text-2xl font-bold mb-2">You&apos;re Invited!</h1>
               <p className="text-gray-600 mb-6">
-                <strong>{invitation.inviterName}</strong> has invited you to
+                <strong>{invitation.inviterEmail}</strong> has invited you to
                 join
               </p>
 
@@ -190,80 +174,33 @@ export default function InvitePage() {
                 <p className="font-medium capitalize">{invitation.role}</p>
               </div>
 
-              {session?.user?.email &&
-                session.user.email.toLowerCase() !==
-                  invitation.email.toLowerCase() && (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      <strong>Email mismatch!</strong> You&apos;re logged in as{' '}
-                      <strong>{session.user.email}</strong>, but this invitation
-                      is for <strong>{invitation.email}</strong>.
-                      <br />
-                      <br />
-                      For security reasons, you must log in with the correct
-                      account to accept this invitation.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
               <div className="space-y-3">
-                {session?.user?.email &&
-                session.user.email.toLowerCase() !==
-                  invitation.email.toLowerCase() ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={async () => {
-                        // Sign out and redirect to login with the invitation email
-                        await signOut({
-                          callbackUrl: `/login?email=${encodeURIComponent(invitation.email)}`,
-                        });
-                      }}
-                      className="w-full"
-                    >
-                      Switch Account
-                    </Button>
-                    <p className="text-sm text-gray-500 text-center">
-                      You need to switch to {invitation.email} to accept this
-                      invitation
-                    </p>
-                  </>
-                ) : (
-                  <Button
-                    onClick={handleAcceptInvitation}
-                    disabled={isAccepting}
-                    className="w-full"
-                  >
-                    {isAccepting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Accepting...
-                      </>
-                    ) : session ? (
-                      'Accept Invitation'
-                    ) : (
-                      'Sign up & Accept'
-                    )}
-                  </Button>
-                )}
-
-                {session &&
-                  session.user.email?.toLowerCase() ===
-                    invitation.email.toLowerCase() && (
-                    <Button
-                      variant="outline"
-                      onClick={() => router.push('/dashboard')}
-                      className="w-full"
-                    >
-                      Cancel
-                    </Button>
+                <Button
+                  onClick={handleJoinTeam}
+                  disabled={isAccepting}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer"
+                  size="lg"
+                >
+                  {isAccepting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Joining...
+                    </>
+                  ) : (
+                    `Join ${invitation.organizationName}`
                   )}
+                </Button>
               </div>
 
               <p className="text-xs text-gray-500 mt-4">
                 This invitation expires on{' '}
-                {new Date(invitation.expiresAt).toLocaleDateString()}
+                {new Date(invitation.expiresAt).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
               </p>
             </div>
           ) : null}

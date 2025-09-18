@@ -9,7 +9,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle } from 'lucide-react';
 
 interface RemoveConfirmDialogProps {
   isOpen: boolean;
@@ -34,14 +33,9 @@ export function RemoveConfirmDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-            </div>
-            <DialogTitle className="text-xl font-bold leading-8 text-zinc-900">
-              Remove team member
-            </DialogTitle>
-          </div>
+          <DialogTitle className="text-xl font-bold leading-8 text-zinc-900">
+            Remove team member
+          </DialogTitle>
         </DialogHeader>
 
         <div className="py-4">

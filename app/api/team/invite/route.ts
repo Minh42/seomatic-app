@@ -61,29 +61,6 @@ export async function POST(request: NextRequest) {
       organizationId = organization.id;
     }
 
-    // First, get all existing pending invitations for this user
-    const existingInvitations = await TeamService.getPendingInvitations(userId);
-
-    // Create a set of current emails for quick lookup
-    const currentEmails = new Set(teamMembers.map(m => m.email.toLowerCase()));
-
-    // Delete invitations that are no longer in the list
-    const deletionResults = [];
-    for (const existing of existingInvitations) {
-      const memberEmail = (existing as any).member?.email?.toLowerCase();
-      if (memberEmail && !currentEmails.has(memberEmail)) {
-        try {
-          await TeamService.deleteInvitation(existing.id, userId);
-          deletionResults.push({
-            email: memberEmail,
-            status: 'deleted',
-          });
-        } catch (error) {
-          console.error('Failed to delete invitation:', error);
-        }
-      }
-    }
-
     // Process each team member invitation
     for (const member of teamMembers) {
       try {
@@ -170,7 +147,6 @@ export async function POST(request: NextRequest) {
     const skippedCount = invitationResults.filter(
       r => r.status === 'skipped'
     ).length;
-    // deletedCount is tracked in deletionResults array
 
     // Build a user-friendly message
     let message = '';
@@ -188,7 +164,6 @@ export async function POST(request: NextRequest) {
       success: true,
       message: message || 'Team members processed',
       invitations: invitationResults,
-      deletions: deletionResults,
     });
   } catch (error) {
     console.error('Error sending team invitations:', error);

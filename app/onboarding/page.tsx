@@ -46,6 +46,7 @@ export default async function OnboardingPage() {
     },
     organizationId: organization?.id || null,
     organizationName: organization?.name || '',
+    currentUserEmail: session.user.email || '',
   };
 
   return <OnboardingPageClient initialData={initialData} />;

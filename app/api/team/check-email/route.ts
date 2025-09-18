@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { db } from '@/lib/db';
-import { users, teamInvitations, teamMembers } from '@/lib/db/schema';
+import { teamInvitations, teamMembers } from '@/lib/db/schema';
 import { eq, and, gte } from 'drizzle-orm';
 import { z } from 'zod';
 import { validateWorkEmail } from '@/lib/utils/email-validation';
@@ -47,20 +47,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         available: false,
         error: emailValidation.error,
-      });
-    }
-
-    // Check if email exists as a user
-    const [existingUser] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-
-    if (existingUser) {
-      return NextResponse.json({
-        available: false,
-        error: 'This user already has an account',
       });
     }
 

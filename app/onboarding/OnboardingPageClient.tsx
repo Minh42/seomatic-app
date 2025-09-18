@@ -35,6 +35,7 @@ interface OnboardingPageClientProps {
     };
     organizationId: string | null;
     organizationName: string;
+    currentUserEmail: string;
   };
 }
 
@@ -119,7 +120,11 @@ export function OnboardingPageClient({
             />
           )}
           {currentStep === 3 && (
-            <Step3TeamMembers form={form} isSubmitting={isSubmitting} />
+            <Step3TeamMembers
+              form={form}
+              isSubmitting={isSubmitting}
+              currentUserEmail={initialData.currentUserEmail}
+            />
           )}
           {currentStep === 4 && (
             <Step4CMSIntegration form={form} isSubmitting={isSubmitting} />

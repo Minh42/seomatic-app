@@ -19,6 +19,7 @@ const SESSION_MAX_AGE_REMEMBER_ME = 30 * 24 * 60 * 60; // 30 days in seconds
 const SESSION_UPDATE_AGE = 60 * 60; // 1 hour in seconds
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   adapter: DrizzleAdapter(db, {
     usersTable: users,
     accountsTable: accounts,
@@ -90,8 +91,17 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/login',
     error: '/auth/error',
+    verifyRequest: '/auth/verify-request',
   },
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url;
+      // Default redirect to dashboard
+      return baseUrl + '/dashboard';
+    },
     async session({ token, session }) {
       // Token validation is already done in jwt callback
       // If we get here, the token is valid
@@ -123,9 +133,13 @@ export const authOptions: NextAuthOptions = {
       if (trigger === 'signIn' && user) {
         token.sub = user.id;
 
-        // Handle credentials provider remember me
-        if (account?.provider === 'credentials') {
-          // The remember me value is passed through the user object from authorize
+        // Handle email provider (no account object passed for email provider)
+        if (!account) {
+          // This is the email provider case
+          token.rememberMe = false;
+          token.exp = Math.floor(Date.now() / 1000) + SESSION_MAX_AGE;
+        } else if (account.provider === 'credentials') {
+          // Handle credentials provider remember me
           const userWithRememberMe = user as typeof user & {
             rememberMe?: boolean;
           };

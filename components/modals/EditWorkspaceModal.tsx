@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { WorkspaceErrorHandler } from '@/lib/errors/workspace-errors';
 
@@ -31,6 +32,11 @@ export function EditWorkspaceModal({
     message?: string;
   }>({});
   const [hasBlurred, setHasBlurred] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -97,8 +103,6 @@ export function EditWorkspaceModal({
     return () => clearTimeout(timer);
   }, [name, currentName, workspaceId]);
 
-  if (!isOpen) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -123,9 +127,11 @@ export function EditWorkspaceModal({
     onClose();
   };
 
+  if (!isOpen) return null;
+
   const hasChanged = name.trim() !== currentName.trim();
 
-  return (
+  const modalContent = (
     <>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/30 z-50" onClick={handleClose} />
@@ -255,4 +261,11 @@ export function EditWorkspaceModal({
       </div>
     </>
   );
+
+  // Render modal in portal to ensure it's not constrained by parent containers
+  if (mounted && typeof window !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+
+  return null;
 }

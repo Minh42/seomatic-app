@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, X } from 'lucide-react';
 
 interface DeleteWorkspaceModalProps {
@@ -17,9 +19,15 @@ export function DeleteWorkspaceModal({
   isLoading = false,
   workspaceName,
 }: DeleteWorkspaceModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/30 z-50" onClick={onClose} />
@@ -100,4 +108,11 @@ export function DeleteWorkspaceModal({
       </div>
     </>
   );
+
+  // Render modal in portal to ensure it's not constrained by parent containers
+  if (mounted && typeof window !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+
+  return null;
 }

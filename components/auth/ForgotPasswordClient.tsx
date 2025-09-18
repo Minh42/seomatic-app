@@ -12,8 +12,7 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, AlertCircle, Info, Mail } from 'lucide-react';
+import { AlertCircle, Info, Mail } from 'lucide-react';
 import { getEmailSuggestion } from '@/lib/utils/email-validation';
 
 export function ForgotPasswordClient() {
@@ -122,8 +121,8 @@ export function ForgotPasswordClient() {
         </div>
 
         {submitMessage && (
-          <Alert
-            className={`mb-6 ${
+          <div
+            className={`mb-6 rounded-lg border p-4 text-left ${
               submitMessage.type === 'success'
                 ? 'border-green-200 bg-green-50'
                 : submitMessage.type === 'error'
@@ -131,57 +130,59 @@ export function ForgotPasswordClient() {
                   : 'border-blue-200 bg-blue-50'
             }`}
           >
-            <div className="flex items-start gap-3">
-              {submitMessage.type === 'success' ? (
-                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-              ) : submitMessage.type === 'error' ? (
-                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-              ) : (
-                <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div className="flex gap-3">
+              {submitMessage.type !== 'success' && (
+                <div className="flex-shrink-0">
+                  {submitMessage.type === 'error' ? (
+                    <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
+                  ) : (
+                    <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                  )}
+                </div>
               )}
               <div className="flex-1">
-                <AlertDescription
-                  className={
+                <p
+                  className={`text-sm ${
                     submitMessage.type === 'success'
                       ? 'text-green-800'
                       : submitMessage.type === 'error'
                         ? 'text-red-800'
                         : 'text-blue-800'
-                  }
+                  }`}
                 >
                   {submitMessage.message}
+                </p>
 
-                  {submittedEmail && submitMessage.type === 'success' && (
-                    <div className="mt-2 flex items-center gap-2 text-green-700">
-                      <Mail className="h-4 w-4" />
-                      <span className="font-medium">{submittedEmail}</span>
-                    </div>
-                  )}
+                {submittedEmail && submitMessage.type === 'success' && (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-green-700">
+                    <Mail className="h-4 w-4" />
+                    <span className="font-medium">{submittedEmail}</span>
+                  </div>
+                )}
 
-                  {submitMessage.hints && submitMessage.hints.length > 0 && (
-                    <ul className="mt-3 space-y-1 text-sm">
-                      {submitMessage.hints.map((hint, index) => (
-                        <li key={index} className="flex items-start gap-2">
-                          <span className="text-gray-400 mt-0.5">•</span>
-                          <span
-                            className={
-                              submitMessage.type === 'success'
-                                ? 'text-green-700'
-                                : submitMessage.type === 'error'
-                                  ? 'text-red-700'
-                                  : 'text-blue-700'
-                            }
-                          >
-                            {hint}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </AlertDescription>
+                {submitMessage.hints && submitMessage.hints.length > 0 && (
+                  <ul className="mt-3 space-y-1 text-sm">
+                    {submitMessage.hints.map((hint, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-gray-400 mt-0.5">•</span>
+                        <span
+                          className={
+                            submitMessage.type === 'success'
+                              ? 'text-green-700'
+                              : submitMessage.type === 'error'
+                                ? 'text-red-700'
+                                : 'text-blue-700'
+                          }
+                        >
+                          {hint}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
-          </Alert>
+          </div>
         )}
 
         <form
@@ -250,7 +251,7 @@ export function ForgotPasswordClient() {
           <Button
             type="submit"
             size="lg"
-            className="w-full text-sm md:text-base"
+            className="w-full text-sm md:text-base cursor-pointer"
             disabled={isSubmitting}
           >
             {isSubmitting

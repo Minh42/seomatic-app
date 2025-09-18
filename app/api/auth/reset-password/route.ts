@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { passwordResetSchema } from '@/lib/validations/auth';
 import { AuthService } from '@/lib/services/auth-service';
 import {

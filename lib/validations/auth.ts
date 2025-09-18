@@ -71,6 +71,7 @@ export const passwordResetSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
       'Password must contain at least one lowercase letter, one uppercase letter, and one number'
     ),
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
 });
 
 export type SignupFormData = z.infer<typeof signupSchema>;

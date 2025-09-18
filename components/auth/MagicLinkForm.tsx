@@ -67,7 +67,7 @@ export function MagicLinkForm({
           <Button
             type="submit"
             size="lg"
-            className="w-full text-sm md:text-base font-medium"
+            className="w-full text-sm md:text-base font-medium cursor-pointer"
             disabled={!canSubmit || isSubmitting || isLoading}
           >
             {isLoading ? 'Sending magic link...' : 'Send Magic Link →'}
