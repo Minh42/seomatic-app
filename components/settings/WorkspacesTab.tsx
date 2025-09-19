@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import { WorkspaceErrorHandler } from '@/lib/errors/workspace-errors';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useWorkspace } from '@/hooks/useWorkspace';
+import { useOrganization } from '@/lib/providers/organization-provider';
 import { Plus, MoreHorizontal, Globe } from 'lucide-react';
+import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { useDebounce } from '@/lib/utils/debounce';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,142 +39,58 @@ interface WorkspacesTabProps {
 }
 
 export function WorkspacesTab({ userRole }: WorkspacesTabProps) {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { selectedOrganization } = useOrganization();
+
+  // Use the new TanStack Query hook
+  const {
+    workspaces,
+    isLoading,
+    createWorkspace,
+    updateWorkspace,
+    deleteWorkspace,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    createError,
+    updateError,
+  } = useWorkspaces(selectedOrganization?.id);
+
+  // Modal and UI state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(
     null
   );
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const { refreshWorkspaces } = useWorkspace();
+
+  // Debounce search query for better performance
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Check if user can perform actions
   const canCreate = userRole && userRole !== 'viewer';
   const canEdit = userRole === 'owner' || userRole === 'admin';
   const canDelete = userRole === 'owner' || userRole === 'admin';
 
-  useEffect(() => {
-    fetchWorkspaces();
-  }, []);
-
-  const fetchWorkspaces = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/workspaces');
-      if (!response.ok) {
-        throw new Error('Failed to fetch workspaces');
-      }
-      const data = await response.json();
-      setWorkspaces(data.workspaces || []);
-    } catch (error) {
-      const workspaceError = WorkspaceErrorHandler.handleWorkspaceError(
-        error,
-        'fetch'
-      );
-      WorkspaceErrorHandler.displayError(workspaceError);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleCreateWorkspace = (name: string) => {
+    createWorkspace(name);
+    setShowCreateModal(false);
   };
 
-  const handleCreateWorkspace = async (name: string) => {
-    setIsSubmitting(true);
-    setCreateError(null);
-    try {
-      const response = await fetch('/api/workspaces', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create workspace');
-      }
-
-      toast.success('Workspace created successfully');
-      setShowCreateModal(false);
-      setCreateError(null);
-      await fetchWorkspaces();
-      await refreshWorkspaces(); // Refresh workspace selector in sidebar
-    } catch (error) {
-      const workspaceError = WorkspaceErrorHandler.handleWorkspaceError(
-        error,
-        'create'
-      );
-      setCreateError(workspaceError.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleEditWorkspace = async (name: string) => {
+  const handleEditWorkspace = (name: string) => {
     if (!selectedWorkspace) return;
 
-    setIsSubmitting(true);
-    setEditError(null);
-    try {
-      const response = await fetch(`/api/workspaces/${selectedWorkspace.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update workspace');
-      }
-
-      toast.success('Workspace updated successfully');
-      setShowEditModal(false);
-      setSelectedWorkspace(null);
-      setEditError(null);
-      await fetchWorkspaces();
-      await refreshWorkspaces(); // Refresh workspace selector in sidebar
-    } catch (error) {
-      const workspaceError = WorkspaceErrorHandler.handleWorkspaceError(
-        error,
-        'update'
-      );
-      setEditError(workspaceError.message);
-    } finally {
-      setIsSubmitting(false);
-    }
+    updateWorkspace({ id: selectedWorkspace.id, name });
+    setShowEditModal(false);
+    setSelectedWorkspace(null);
   };
 
-  const handleDeleteWorkspace = async () => {
+  const handleDeleteWorkspace = () => {
     if (!selectedWorkspace) return;
 
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(`/api/workspaces/${selectedWorkspace.id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete workspace');
-      }
-
-      toast.success('Workspace deleted successfully');
-      setShowDeleteModal(false);
-      setSelectedWorkspace(null);
-      await fetchWorkspaces();
-      await refreshWorkspaces(); // Refresh workspace selector in sidebar
-    } catch (error) {
-      const workspaceError = WorkspaceErrorHandler.handleWorkspaceError(
-        error,
-        'delete'
-      );
-      WorkspaceErrorHandler.displayError(workspaceError);
-    } finally {
-      setIsSubmitting(false);
-    }
+    deleteWorkspace(selectedWorkspace.id);
+    setShowDeleteModal(false);
+    setSelectedWorkspace(null);
   };
 
   const getConnectionIcon = (type: Workspace['connectionType']) => {
@@ -304,7 +220,7 @@ export function WorkspacesTab({ userRole }: WorkspacesTabProps) {
         <>
           {(() => {
             const filteredWorkspaces = workspaces.filter(workspace => {
-              const query = searchQuery.toLowerCase();
+              const query = debouncedSearchQuery.toLowerCase();
               return (
                 workspace.name.toLowerCase().includes(query) ||
                 (workspace.connectionUrl &&
@@ -461,12 +377,9 @@ export function WorkspacesTab({ userRole }: WorkspacesTabProps) {
       {/* Modals */}
       <CreateWorkspaceModal
         isOpen={showCreateModal}
-        onClose={() => {
-          setShowCreateModal(false);
-          setCreateError(null);
-        }}
+        onClose={() => setShowCreateModal(false)}
         onConfirm={handleCreateWorkspace}
-        isLoading={isSubmitting}
+        isLoading={isCreating}
         serverError={createError}
       />
 
@@ -475,13 +388,12 @@ export function WorkspacesTab({ userRole }: WorkspacesTabProps) {
         onClose={() => {
           setShowEditModal(false);
           setSelectedWorkspace(null);
-          setEditError(null);
         }}
         onConfirm={handleEditWorkspace}
-        isLoading={isSubmitting}
+        isLoading={isUpdating}
         currentName={selectedWorkspace?.name || ''}
         workspaceId={selectedWorkspace?.id || ''}
-        serverError={editError}
+        serverError={updateError}
       />
 
       <DeleteWorkspaceModal
@@ -491,7 +403,7 @@ export function WorkspacesTab({ userRole }: WorkspacesTabProps) {
           setSelectedWorkspace(null);
         }}
         onConfirm={handleDeleteWorkspace}
-        isLoading={isSubmitting}
+        isLoading={isDeleting}
         workspaceName={selectedWorkspace?.name || ''}
       />
     </div>

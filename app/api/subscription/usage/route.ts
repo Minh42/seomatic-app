@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { SubscriptionService } from '@/lib/services/subscription-service';
@@ -7,9 +7,9 @@ import { UserService } from '@/lib/services/user-service';
 
 /**
  * GET /api/subscription/usage
- * Get the current user's subscription usage metrics
+ * Get the organization's subscription usage metrics
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -22,18 +22,43 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get user's organization
-    const organization = await OrganizationService.getUserOrganization(user.id);
-    if (!organization) {
+    // Get user's organization from query params if provided
+    const url = new URL(request.url);
+    const organizationId = url.searchParams.get('organizationId');
+
+    let organization;
+    if (organizationId) {
+      // Verify user has access to this organization
+      const userOrgs = await OrganizationService.getAllUserOrganizations(
+        user.id
+      );
+      organization = userOrgs.find(org => org.id === organizationId);
+
+      if (!organization) {
+        return NextResponse.json(
+          { error: 'You do not have access to this organization' },
+          { status: 403 }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: 'Organization ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Get the organization details to find the owner
+    const fullOrg = await OrganizationService.getById(organization.id);
+    if (!fullOrg) {
       return NextResponse.json(
         { error: 'Organization not found' },
         { status: 404 }
       );
     }
 
-    // Get subscription with plan details
+    // Get subscription with plan details using the organization owner's ID
     const subscription = await SubscriptionService.getSubscriptionWithPlan(
-      user.id
+      fullOrg.ownerId
     );
 
     if (!subscription) {
@@ -45,8 +70,8 @@ export async function GET() {
 
     // Get real data we can count
     const [workspaces, teamMembers] = await Promise.all([
-      OrganizationService.getOrganizationWorkspaces(organization.id),
-      OrganizationService.getOrganizationMembers(organization.id),
+      OrganizationService.getOrganizationWorkspaces(fullOrg.id),
+      OrganizationService.getOrganizationMembers(fullOrg.id),
     ]);
 
     // TODO: Replace with real data when tables exist

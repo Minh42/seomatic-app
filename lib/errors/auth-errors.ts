@@ -1,7 +1,7 @@
 import { toast } from 'sonner';
 
 export interface AuthError {
-  type: 'email' | 'password' | 'general' | 'rate_limit';
+  type: 'email' | 'password' | 'general' | 'rate_limit' | 'validation';
   message: string;
 }
 
@@ -17,6 +17,53 @@ export class AuthErrorHandler {
     return {
       type: 'general',
       message: 'Invalid email or password. Please try again.',
+    };
+  }
+
+  static handlePasswordResetError(error: string, status?: number): AuthError {
+    if (status === 429) {
+      return {
+        type: 'rate_limit',
+        message:
+          'Too many password reset attempts. Please wait before trying again.',
+      };
+    }
+
+    if (error?.includes('Invalid or expired token')) {
+      return {
+        type: 'validation',
+        message:
+          'This password reset link is invalid or has expired. Please request a new one.',
+      };
+    }
+
+    if (error?.includes('User not found')) {
+      return {
+        type: 'email',
+        message: 'No account found with this email address.',
+      };
+    }
+
+    return {
+      type: 'general',
+      message: error || 'Failed to reset password. Please try again.',
+    };
+  }
+
+  static handleForgotPasswordError(error: string, status?: number): AuthError {
+    if (status === 429) {
+      return {
+        type: 'rate_limit',
+        message:
+          'Too many password reset requests. Please wait before trying again.',
+      };
+    }
+
+    // Don't reveal if email exists or not for security
+    return {
+      type: 'general',
+      message:
+        'If an account exists with this email, you will receive a password reset link.',
     };
   }
 
@@ -63,6 +110,7 @@ export class AuthErrorHandler {
         break;
       case 'rate_limit':
       case 'general':
+      case 'validation':
         toast.error(authError.message);
         break;
     }

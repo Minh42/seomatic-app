@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { toast } from 'sonner';
 import { AddMemberDialog } from './AddMemberDialog';
 import { EditMemberDialog } from './EditMemberDialog';
 import { RemoveConfirmDialog } from './RemoveConfirmDialog';
 import { JoinTeamDialog } from './JoinTeamDialog';
 import { LeaveOrganizationDialog } from './LeaveOrganizationDialog';
+import { useOrganization } from '@/lib/providers/organization-provider';
+import { useTeamMembers, useUserOrganizations } from '@/hooks/useTeamMembers';
 
 interface TeamMember {
   id: string;
@@ -23,14 +24,6 @@ interface TeamMember {
   };
 }
 
-interface SeatUsage {
-  active: number;
-  limit: number | 'unlimited';
-  total: number;
-  isPaused: boolean;
-  planName: string;
-}
-
 interface TeamTabProps {
   user: {
     id?: string;
@@ -38,108 +31,60 @@ interface TeamTabProps {
   };
 }
 
-interface Organization {
-  id: string;
-  name: string;
-  role: 'owner' | 'admin' | 'member' | 'viewer';
-  memberCount: number;
-  createdAt: Date;
-}
-
 export function TeamTab({ user }: TeamTabProps) {
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [invitations, setInvitations] = useState<TeamMember[]>([]);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [seatUsage, setSeatUsage] = useState<SeatUsage | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
-  const [isOwner, setIsOwner] = useState(false);
-  const [userRole, setUserRole] = useState<
-    'owner' | 'admin' | 'member' | 'viewer' | null
-  >(null);
+  const { selectedOrganization, isLoading: isLoadingOrg } = useOrganization();
+
+  // Use the new TanStack Query hooks
+  const {
+    members,
+    invitations,
+    isOwner,
+    userRole,
+    seatUsage,
+    isLoading: isLoadingMembers,
+    removeMember,
+    isRemovingMember,
+  } = useTeamMembers(selectedOrganization?.id);
+
+  // Show loading state if organization is loading or members are loading
+  const isLoading =
+    isLoadingOrg || !selectedOrganization?.id || isLoadingMembers;
+
+  const {
+    organizations,
+    isLoading: isLoadingOrgs,
+    leaveOrganization,
+    isLeaving,
+  } = useUserOrganizations();
+
+  // Dialog states
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [showEditMemberDialog, setShowEditMemberDialog] = useState(false);
   const [showRemoveConfirmDialog, setShowRemoveConfirmDialog] = useState(false);
   const [showJoinTeamDialog, setShowJoinTeamDialog] = useState(false);
   const [showLeaveOrgDialog, setShowLeaveOrgDialog] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
-  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
-  const [isRemoving, setIsRemoving] = useState(false);
-  const [isLeaving, setIsLeaving] = useState(false);
+  const [selectedOrg, setSelectedOrg] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Permission checks based on role
   const canInviteMembers = isOwner || userRole === 'admin';
   const canEditMembers = isOwner || userRole === 'admin';
   const canRemoveMembers = isOwner;
 
-  useEffect(() => {
-    fetchTeamData();
-    fetchOrganizations();
-  }, []);
-
-  const fetchOrganizations = async () => {
-    try {
-      const response = await fetch('/api/user/organizations');
-      if (!response.ok) throw new Error('Failed to fetch organizations');
-
-      const data = await response.json();
-      setOrganizations(data.organizations || []);
-    } catch (error) {
-      console.error('Error fetching organizations:', error);
-    } finally {
-      setIsLoadingOrgs(false);
-    }
-  };
-
-  const fetchTeamData = async () => {
-    try {
-      const response = await fetch('/api/team/members');
-      if (!response.ok) throw new Error('Failed to fetch team data');
-
-      const data = await response.json();
-      setMembers(data.members || []);
-      setInvitations(data.invitations || []);
-      setIsOwner(data.isOwner || false);
-      setUserRole(data.role || null);
-      setSeatUsage(data.seatUsage || null);
-    } catch (error) {
-      toast.error('Failed to load team members');
-      console.error('Error fetching team:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleRemoveMember = (member: TeamMember) => {
     setSelectedMember(member);
     setShowRemoveConfirmDialog(true);
   };
 
-  const confirmRemoveMember = async () => {
+  const confirmRemoveMember = () => {
     if (!selectedMember) return;
 
-    setIsRemoving(true);
-    try {
-      const response = await fetch(`/api/team/members/${selectedMember.id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to remove member');
-      }
-
-      toast.success('Team member removed successfully');
-      setShowRemoveConfirmDialog(false);
-      setSelectedMember(null);
-      fetchTeamData();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to remove member'
-      );
-    } finally {
-      setIsRemoving(false);
-    }
+    removeMember(selectedMember.id);
+    setShowRemoveConfirmDialog(false);
+    setSelectedMember(null);
   };
 
   const handleEditMember = (member: TeamMember) => {
@@ -147,39 +92,23 @@ export function TeamTab({ user }: TeamTabProps) {
     setShowEditMemberDialog(true);
   };
 
-  const handleLeaveOrganization = (org: Organization) => {
+  const handleLeaveOrganization = (org: {
+    id: string;
+    name: string;
+    role: string;
+    memberCount: number;
+    createdAt: Date;
+  }) => {
     setSelectedOrg(org);
     setShowLeaveOrgDialog(true);
   };
 
-  const confirmLeaveOrganization = async () => {
+  const confirmLeaveOrganization = () => {
     if (!selectedOrg) return;
 
-    setIsLeaving(true);
-    try {
-      const response = await fetch(
-        `/api/user/organizations/${selectedOrg.id}/leave`,
-        {
-          method: 'POST',
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to leave organization');
-      }
-
-      toast.success('Successfully left the organization');
-      setShowLeaveOrgDialog(false);
-      setSelectedOrg(null);
-      fetchOrganizations();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to leave organization'
-      );
-    } finally {
-      setIsLeaving(false);
-    }
+    leaveOrganization(selectedOrg.id);
+    setShowLeaveOrgDialog(false);
+    setSelectedOrg(null);
   };
 
   const getInitials = (name: string | null, email: string) => {
@@ -396,7 +325,10 @@ export function TeamTab({ user }: TeamTabProps) {
       <AddMemberDialog
         open={showAddMemberDialog}
         onOpenChange={setShowAddMemberDialog}
-        onSuccess={fetchTeamData}
+        onSuccess={() => {
+          setShowAddMemberDialog(false);
+          // Data will automatically refresh via React Query
+        }}
         currentUserEmail={user.email}
       />
 
@@ -404,7 +336,11 @@ export function TeamTab({ user }: TeamTabProps) {
         open={showEditMemberDialog}
         onOpenChange={setShowEditMemberDialog}
         member={selectedMember}
-        onSuccess={fetchTeamData}
+        onSuccess={() => {
+          setShowEditMemberDialog(false);
+          setSelectedMember(null);
+          // Data will automatically refresh via React Query
+        }}
       />
 
       {selectedMember && (
@@ -415,16 +351,19 @@ export function TeamTab({ user }: TeamTabProps) {
             setSelectedMember(null);
           }}
           onConfirm={confirmRemoveMember}
-          memberEmail={selectedMember.member.email}
-          memberName={selectedMember.member.name}
-          isLoading={isRemoving}
+          memberEmail={selectedMember.member?.email || ''}
+          memberName={selectedMember.member?.name || null}
+          isLoading={isRemovingMember}
         />
       )}
 
       <JoinTeamDialog
         open={showJoinTeamDialog}
         onOpenChange={setShowJoinTeamDialog}
-        onSuccess={fetchOrganizations}
+        onSuccess={() => {
+          setShowJoinTeamDialog(false);
+          // Data will automatically refresh via React Query
+        }}
       />
 
       {selectedOrg && (

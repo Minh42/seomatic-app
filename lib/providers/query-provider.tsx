@@ -13,18 +13,31 @@ export function QueryProvider({ children }: QueryProviderProps) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Consider data fresh for 5 minutes
-            staleTime: 5 * 60 * 1000,
-            // Keep data in cache for 10 minutes
-            gcTime: 10 * 60 * 1000,
-            // Retry failed requests 2 times with exponential backoff
-            retry: 2,
-            // Don't refetch when window regains focus (reduces flicker)
+            // Optimized cache configuration for better performance
+            // Static data (organizations, plans) - 10 minutes
+            staleTime: 10 * 60 * 1000,
+            // Keep data in cache for 30 minutes (was 10)
+            gcTime: 30 * 60 * 1000,
+            // Retry failed requests with exponential backoff
+            retry: (failureCount, error) => {
+              if (failureCount >= 2) return false;
+              // Don't retry on 4xx errors (client errors)
+              if (error instanceof Error && error.message.includes('4')) {
+                return false;
+              }
+              return true;
+            },
+            // Smart refetch strategy
             refetchOnWindowFocus: false,
-            // Don't refetch on reconnect
             refetchOnReconnect: 'always',
-            // Don't refetch on mount if data is still fresh
             refetchOnMount: false,
+            // Keep previous data while fetching (smoother UX)
+            keepPreviousData: true,
+          },
+          mutations: {
+            // Retry mutations once on network errors
+            retry: 1,
+            // Optimistic updates are handled per-mutation
           },
         },
       })

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { OrganizationService } from '@/lib/services/organization-service';
+import { UserService } from '@/lib/services/user-service';
 
 /**
  * GET /api/user/organizations
@@ -10,20 +11,21 @@ import { OrganizationService } from '@/lib/services/organization-service';
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all organizations for the user
+    const user = await UserService.findByEmail(session.user.email);
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Get all organizations for the user (owned or member)
     const organizations = await OrganizationService.getAllUserOrganizations(
-      session.user.id
+      user.id
     );
 
-    return NextResponse.json({
-      organizations,
-      count: organizations.length,
-    });
+    return NextResponse.json({ organizations });
   } catch (error) {
     console.error('Error fetching user organizations:', error);
     return NextResponse.json(

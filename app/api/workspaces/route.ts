@@ -9,9 +9,9 @@ import { OrganizationService } from '@/lib/services/organization-service';
 
 /**
  * GET /api/workspaces
- * Get all workspaces for the current user's organization
+ * Get all workspaces for a specific organization or the user's first organization
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -23,11 +23,32 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get the user's organization
-    const organization = await OrganizationService.getUserOrganization(user.id);
-    if (!organization) {
-      // User is not part of any organization, return empty list
-      return NextResponse.json({ workspaces: [] });
+    // Get organizationId from query params if provided
+    const { searchParams } = new URL(request.url);
+    const organizationId = searchParams.get('organizationId');
+
+    let organization;
+
+    if (organizationId) {
+      // Verify user has access to this organization
+      const userOrgs = await OrganizationService.getAllUserOrganizations(
+        user.id
+      );
+      organization = userOrgs.find(org => org.id === organizationId);
+
+      if (!organization) {
+        return NextResponse.json(
+          { error: 'You do not have access to this organization' },
+          { status: 403 }
+        );
+      }
+    } else {
+      // Fall back to user's first organization for backward compatibility
+      organization = await OrganizationService.getUserOrganization(user.id);
+      if (!organization) {
+        // User is not part of any organization, return empty list
+        return NextResponse.json({ workspaces: [] });
+      }
     }
 
     // Get workspaces with their connections for the organization

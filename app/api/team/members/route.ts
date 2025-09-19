@@ -4,6 +4,9 @@ import { SubscriptionService } from '@/lib/services/subscription-service';
 import { OrganizationService } from '@/lib/services/organization-service';
 import { UserService } from '@/lib/services/user-service';
 import { requireRole, getUserFromRequest } from '@/lib/middleware/require-role';
+import { db } from '@/lib/db';
+import { teamMembers } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 /**
  * GET /api/team/members
@@ -11,11 +14,15 @@ import { requireRole, getUserFromRequest } from '@/lib/middleware/require-role';
  */
 export async function GET(request: NextRequest) {
   try {
+    // Get organizationId from query params
+    const { searchParams } = new URL(request.url);
+    const organizationId = searchParams.get('organizationId');
+
     // No specific role required - anyone can view team members
     const roleCheck = await requireRole(request);
     if (roleCheck) return roleCheck;
 
-    const { user, role } = getUserFromRequest(request);
+    const { user } = getUserFromRequest(request);
 
     if (!user) {
       return NextResponse.json(
@@ -24,74 +31,125 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const isOwner = role === 'owner';
+    let organization;
+    if (organizationId) {
+      // Verify user has access to this organization
+      const userOrgs = await OrganizationService.getAllUserOrganizations(
+        user.id
+      );
+      organization = userOrgs.find(org => org.id === organizationId);
 
-    // Get team members
-    const members = await TeamService.getTeamMembers(user.id);
+      if (!organization) {
+        return NextResponse.json(
+          { error: 'You do not have access to this organization' },
+          { status: 403 }
+        );
+      }
 
-    // Get pending invitations (only for owners and admins)
-    let invitations: any[] = [];
-    if (isOwner || role === 'admin') {
-      invitations = await TeamService.getPendingInvitations(user.id);
+      // Get the full organization details
+      organization = await OrganizationService.getById(organizationId);
+    } else {
+      // Fall back to user's first organization for backward compatibility
+      organization = await OrganizationService.getUserOrganization(user.id);
     }
 
-    // Get seat usage information
-    let seatUsage = null;
-    const organization = await OrganizationService.getUserOrganization(user.id);
+    if (!organization) {
+      return NextResponse.json({
+        members: [],
+        invitations: [],
+        isOwner: false,
+        role: null,
+        seatUsage: null,
+      });
+    }
 
-    // Add the owner to the members list if organization exists
-    let allMembers = [...members];
+    const isOwner = organization.ownerId === user.id;
 
-    if (organization) {
-      // Get owner details and add to the members list
-      const owner = await UserService.findById(organization.ownerId);
-      if (owner) {
-        // Add owner as first member with special formatting
-        const ownerMember = {
-          id: `owner-${owner.id}`,
-          role: 'owner' as const,
-          status: 'active' as const,
-          createdAt: organization.createdAt || new Date().toISOString(),
-          member: {
-            id: owner.id,
-            email: owner.email,
-            name: owner.name,
-            profileImage: owner.image,
-          },
-        };
-        allMembers = [ownerMember, ...members];
-      }
-      // Get subscription details
-      const subscription = await SubscriptionService.getSubscriptionWithPlan(
-        isOwner ? user.id : organization.ownerId
+    // Run parallel queries for better performance
+    const [memberInfo, members, ownerDetails, subscription] = await Promise.all(
+      [
+        // Get user's role in this organization (if not owner)
+        !isOwner
+          ? db
+              .select({ role: teamMembers.role })
+              .from(teamMembers)
+              .where(
+                and(
+                  eq(teamMembers.organizationId, organization.id),
+                  eq(teamMembers.memberUserId, user.id),
+                  eq(teamMembers.status, 'active')
+                )
+              )
+              .limit(1)
+          : Promise.resolve([]),
+
+        // Get team members
+        TeamService.getTeamMembersByOrganization(organization.id),
+
+        // Get owner details
+        UserService.findById(organization.ownerId),
+
+        // Get subscription details
+        SubscriptionService.getSubscriptionWithPlan(organization.ownerId),
+      ]
+    );
+
+    // Determine user's role
+    let actualRole: string = 'viewer';
+    if (isOwner) {
+      actualRole = 'owner';
+    } else if (memberInfo.length > 0 && memberInfo[0]) {
+      actualRole = memberInfo[0].role;
+    }
+
+    // Get pending invitations (only for owners and admins) - do this after role check
+    let invitations: any[] = [];
+    if (isOwner || actualRole === 'admin') {
+      invitations = await TeamService.getPendingInvitationsByOrganization(
+        organization.id
       );
+    }
 
-      if (subscription) {
-        // For display: show total members including owner
-        // Owner counts as 1, plus all team members and pending invitations
-        const usedSeats = 1 + members.length + invitations.length; // +1 for owner
+    // Build the members list with owner
+    let allMembers = [...members];
+    if (ownerDetails) {
+      const ownerMember = {
+        id: `owner-${ownerDetails.id}`,
+        role: 'owner' as const,
+        status: 'active' as const,
+        createdAt: organization.createdAt || new Date().toISOString(),
+        member: {
+          id: ownerDetails.id,
+          email: ownerDetails.email,
+          name: ownerDetails.name,
+          profileImage: ownerDetails.image,
+        },
+      };
+      allMembers = [ownerMember, ...members];
+    }
 
-        // Count only active members for reference
-        // const activeMemberCount = members.filter(m => m.status === 'active').length;
+    // Calculate seat usage
+    let seatUsage = null;
+    if (subscription) {
+      const usedSeats = 1 + members.length + invitations.length; // +1 for owner
 
-        seatUsage = {
-          active: usedSeats, // Total team size including owner
-          limit:
-            subscription.plan.maxNbOfSeats === -1
-              ? 'unlimited'
-              : subscription.plan.maxNbOfSeats,
-          total: usedSeats, // Same as active since all count toward limit
-          isPaused: subscription.pausedAt !== null,
-          planName: subscription.plan.name,
-        };
-      }
+      seatUsage = {
+        active: usedSeats,
+        limit:
+          subscription.plan.maxNbOfSeats === -1
+            ? 'unlimited'
+            : subscription.plan.maxNbOfSeats,
+        total: usedSeats,
+        isPaused: subscription.pausedAt !== null,
+        planName: subscription.plan.name,
+      };
     }
 
     return NextResponse.json({
       members: allMembers, // Return allMembers which includes the owner
       invitations,
       isOwner,
-      role,
+      role: actualRole,
       seatUsage,
     });
   } catch (error) {

@@ -12,7 +12,7 @@ const rateLimiters = {
   // Auth endpoints - strict limits
   login: new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(5, '1 m'), // 5 attempts per minute
+    limiter: Ratelimit.slidingWindow(10, '1 m'), // 10 attempts per minute
     analytics: true,
     prefix: 'ratelimit:login',
   }),
@@ -26,32 +26,16 @@ const rateLimiters = {
 
   passwordReset: new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(3, '15 m'), // 3 password reset requests per 15 minutes
+    limiter: Ratelimit.slidingWindow(5, '15 m'), // 5 password reset requests per 15 minutes
     analytics: true,
     prefix: 'ratelimit:password-reset',
   }),
 
   passwordResetAttempt: new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(5, '15 m'), // 5 reset attempts per 15 minutes
+    limiter: Ratelimit.slidingWindow(10, '15 m'), // 10 reset attempts per 15 minutes
     analytics: true,
     prefix: 'ratelimit:password-reset-attempt',
-  }),
-
-  // API endpoints - moderate limits
-  api: new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(100, '1 m'), // 100 requests per minute
-    analytics: true,
-    prefix: 'ratelimit:api',
-  }),
-
-  // Workspace operations
-  workspaceCreate: new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(5, '1 h'), // 5 workspace creations per hour
-    analytics: true,
-    prefix: 'ratelimit:workspace-create',
   }),
 
   // Team invitations
@@ -60,14 +44,6 @@ const rateLimiters = {
     limiter: Ratelimit.slidingWindow(20, '1 h'), // 20 invitations per hour
     analytics: true,
     prefix: 'ratelimit:team-invite',
-  }),
-
-  // General purpose - lenient limits
-  general: new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(300, '1 m'), // 300 requests per minute
-    analytics: true,
-    prefix: 'ratelimit:general',
   }),
 };
 

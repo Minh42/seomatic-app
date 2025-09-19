@@ -35,11 +35,17 @@ interface PlanUsageResponse {
   usage: UsageData;
 }
 
-export function usePlanUsage() {
+export function usePlanUsage(organizationId?: string) {
   return useQuery<PlanUsageResponse>({
-    queryKey: ['plan-usage'],
+    queryKey: ['plan-usage', organizationId],
     queryFn: async () => {
-      const response = await fetch('/api/subscription/usage');
+      if (!organizationId) {
+        throw new Error('Organization ID is required');
+      }
+
+      const response = await fetch(
+        `/api/subscription/usage?organizationId=${organizationId}`
+      );
 
       if (!response.ok) {
         throw new Error('Failed to fetch plan usage');
@@ -47,6 +53,7 @@ export function usePlanUsage() {
 
       return response.json();
     },
+    enabled: !!organizationId,
     // Refetch every 5 minutes to keep usage data fresh
     refetchInterval: 5 * 60 * 1000,
     // Keep data fresh when window regains focus

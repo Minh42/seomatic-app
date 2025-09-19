@@ -89,9 +89,11 @@ export class OrganizationService {
   /**
    * Get all organizations a user belongs to
    * Returns organizations where user is owner or team member
+   * Optimized to avoid N+1 queries
    */
   static async getAllUserOrganizations(userId: string) {
-    const userOrgs = [];
+    // First, get all organizations the user belongs to (as owner or member)
+    const userOrganizations = [];
 
     // Get organizations where user is the owner
     const ownedOrgs = await db
@@ -103,25 +105,13 @@ export class OrganizationService {
       .from(organizations)
       .where(eq(organizations.ownerId, userId));
 
-    // Add owned organizations with owner role and member count
-    for (const org of ownedOrgs) {
-      // Count members (excluding owner who isn't in teamMembers)
-      const [memberResult] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(teamMembers)
-        .where(
-          and(
-            eq(teamMembers.organizationId, org.id),
-            eq(teamMembers.status, 'active')
-          )
-        );
-
-      userOrgs.push({
+    // Add owned orgs with 'owner' role
+    ownedOrgs.forEach(org => {
+      userOrganizations.push({
         ...org,
         role: 'owner' as const,
-        memberCount: Number(memberResult?.count || 0) + 1, // +1 for owner
       });
-    }
+    });
 
     // Get organizations where user is a team member
     const memberOrgs = await db
@@ -143,27 +133,42 @@ export class OrganizationService {
         )
       );
 
-    // Add member organizations with member count
-    for (const org of memberOrgs) {
-      // Count members (excluding owner who isn't in teamMembers)
-      const [memberResult] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(teamMembers)
-        .where(
-          and(
-            eq(teamMembers.organizationId, org.id),
-            eq(teamMembers.status, 'active')
-          )
-        );
+    // Add member orgs
+    memberOrgs.forEach(org => {
+      userOrganizations.push(org);
+    });
 
-      userOrgs.push({
-        ...org,
-        memberCount: Number(memberResult?.count || 0) + 1, // +1 for owner
-      });
-    }
+    // Now for each organization, get the total member count using the SAME query structure
+    const allOrgs = await Promise.all(
+      userOrganizations.map(async org => {
+        // Count active team members
+        const [result] = await db
+          .select({
+            count: sql<number>`COUNT(*)`.as('count'),
+          })
+          .from(teamMembers)
+          .where(
+            and(
+              eq(teamMembers.organizationId, org.id),
+              eq(teamMembers.status, 'active')
+            )
+          );
+
+        const teamMemberCount = Number(result?.count || 0);
+        const totalMemberCount = teamMemberCount + 1; // Add 1 for the owner
+
+        return {
+          id: org.id,
+          name: org.name,
+          createdAt: org.createdAt,
+          role: org.role,
+          memberCount: totalMemberCount,
+        };
+      })
+    );
 
     // Sort by creation date (newest first)
-    return userOrgs.sort(
+    return allOrgs.sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );

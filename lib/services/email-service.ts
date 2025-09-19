@@ -93,11 +93,11 @@ export class EmailService {
     try {
       await bentoClient.triggerEvent({
         email,
-        type: '$oauth_account_reminder',
+        type: '$oauth_account_reminder_V2',
         fields: {
           provider,
           login_url: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/login`,
-          timestamp: new Date().toISOString(),
+          requested_at: new Date().toISOString(),
         },
       });
       return true;
@@ -311,7 +311,7 @@ export class EmailService {
    */
   static async trackMemberRemoved(
     removedEmail: string,
-    workspaceName?: string,
+    organizationName?: string,
     removedByEmail?: string
   ): Promise<boolean> {
     const bentoClient = getBentoClient();
@@ -320,9 +320,9 @@ export class EmailService {
     try {
       await bentoClient.triggerEvent({
         email: removedEmail,
-        type: '$workspace_member_removed',
+        type: '$workspace_member_removed_V2',
         fields: {
-          workspace_name: workspaceName,
+          organization_name: organizationName,
           removed_by: removedByEmail,
           removed_at: new Date().toISOString(),
         },
@@ -330,6 +330,38 @@ export class EmailService {
       return true;
     } catch (error) {
       console.error('Failed to track member removal:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Notify organization owner when a member leaves voluntarily
+   */
+  static async notifyMemberLeft(
+    ownerEmail: string,
+    memberEmail: string,
+    organizationName?: string
+  ): Promise<boolean> {
+    const bentoClient = getBentoClient();
+    if (!bentoClient) return false;
+
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const teamSettingsUrl = `${baseUrl}/dashboard/settings?tab=team`;
+
+    try {
+      await bentoClient.triggerEvent({
+        email: ownerEmail,
+        type: '$team_member_left_V2',
+        fields: {
+          member_email: memberEmail,
+          organization_name: organizationName,
+          left_at: new Date().toISOString(),
+          team_settings_url: teamSettingsUrl,
+        },
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to notify member left:', error);
       return false;
     }
   }

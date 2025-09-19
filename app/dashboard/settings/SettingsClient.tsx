@@ -1,15 +1,39 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { ProfileTab } from '@/components/settings/ProfileTab';
 import { PasswordTab } from '@/components/settings/PasswordTab';
-import { TeamTab } from '@/components/settings/TeamTab';
-import { WorkspacesTab } from '@/components/settings/WorkspacesTab';
-import { PlansTab } from '@/components/settings/PlansTab';
-import { BillingTab } from '@/components/settings/BillingTab';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { UserRole } from '@/lib/auth/permissions';
+
+// Lazy load heavy tabs for better initial performance
+const TeamTab = lazy(() =>
+  import('@/components/settings/TeamTab').then(m => ({ default: m.TeamTab }))
+);
+const WorkspacesTab = lazy(() =>
+  import('@/components/settings/WorkspacesTab').then(m => ({
+    default: m.WorkspacesTab,
+  }))
+);
+const PlansTab = lazy(() =>
+  import('@/components/settings/PlansTab').then(m => ({ default: m.PlansTab }))
+);
+const BillingTab = lazy(() =>
+  import('@/components/settings/BillingTab').then(m => ({
+    default: m.BillingTab,
+  }))
+);
+
+// Loading component for lazy loaded tabs
+function TabLoader() {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+    </div>
+  );
+}
 
 interface SettingsClientProps {
   user: {
@@ -68,23 +92,47 @@ export function SettingsClient({ user, userRole }: SettingsClientProps) {
     >
       {activeTab === 'profile' && (
         <div className="max-w-3xl">
-          <ProfileTab user={user} />
+          <ErrorBoundary>
+            <ProfileTab user={user} />
+          </ErrorBoundary>
         </div>
       )}
       {activeTab === 'password' && (
         <div className="max-w-3xl">
-          <PasswordTab user={user} />
+          <ErrorBoundary>
+            <PasswordTab user={user} />
+          </ErrorBoundary>
         </div>
       )}
       {activeTab === 'team' && (
         <div className="max-w-3xl">
-          <TeamTab user={user} />
+          <ErrorBoundary>
+            <Suspense fallback={<TabLoader />}>
+              <TeamTab user={user} />
+            </Suspense>
+          </ErrorBoundary>
         </div>
       )}
-      {activeTab === 'workspaces' && <WorkspacesTab userRole={userRole} />}
-      {activeTab === 'plans' && userRole === 'owner' && <PlansTab />}
+      {activeTab === 'workspaces' && (
+        <ErrorBoundary>
+          <Suspense fallback={<TabLoader />}>
+            <WorkspacesTab userRole={userRole} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+      {activeTab === 'plans' && userRole === 'owner' && (
+        <ErrorBoundary>
+          <Suspense fallback={<TabLoader />}>
+            <PlansTab />
+          </Suspense>
+        </ErrorBoundary>
+      )}
       {activeTab === 'billing' && userRole === 'owner' && (
-        <BillingTab user={user} />
+        <ErrorBoundary>
+          <Suspense fallback={<TabLoader />}>
+            <BillingTab user={user} />
+          </Suspense>
+        </ErrorBoundary>
       )}
     </SettingsTabs>
   );

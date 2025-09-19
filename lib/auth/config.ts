@@ -275,6 +275,12 @@ export const authOptions: NextAuthOptions = {
         // For OAuth providers, isNewUser=true means it's a signup
         // For email, signup is handled in /api/auth/signup route
         if (isNewUser && account?.provider) {
+          // Set the signup_method for OAuth signups
+          await db
+            .update(users)
+            .set({ signupMethod: account.provider })
+            .where(eq(users.id, user.id));
+
           // Check if user already has a subscription (shouldn't happen, but safety check)
           const existingSubscription =
             await SubscriptionService.getUserSubscription(user.id);

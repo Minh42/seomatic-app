@@ -42,7 +42,13 @@ export class TeamService {
     }
 
     const result = await db
-      .select()
+      .select({
+        id: teamMembers.id,
+        role: teamMembers.role,
+        status: teamMembers.status,
+        createdAt: teamMembers.createdAt,
+        invitationEmail: teamInvitations.email,
+      })
       .from(teamMembers)
       .innerJoin(
         teamInvitations,
@@ -57,13 +63,13 @@ export class TeamService {
 
     // Map the results to match TeamMember interface
     const invitations = result.map(row => ({
-      id: row.team_members.id,
-      role: row.team_members.role,
+      id: row.id,
+      role: row.role,
       status: 'pending' as const,
-      createdAt: row.team_members.createdAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
       member: {
         id: '', // No user ID yet for pending invitations
-        email: row.team_invitations.email,
+        email: row.invitationEmail,
         name: null,
         profileImage: null,
       },
@@ -342,6 +348,85 @@ export class TeamService {
   }
 
   /**
+   * Get team members for a specific organization
+   */
+  static async getTeamMembersByOrganization(organizationId: string) {
+    const results = await db
+      .select({
+        id: teamMembers.id,
+        role: teamMembers.role,
+        status: teamMembers.status,
+        createdAt: teamMembers.createdAt,
+        memberId: users.id,
+        memberEmail: users.email,
+        memberName: users.name,
+        memberProfileImage: users.image,
+      })
+      .from(teamMembers)
+      .leftJoin(users, eq(users.id, teamMembers.memberUserId))
+      .where(
+        and(
+          eq(teamMembers.organizationId, organizationId),
+          eq(teamMembers.status, 'active')
+        )
+      );
+
+    // Transform the flat results into the nested structure
+    return results.map(result => ({
+      id: result.id,
+      role: result.role,
+      status: result.status,
+      createdAt: result.createdAt,
+      member: result.memberId
+        ? {
+            id: result.memberId,
+            email: result.memberEmail,
+            name: result.memberName,
+            profileImage: result.memberProfileImage,
+          }
+        : null,
+    }));
+  }
+
+  /**
+   * Get pending invitations for a specific organization
+   */
+  static async getPendingInvitationsByOrganization(organizationId: string) {
+    const invitations = await db
+      .select({
+        id: teamMembers.id,
+        email: teamInvitations.email,
+        role: teamMembers.role,
+        status: teamMembers.status,
+        createdAt: teamMembers.createdAt,
+        expiresAt: teamInvitations.expiresAt,
+      })
+      .from(teamMembers)
+      .innerJoin(
+        teamInvitations,
+        eq(teamInvitations.teamMemberId, teamMembers.id)
+      )
+      .where(
+        and(
+          eq(teamMembers.organizationId, organizationId),
+          eq(teamMembers.status, 'pending'),
+          gt(teamInvitations.expiresAt, new Date())
+        )
+      );
+
+    // Return with consistent structure
+    return invitations.map(inv => ({
+      id: inv.id,
+      email: inv.email,
+      role: inv.role,
+      status: inv.status,
+      createdAt: inv.createdAt,
+      expiresAt: inv.expiresAt,
+      member: null, // Pending invitations don't have member data yet
+    }));
+  }
+
+  /**
    * Get team members for a user's organization (including suspended)
    */
   static async getTeamMembers(userId: string) {
@@ -351,18 +436,16 @@ export class TeamService {
       return [];
     }
 
-    const members = await db
+    const results = await db
       .select({
         id: teamMembers.id,
         role: teamMembers.role,
         status: teamMembers.status,
         createdAt: teamMembers.createdAt,
-        member: {
-          id: users.id,
-          email: users.email,
-          name: users.name,
-          profileImage: users.image,
-        },
+        memberId: users.id,
+        memberEmail: users.email,
+        memberName: users.name,
+        memberProfileImage: users.image,
       })
       .from(teamMembers)
       .innerJoin(users, eq(users.id, teamMembers.memberUserId))
@@ -376,7 +459,19 @@ export class TeamService {
         )
       );
 
-    return members;
+    // Transform the flat results into the nested structure
+    return results.map(result => ({
+      id: result.id,
+      role: result.role,
+      status: result.status,
+      createdAt: result.createdAt,
+      member: {
+        id: result.memberId,
+        email: result.memberEmail,
+        name: result.memberName,
+        profileImage: result.memberProfileImage,
+      },
+    }));
   }
 
   /**
@@ -529,6 +624,34 @@ export class TeamService {
         .delete(teamMembers)
         .where(eq(teamMembers.id, teamMemberId))
         .returning();
+
+      // Send email notification only for active members (not pending)
+      if (deleted && deleted.status === 'active' && deleted.memberUserId) {
+        // Get the removed user's email
+        const [removedUser] = await tx
+          .select({ email: users.email })
+          .from(users)
+          .where(eq(users.id, deleted.memberUserId))
+          .limit(1);
+
+        // Get the remover's email
+        const [removerUser] = await tx
+          .select({ email: users.email })
+          .from(users)
+          .where(eq(users.id, removedBy))
+          .limit(1);
+
+        if (removedUser?.email) {
+          // Fire and forget - don't wait for email to send
+          EmailService.trackMemberRemoved(
+            removedUser.email,
+            org.name || undefined,
+            removerUser?.email
+          ).catch(error => {
+            console.error('Failed to send member removal notification:', error);
+          });
+        }
+      }
 
       return { success: true, deleted };
     });

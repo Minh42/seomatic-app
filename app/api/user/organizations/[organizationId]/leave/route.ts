@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { db } from '@/lib/db';
-import { teamMembers, organizations } from '@/lib/db/schema';
+import { teamMembers, organizations, users } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { EmailService } from '@/lib/services/email-service';
 
 /**
  * POST /api/user/organizations/[organizationId]/leave
@@ -61,6 +62,16 @@ export async function POST(
       );
     }
 
+    // Get organization details including owner for notification
+    const [organization] = await db
+      .select({
+        name: organizations.name,
+        ownerId: organizations.ownerId,
+      })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+
     // Remove the user from the organization
     await db
       .delete(teamMembers)
@@ -70,6 +81,25 @@ export async function POST(
           eq(teamMembers.memberUserId, session.user.id)
         )
       );
+
+    // Send notification to organization owner (fire and forget)
+    if (organization?.ownerId) {
+      const [owner] = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, organization.ownerId))
+        .limit(1);
+
+      if (owner?.email && session.user.email) {
+        EmailService.notifyMemberLeft(
+          owner.email,
+          session.user.email,
+          organization.name || undefined
+        ).catch(error => {
+          console.error('Failed to send member left notification:', error);
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

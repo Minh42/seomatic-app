@@ -6,6 +6,10 @@ import { db } from '@/lib/db';
 import { users, verificationTokens } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { randomBytes, createHash } from 'crypto';
+import {
+  withRateLimit,
+  addRateLimitHeaders,
+} from '@/lib/middleware/rate-limit';
 
 const joinSchema = z.object({
   token: z.string().min(1, 'Token is required'),
@@ -17,6 +21,12 @@ const joinSchema = z.object({
  * Creates account if needed, accepts invitation, and returns auth token
  */
 export async function POST(req: NextRequest) {
+  // Check rate limit using signup limiter (same limits for account creation)
+  const rateLimitResponse = await withRateLimit(req, {
+    type: 'signup',
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await req.json();
     const validationResult = joinSchema.safeParse(body);
@@ -98,7 +108,7 @@ export async function POST(req: NextRequest) {
       const callbackUrl = encodeURIComponent('/dashboard');
       const magicLinkUrl = `${baseUrl}/api/auth/callback/email?token=${plainToken}&email=${encodeURIComponent(user.email!)}&callbackUrl=${callbackUrl}`;
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         magicLinkUrl,
         user: {
@@ -109,6 +119,7 @@ export async function POST(req: NextRequest) {
         workspace: result.workspace,
         redirectUrl: '/dashboard',
       });
+      return addRateLimitHeaders(response, req);
     } catch (acceptError: any) {
       // Handle specific acceptance errors
       if (
@@ -133,7 +144,7 @@ export async function POST(req: NextRequest) {
         const callbackUrl = encodeURIComponent('/dashboard');
         const magicLinkUrl = `${baseUrl}/api/auth/callback/email?token=${plainToken}&email=${encodeURIComponent(user.email!)}&callbackUrl=${callbackUrl}`;
 
-        return NextResponse.json({
+        const response = NextResponse.json({
           success: true,
           magicLinkUrl,
           user: {
@@ -144,6 +155,7 @@ export async function POST(req: NextRequest) {
           alreadyMember: true,
           redirectUrl: '/dashboard',
         });
+        return addRateLimitHeaders(response, req);
       }
 
       throw acceptError;

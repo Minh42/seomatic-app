@@ -4,12 +4,22 @@ import { UserService } from '@/lib/services/user-service';
 import { passwordUpdateSchema } from '@/lib/validations/password';
 import { verifyPassword, hashPassword } from '@/lib/utils/password';
 import { z } from 'zod';
+import {
+  withRateLimit,
+  addRateLimitHeaders,
+} from '@/lib/middleware/rate-limit';
 
 /**
  * PATCH /api/user/password
  * Update current user's password
  */
 export async function PATCH(request: NextRequest) {
+  // Check rate limit using passwordResetAttempt limiter
+  const rateLimitResponse = await withRateLimit(request, {
+    type: 'passwordResetAttempt',
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const session = await getServerSession();
 
@@ -56,10 +66,11 @@ export async function PATCH(request: NextRequest) {
     // Update password using the service
     await UserService.updatePassword(user.id, hashedPassword);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Password updated successfully',
     });
+    return addRateLimitHeaders(response, request);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

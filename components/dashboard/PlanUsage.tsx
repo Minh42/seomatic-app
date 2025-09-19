@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Crown } from 'lucide-react';
 import { usePlanUsage } from '@/hooks/usePlanUsage';
+import { useOrganization } from '@/lib/providers/organization-provider';
 
 interface UsageBarProps {
   label: string;
@@ -62,7 +63,8 @@ function UsageBar({ label, current, max, unit = '' }: UsageBarProps) {
 }
 
 export function PlanUsage() {
-  const { data, isLoading, error } = usePlanUsage();
+  const { selectedOrganization } = useOrganization();
+  const { data, isLoading, error } = usePlanUsage(selectedOrganization?.id);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

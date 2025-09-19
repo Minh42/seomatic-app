@@ -20,7 +20,9 @@ import { StatusIndicator } from './StatusIndicator';
 import { PlanUsage } from './PlanUsage';
 import { useRouter } from 'next/navigation';
 import { CreateWorkspaceModal } from '@/components/modals/CreateWorkspaceModal';
+import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { toast } from 'sonner';
+import { usePrefetch } from '@/hooks/usePrefetch';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -30,6 +32,7 @@ interface SidebarProps {
 export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { prefetchWorkspace } = usePrefetch();
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
@@ -128,9 +131,16 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         </div>
       </div>
 
+      {/* Organization Switcher */}
+      {!isCollapsed && (
+        <div className="px-3 pt-2">
+          <OrganizationSwitcher />
+        </div>
+      )}
+
       {/* Workspace Switcher */}
       {!isCollapsed && (
-        <div className="px-3 py-2" ref={dropdownRef}>
+        <div className="px-3 pb-2" ref={dropdownRef}>
           {selectedWorkspace ? (
             <button
               onClick={() => setIsWorkspaceOpen(!isWorkspaceOpen)}
@@ -248,6 +258,16 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                                     setSelectedWorkspace(workspace);
                                   }
                                   setIsWorkspaceOpen(false);
+                                }}
+                                onMouseEnter={() => {
+                                  if (!isActive && workspace.id) {
+                                    prefetchWorkspace(workspace.id);
+                                  }
+                                }}
+                                onFocus={() => {
+                                  if (!isActive && workspace.id) {
+                                    prefetchWorkspace(workspace.id);
+                                  }
                                 }}
                                 className={`w-full text-left px-2.5 py-2 rounded-lg transition-colors flex items-center gap-2.5 ${
                                   isActive

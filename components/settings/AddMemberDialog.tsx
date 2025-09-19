@@ -21,6 +21,8 @@ import {
 import { toast } from 'sonner';
 import { X } from 'lucide-react';
 import { validateWorkEmail } from '@/lib/utils/email-validation';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useOrganization } from '@/lib/providers/organization-provider';
 
 interface TeamMember {
   email: string;
@@ -42,10 +44,17 @@ export function AddMemberDialog({
   onSuccess,
   currentUserEmail,
 }: AddMemberDialogProps) {
+  const { selectedOrganization } = useOrganization();
+  const {
+    members: existingMembers,
+    invitations: existingInvitations,
+    addMember: addTeamMember,
+    isAddingMember,
+  } = useTeamMembers(selectedOrganization?.id);
+
   const [members, setMembers] = useState<TeamMember[]>([
     { email: '', role: 'member', touched: false },
   ]);
-  const [isLoading, setIsLoading] = useState(false);
   const [existingEmails, setExistingEmails] = useState<Set<string>>(new Set());
   const debounceTimers = useRef<{ [key: number]: NodeJS.Timeout }>({});
 
@@ -145,36 +154,24 @@ export function AddMemberDialog({
     };
   }, []);
 
-  const fetchExistingMembers = async () => {
-    try {
-      const response = await fetch('/api/team/members');
-      if (response.ok) {
-        const data = await response.json();
-        const emails = new Set<string>();
+  const fetchExistingMembers = () => {
+    const emails = new Set<string>();
 
-        // Add active and suspended members
-        if (data.members) {
-          data.members.forEach((member: any) => {
-            if (member.member?.email) {
-              emails.add(member.member.email.toLowerCase());
-            }
-          });
-        }
-
-        // Add pending invitations
-        if (data.invitations) {
-          data.invitations.forEach((invitation: any) => {
-            if (invitation.member?.email) {
-              emails.add(invitation.member.email.toLowerCase());
-            }
-          });
-        }
-
-        setExistingEmails(emails);
+    // Add active and suspended members
+    existingMembers.forEach(member => {
+      if (member.member?.email) {
+        emails.add(member.member.email.toLowerCase());
       }
-    } catch (error) {
-      console.error('Failed to fetch existing members:', error);
-    }
+    });
+
+    // Add pending invitations
+    existingInvitations.forEach(invitation => {
+      if (invitation.member?.email) {
+        emails.add(invitation.member.email.toLowerCase());
+      }
+    });
+
+    setExistingEmails(emails);
   };
 
   // Check if all email addresses are valid (no empty fields, no errors)
@@ -194,7 +191,7 @@ export function AddMemberDialog({
       return true;
     });
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     // Validate all emails before submitting (final check)
     const updatedMembers = [...members];
     let hasErrors = false;
@@ -222,43 +219,35 @@ export function AddMemberDialog({
       return;
     }
 
-    setIsLoading(true);
+    // Send invitations using TanStack Query mutation
+    const invitations = members.map(m => ({
+      email: m.email.trim().toLowerCase(),
+      role: m.role,
+    }));
 
-    try {
-      const response = await fetch('/api/team/invite', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          teamMembers: members.map(m => ({
-            email: m.email.trim().toLowerCase(),
-            role: m.role,
-          })),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        toast.error(data.error || 'Failed to send invitations');
-        return;
+    // Send invitations one by one (the hook handles it)
+    Promise.all(
+      invitations.map(
+        inv =>
+          new Promise(resolve => {
+            addTeamMember(inv, {
+              onSuccess: () => resolve(true),
+              onError: () => resolve(false),
+            });
+          })
+      )
+    ).then(results => {
+      const successCount = results.filter(Boolean).length;
+      if (successCount > 0) {
+        toast.success(
+          `${successCount} invitation${successCount > 1 ? 's' : ''} sent successfully`
+        );
+        // Reset form and close dialog
+        setMembers([{ email: '', role: 'member', touched: false }]);
+        onOpenChange(false);
+        onSuccess();
       }
-
-      if (data.message) {
-        toast.success(data.message);
-      }
-
-      // Reset form and close dialog
-      setMembers([{ email: '', role: 'member', touched: false }]);
-      onOpenChange(false);
-      onSuccess();
-    } catch (error) {
-      toast.error('Failed to send invitations');
-      console.error('Error sending invitations:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   return (
@@ -362,17 +351,17 @@ export function AddMemberDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isLoading}
+            disabled={isAddingMember}
             className="!h-11 rounded-md border border-zinc-300 bg-white text-sm font-bold leading-6 text-zinc-600 hover:bg-gray-50 cursor-pointer"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isLoading || !hasValidEmails}
+            disabled={isAddingMember || !hasValidEmails}
             className="!h-11 rounded-md bg-indigo-600 text-sm font-bold leading-6 text-white hover:bg-indigo-700 cursor-pointer disabled:bg-zinc-300 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Sending...' : 'Send Invitations'}
+            {isAddingMember ? 'Sending...' : 'Send Invitations'}
           </Button>
         </div>
       </DialogContent>

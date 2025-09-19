@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useForm } from '@tanstack/react-form';
 import {
   passwordResetSchema,
@@ -13,20 +13,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordStrengthIndicator } from '@/components/auth/PasswordStrengthIndicator';
-import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { AuthErrorHandler } from '@/lib/errors/auth-errors';
 
 export function ResetPasswordClient() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const token = searchParams.get('token');
   const email = searchParams.get('email');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(null);
-  const [showConfirmation, setShowConfirmation] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [confirmPasswordBlurred, setConfirmPasswordBlurred] = useState(false);
@@ -44,58 +41,48 @@ export function ResetPasswordClient() {
     onSubmit: async ({ value }) => {
       // Check if passwords match
       if (value.password !== value.confirmPassword) {
-        setSubmitMessage({
-          type: 'error',
-          message:
-            "Passwords don't match. Please make sure both passwords are identical.",
-        });
+        toast.error(
+          "Passwords don't match. Please make sure both passwords are identical."
+        );
         return;
       }
-      // Show confirmation dialog before proceeding
-      setShowConfirmation(true);
+      // Directly reset the password without confirmation
+      setIsSubmitting(true);
+
+      try {
+        const response = await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(value),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          toast.success('Password reset successfully!');
+          // Redirect directly to login page on success
+          setTimeout(() => {
+            router.push('/login');
+          }, 500);
+        } else {
+          const authError = AuthErrorHandler.handlePasswordResetError(
+            data.error,
+            response.status
+          );
+          toast.error(authError.message);
+        }
+      } catch (error) {
+        toast.error(
+          'Network error. Please check your connection and try again.'
+        );
+        console.error('Reset password error:', error);
+      } finally {
+        setIsSubmitting(false);
+      }
     },
   });
-
-  const handleConfirmReset = async () => {
-    setShowConfirmation(false);
-    setIsSubmitting(true);
-    setSubmitMessage(null);
-
-    const value = form.state.values;
-
-    try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(value),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSubmitMessage({
-          type: 'success',
-          message:
-            'Password reset successfully! You can now login with your new password.',
-        });
-      } else {
-        setSubmitMessage({
-          type: 'error',
-          message: data.error || 'Failed to reset password. Please try again.',
-        });
-      }
-    } catch (error) {
-      setSubmitMessage({
-        type: 'error',
-        message: 'Network error. Please check your connection and try again.',
-      });
-      console.error('Reset password error:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   if (!token || !email) {
     return (
@@ -199,45 +186,6 @@ export function ResetPasswordClient() {
             Enter your new password below.
           </p>
         </div>
-
-        {submitMessage && (
-          <div
-            className={`mb-6 rounded-lg border p-4 text-left ${
-              submitMessage.type === 'success'
-                ? 'border-green-200 bg-green-50'
-                : 'border-red-200 bg-red-50'
-            }`}
-          >
-            <div className="flex gap-3">
-              {submitMessage.type !== 'success' && (
-                <div className="flex-shrink-0">
-                  <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
-                </div>
-              )}
-              <div className="flex-1">
-                <p
-                  className={`text-sm ${
-                    submitMessage.type === 'success'
-                      ? 'text-green-800'
-                      : 'text-red-800'
-                  }`}
-                >
-                  {submitMessage.message}
-                </p>
-                {submitMessage.type === 'success' && (
-                  <div className="mt-3">
-                    <a
-                      href="/login"
-                      className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-                    >
-                      Go to Login
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         <form
           onSubmit={e => {
@@ -359,7 +307,7 @@ export function ResetPasswordClient() {
             type="submit"
             size="lg"
             className="w-full text-sm md:text-base cursor-pointer"
-            disabled={isSubmitting || submitMessage?.type === 'success'}
+            disabled={isSubmitting}
           >
             {isSubmitting ? 'Updating...' : 'Update Password'}
           </Button>
@@ -377,17 +325,6 @@ export function ResetPasswordClient() {
           </p>
         </div>
       </div>
-
-      <ConfirmationDialog
-        isOpen={showConfirmation}
-        title="Reset Password?"
-        message="This will change your password. Are you sure you want to continue?"
-        confirmText="Reset Password"
-        cancelText="Cancel"
-        variant="warning"
-        onConfirm={handleConfirmReset}
-        onCancel={() => setShowConfirmation(false)}
-      />
     </AuthLayout>
   );
 }

@@ -12,8 +12,10 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, Info, Mail } from 'lucide-react';
+import { Info, Mail } from 'lucide-react';
 import { getEmailSuggestion } from '@/lib/utils/email-validation';
+import { toast } from 'sonner';
+import { AuthErrorHandler } from '@/lib/errors/auth-errors';
 
 export function ForgotPasswordClient() {
   const searchParams = useSearchParams();
@@ -53,13 +55,9 @@ export function ForgotPasswordClient() {
         const data = await response.json();
 
         if (response.status === 429) {
-          setSubmitMessage({
-            type: 'error',
-            message:
-              data.error ||
-              'Too many requests. Please wait before trying again.',
-            hints: data.hints,
-          });
+          toast.error(
+            data.error || 'Too many requests. Please wait before trying again.'
+          );
         } else if (response.ok) {
           // Determine type based on actual email sending
           const messageType =
@@ -76,18 +74,16 @@ export function ForgotPasswordClient() {
             form.reset();
           }
         } else {
-          setSubmitMessage({
-            type: 'error',
-            message: data.error || 'An error occurred. Please try again.',
-            hints: data.hints,
-          });
+          const authError = AuthErrorHandler.handleForgotPasswordError(
+            data.error,
+            response.status
+          );
+          toast.error(authError.message);
         }
       } catch (error) {
-        setSubmitMessage({
-          type: 'error',
-          message: 'Network error. Please check your connection and try again.',
-          hints: ['Check your internet connection', 'Try refreshing the page'],
-        });
+        toast.error(
+          'Network error. Please check your connection and try again.'
+        );
         console.error('Forgot password error:', error);
       } finally {
         setIsSubmitting(false);
@@ -120,24 +116,18 @@ export function ForgotPasswordClient() {
           </p>
         </div>
 
-        {submitMessage && (
+        {submitMessage && submitMessage.type !== 'error' && (
           <div
             className={`mb-6 rounded-lg border p-4 text-left ${
               submitMessage.type === 'success'
                 ? 'border-green-200 bg-green-50'
-                : submitMessage.type === 'error'
-                  ? 'border-red-200 bg-red-50'
-                  : 'border-blue-200 bg-blue-50'
+                : 'border-blue-200 bg-blue-50'
             }`}
           >
             <div className="flex gap-3">
               {submitMessage.type !== 'success' && (
                 <div className="flex-shrink-0">
-                  {submitMessage.type === 'error' ? (
-                    <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
-                  ) : (
-                    <Info className="h-4 w-4 text-blue-600 mt-0.5" />
-                  )}
+                  <Info className="h-4 w-4 text-blue-600 mt-0.5" />
                 </div>
               )}
               <div className="flex-1">
@@ -145,9 +135,7 @@ export function ForgotPasswordClient() {
                   className={`text-sm ${
                     submitMessage.type === 'success'
                       ? 'text-green-800'
-                      : submitMessage.type === 'error'
-                        ? 'text-red-800'
-                        : 'text-blue-800'
+                      : 'text-blue-800'
                   }`}
                 >
                   {submitMessage.message}
@@ -169,9 +157,7 @@ export function ForgotPasswordClient() {
                           className={
                             submitMessage.type === 'success'
                               ? 'text-green-700'
-                              : submitMessage.type === 'error'
-                                ? 'text-red-700'
-                                : 'text-blue-700'
+                              : 'text-blue-700'
                           }
                         >
                           {hint}

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { QueryProvider } from '@/lib/providers/query-provider';
+import { OrganizationProvider } from '@/lib/providers/organization-provider';
 import { WorkspaceProvider } from '@/lib/providers/workspace-provider';
 
 interface DashboardLayoutProps {
@@ -15,24 +16,26 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <QueryProvider>
-      <WorkspaceProvider>
-        <div className="flex h-screen bg-gray-50">
-          {/* Sidebar */}
-          <Sidebar
-            isCollapsed={isSidebarCollapsed}
-            onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          />
+      <OrganizationProvider>
+        <WorkspaceProvider>
+          <div className="flex h-screen bg-gray-50">
+            {/* Sidebar */}
+            <Sidebar
+              isCollapsed={isSidebarCollapsed}
+              onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            />
 
-          {/* Main Content Area */}
-          <div className="flex-1 flex flex-col">
-            {/* Header */}
-            <Header />
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col">
+              {/* Header */}
+              <Header />
 
-            {/* Main Content */}
-            <main className="flex-1 overflow-y-auto">{children}</main>
+              {/* Main Content */}
+              <main className="flex-1 overflow-y-auto">{children}</main>
+            </div>
           </div>
-        </div>
-      </WorkspaceProvider>
+        </WorkspaceProvider>
+      </OrganizationProvider>
     </QueryProvider>
   );
 }

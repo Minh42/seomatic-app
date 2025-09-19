@@ -7,9 +7,11 @@ import {
   useEffect,
   ReactNode,
 } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { WorkspaceWithConnection } from '@/lib/services/workspace-service';
+import { useOrganization } from './organization-provider';
+import { useWorkspacesQuery } from '@/hooks/useWorkspaces';
 
 interface WorkspaceContextType {
   selectedWorkspace: WorkspaceWithConnection | null;
@@ -31,34 +33,25 @@ interface WorkspaceProviderProps {
 
 export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   const queryClient = useQueryClient();
+  const { selectedOrganization } = useOrganization();
   const [selectedWorkspace, setSelectedWorkspaceState] =
     useState<WorkspaceWithConnection | null>(null);
 
-  // Fetch workspaces from API
-  const fetchWorkspaces = async (): Promise<WorkspaceWithConnection[]> => {
-    const response = await fetch('/api/workspace');
-    if (!response.ok) {
-      throw new Error('Failed to fetch workspaces');
-    }
-    return response.json();
-  };
-
-  // Use TanStack Query for fetching workspaces
+  // Use the shared query hook for fetching workspaces
   const {
     data: workspaces = [],
     isLoading: isInitialLoading,
     error,
-  } = useQuery({
-    queryKey: ['workspaces'],
-    queryFn: fetchWorkspaces,
-    // Data is considered fresh for 5 minutes
-    staleTime: 5 * 60 * 1000,
-    // Keep data in cache for 10 minutes
-    gcTime: 10 * 60 * 1000,
-  });
+  } = useWorkspacesQuery(selectedOrganization?.id);
 
   // Only show loading state on initial load, not on background refetches
   const isLoading = isInitialLoading && workspaces.length === 0;
+
+  // Clear workspace selection when organization changes
+  useEffect(() => {
+    setSelectedWorkspaceState(null);
+    localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+  }, [selectedOrganization?.id]);
 
   // Handle workspace selection from localStorage and set initial selection
   useEffect(() => {
