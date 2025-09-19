@@ -105,8 +105,7 @@ export async function POST(
       success: true,
       message: 'Successfully left the organization',
     });
-  } catch (error) {
-    console.error('Error leaving organization:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to leave organization' },
       { status: 500 }

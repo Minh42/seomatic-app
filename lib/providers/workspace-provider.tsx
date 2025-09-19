@@ -92,7 +92,6 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   // Show error toast if fetching fails
   useEffect(() => {
     if (error) {
-      console.error('Error fetching workspaces:', error);
       toast.error('Failed to load workspaces');
     }
   }, [error]);

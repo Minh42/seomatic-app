@@ -48,9 +48,8 @@ export function JoinTeamDialog({
 
       const data = await response.json();
       setInvitations(data.invitations || []);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load invitations');
-      console.error('Error fetching invitations:', error);
     } finally {
       setIsLoading(false);
     }

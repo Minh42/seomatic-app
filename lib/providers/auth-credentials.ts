@@ -72,9 +72,8 @@ export const credentialsProvider = CredentialsProvider({
         image: user.profileImage,
         // Add rememberMe to the user object so it can be accessed in jwt callback
         rememberMe: validatedData.rememberMe,
-      } as any;
-    } catch (error) {
-      console.error('Credentials authorization error:', error);
+      };
+    } catch {
       return null;
     }
   },

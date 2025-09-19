@@ -63,7 +63,6 @@ export class BentoClient {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Bento API error:', errorText);
         return {
           success: false,
           error: `HTTP ${response.status}: ${errorText}`,
@@ -76,7 +75,6 @@ export class BentoClient {
         data,
       };
     } catch (error) {
-      console.error('Error triggering Bento event:', error);
       return {
         success: false,
         error:
@@ -100,8 +98,7 @@ export function getBentoClient(): BentoClient | null {
   if (!bentoClient) {
     try {
       bentoClient = new BentoClient();
-    } catch (error) {
-      console.error('Failed to initialize Bento client:', error);
+    } catch {
       return null;
     }
   }

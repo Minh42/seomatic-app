@@ -93,8 +93,7 @@ export async function POST(request: NextRequest) {
       available: true,
       message: 'Email is available for invitation',
     });
-  } catch (error) {
-    console.error('Error checking team member email:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to check email availability' },
       { status: 500 }

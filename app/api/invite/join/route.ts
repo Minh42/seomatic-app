@@ -120,9 +120,10 @@ export async function POST(req: NextRequest) {
         redirectUrl: '/dashboard',
       });
       return addRateLimitHeaders(response, req);
-    } catch (acceptError: any) {
+    } catch (acceptError) {
       // Handle specific acceptance errors
       if (
+        acceptError instanceof Error &&
         acceptError.message === 'You are already a member of this workspace'
       ) {
         // Still create magic link for existing member
@@ -161,8 +162,6 @@ export async function POST(req: NextRequest) {
       throw acceptError;
     }
   } catch (error) {
-    console.error('Join via invitation error:', error);
-
     if (error instanceof Error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

@@ -27,8 +27,7 @@ export async function GET() {
     }
 
     return NextResponse.json(workspace);
-  } catch (error) {
-    console.error('Error fetching current workspace:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

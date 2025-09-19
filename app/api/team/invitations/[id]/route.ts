@@ -31,8 +31,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error canceling invitation:', error);
-
     if (
       error instanceof Error &&
       error.message === 'Unauthorized to delete this invitation'

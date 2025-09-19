@@ -28,8 +28,7 @@ export async function GET() {
     );
 
     return NextResponse.json(workspaces);
-  } catch (error) {
-    console.error('Error fetching workspaces:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -101,7 +100,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.error('Error creating workspace:', error);
     return NextResponse.json(
       { error: 'Failed to create workspace' },
       { status: 500 }

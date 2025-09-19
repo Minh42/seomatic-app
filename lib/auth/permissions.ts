@@ -46,8 +46,7 @@ export async function getUserRole(userId: string): Promise<UserRole> {
     if (hasAdmin) return 'admin';
     if (hasMember) return 'member';
     return 'viewer';
-  } catch (error) {
-    console.error('Error getting user role:', error);
+  } catch {
     return null;
   }
 }
@@ -170,8 +169,7 @@ export async function getUserWorkspaceRole(
     }
 
     return null;
-  } catch (error) {
-    console.error('Error getting user workspace role:', error);
+  } catch {
     return null;
   }
 }

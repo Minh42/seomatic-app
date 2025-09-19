@@ -53,7 +53,6 @@ export async function POST(
       message: 'Invitation accepted successfully',
     });
   } catch (error) {
-    console.error('Error accepting invitation:', error);
     return NextResponse.json(
       {
         error:

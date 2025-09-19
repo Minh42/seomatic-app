@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET;
 
     if (!cronSecret) {
-      console.error('CRON_SECRET not configured');
       return NextResponse.json(
         { error: 'Cron endpoint not configured' },
         { status: 500 }
@@ -43,8 +42,6 @@ export async function GET(request: NextRequest) {
           lte(subscriptions.pauseEndsAt, now)
         )
       );
-
-    console.log(`Found ${expiredPauses.length} expired pauses to resume`);
 
     let resumedCount = 0;
     const errors: string[] = [];
@@ -77,12 +74,7 @@ export async function GET(request: NextRequest) {
           .where(eq(subscriptions.id, subscription.id));
 
         resumedCount++;
-
-        console.log(
-          `Successfully resumed subscription ${subscription.id} for owner ${subscription.ownerId}`
-        );
       } catch (error) {
-        console.error(`Error resuming subscription ${subscription.id}:`, error);
         errors.push(
           `Failed to resume subscription ${subscription.id}: ${error instanceof Error ? error.message : 'Unknown error'}`
         );
@@ -102,7 +94,6 @@ export async function GET(request: NextRequest) {
       timestamp: now.toISOString(),
     });
   } catch (error) {
-    console.error('Cron job error:', error);
     return NextResponse.json(
       {
         error: 'Failed to run auto-resume cron',

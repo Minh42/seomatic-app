@@ -53,8 +53,6 @@ export async function POST(req: NextRequest) {
           createdById: userId,
         });
       } catch (error) {
-        console.error('Failed to create organization or workspace:', error);
-
         if (error instanceof Error) {
           if (
             error.message.includes('duplicate') ||
@@ -109,8 +107,7 @@ export async function POST(req: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error) {
-    console.error('Error in onboarding step 2:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to process step 2' },
       { status: 500 }

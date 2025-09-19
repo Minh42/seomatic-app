@@ -88,7 +88,6 @@ export function ProfileTab({ user }: ProfileTabProps) {
         error instanceof Error ? error.message : 'Failed to update profile'
       );
       SettingsErrorHandler.displayError(settingsError);
-      console.error('Profile update error:', error);
     } finally {
       setIsLoading(false);
     }

@@ -110,8 +110,7 @@ export class RateLimitService {
       }
 
       return result;
-    } catch (error) {
-      console.error('Rate limit check failed:', error);
+    } catch {
       // On error, allow the request (fail open)
       return {
         success: true,
@@ -145,7 +144,7 @@ export class RateLimitService {
 
     try {
       await redis.del(key);
-    } catch (error) {
+    } catch {
       console.error('Failed to reset rate limit:', error);
     }
   }
@@ -161,8 +160,7 @@ export class RateLimitService {
         type,
         message: 'Analytics available in Upstash dashboard',
       };
-    } catch (error) {
-      console.error('Failed to get analytics:', error);
+    } catch {
       return null;
     }
   }
@@ -192,8 +190,7 @@ export class RateLimitService {
         blocked: attempts >= maxAttempts,
         attempts,
       };
-    } catch (error) {
-      console.error('Failed to track failed attempt:', error);
+    } catch {
       return { blocked: false, attempts: 0 };
     }
   }
@@ -209,7 +206,7 @@ export class RateLimitService {
 
     try {
       await redis.del(key);
-    } catch (error) {
+    } catch {
       console.error('Failed to clear failed attempts:', error);
     }
   }

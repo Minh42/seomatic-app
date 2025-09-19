@@ -85,9 +85,8 @@ function LoginPageContent() {
               window.location.href = '/dashboard';
             }
           }
-        } catch (err) {
+        } catch {
           toast.error('An unexpected error occurred. Please try again.');
-          console.error('Login error:', err);
         }
       },
     });

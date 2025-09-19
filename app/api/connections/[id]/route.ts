@@ -39,8 +39,7 @@ export async function DELETE(
       success: true,
       message: 'Connection disconnected successfully',
     });
-  } catch (error) {
-    console.error('Error deleting connection:', error);
+  } catch {
     return NextResponse.json(
       { success: false, error: 'Failed to disconnect' },
       { status: 500 }

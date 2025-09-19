@@ -71,8 +71,7 @@ export async function POST(request: NextRequest) {
         ? 'This workspace name is available'
         : `You already have a workspace named "${name}". Please choose a different name.`,
     });
-  } catch (error) {
-    console.error('Error checking workspace name:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to check workspace name availability' },
       { status: 500 }

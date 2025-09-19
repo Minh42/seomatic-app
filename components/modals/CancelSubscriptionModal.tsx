@@ -74,7 +74,6 @@ export function CancelSubscriptionModal({
 
       onClose();
     } catch (error) {
-      console.error('Error pausing subscription:', error);
       toast.error(
         error instanceof Error ? error.message : 'Failed to pause subscription'
       );

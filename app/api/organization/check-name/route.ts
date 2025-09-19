@@ -51,8 +51,7 @@ export async function POST(request: NextRequest) {
         ? 'This organization name is available'
         : 'This organization name is already taken. Please choose a different name.',
     });
-  } catch (error) {
-    console.error('Error checking organization name:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to check organization name availability' },
       { status: 500 }

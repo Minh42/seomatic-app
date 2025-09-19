@@ -56,7 +56,6 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
 
-    console.error('Error updating team member:', error);
     return NextResponse.json(
       { error: 'Failed to update team member' },
       { status: 500 }
@@ -97,7 +96,6 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
 
-    console.error('Error removing team member:', error);
     return NextResponse.json(
       { error: 'Failed to remove team member' },
       { status: 500 }

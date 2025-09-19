@@ -73,11 +73,10 @@ export function ResetPasswordClient() {
           );
           toast.error(authError.message);
         }
-      } catch (error) {
+      } catch {
         toast.error(
           'Network error. Please check your connection and try again.'
         );
-        console.error('Reset password error:', error);
       } finally {
         setIsSubmitting(false);
       }

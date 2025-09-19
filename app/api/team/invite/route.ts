@@ -125,7 +125,6 @@ export async function POST(request: NextRequest) {
           });
         }
       } catch (error) {
-        console.error('Failed to invite team member:', error);
         invitationResults.push({
           email: member.email,
           status: 'failed',
@@ -165,8 +164,7 @@ export async function POST(request: NextRequest) {
       message: message || 'Team members processed',
       invitations: invitationResults,
     });
-  } catch (error) {
-    console.error('Error sending team invitations:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to send invitations' },
       { status: 500 }

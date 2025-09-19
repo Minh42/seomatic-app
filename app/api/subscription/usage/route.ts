@@ -163,8 +163,7 @@ export async function GET(request: NextRequest) {
     };
 
     return NextResponse.json(response);
-  } catch (error) {
-    console.error('Error fetching subscription usage:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to fetch subscription usage' },
       { status: 500 }

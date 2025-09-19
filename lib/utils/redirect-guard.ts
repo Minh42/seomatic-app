@@ -21,9 +21,6 @@ export class RedirectGuard {
         10
       );
       if (redirectCount >= this.MAX_REDIRECTS) {
-        console.error(
-          `Redirect loop detected: exceeded ${this.MAX_REDIRECTS} redirects`
-        );
         return true;
       }
 
@@ -32,15 +29,11 @@ export class RedirectGuard {
       const currentPath = headersList.get('x-pathname') || '';
 
       if (lastPath === targetPath && currentPath === targetPath) {
-        console.error(
-          `Redirect loop detected: circular redirect to ${targetPath}`
-        );
         return true;
       }
 
       return false;
-    } catch (error) {
-      console.error('Error checking redirect loop:', error);
+    } catch {
       // On error, allow the redirect to prevent blocking users
       return false;
     }

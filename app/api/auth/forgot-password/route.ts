@@ -46,8 +46,6 @@ export async function POST(request: NextRequest) {
 
     return addRateLimitHeaders(response, request);
   } catch (error: unknown) {
-    console.error('Password reset request error:', error);
-
     // Handle Zod validation errors
     if (error && typeof error === 'object' && 'errors' in error) {
       return NextResponse.json(

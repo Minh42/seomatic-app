@@ -85,8 +85,6 @@ export class GhostService {
         siteUrl: site.url || `https://${cleanDomain}`,
       };
     } catch (error) {
-      console.error('Ghost validation error:', error);
-
       // Check for network errors
       if (error instanceof TypeError && error.message.includes('fetch')) {
         return {

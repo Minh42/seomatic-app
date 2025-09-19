@@ -18,7 +18,6 @@ export default async function OnboardingLayout({
     if (!session?.user?.id) {
       // Prevent redirect loop
       if (await RedirectGuard.isRedirectLoop('/login')) {
-        console.error('Redirect loop detected in OnboardingLayout -> /login');
         return (
           <div className="min-h-screen flex items-center justify-center">
             <div className="text-center">
@@ -60,8 +59,7 @@ export default async function OnboardingLayout({
           session.user.id
         );
       }
-    } catch (error) {
-      console.error('Error checking onboarding status in layout:', error);
+    } catch {
       checkFailed = true;
       // On error, allow access to onboarding page
       completedOnboarding = false;
@@ -77,9 +75,6 @@ export default async function OnboardingLayout({
 
       // Prevent redirect loop
       if (await RedirectGuard.isRedirectLoop('/dashboard')) {
-        console.error(
-          'Redirect loop detected in OnboardingLayout -> /dashboard'
-        );
         return (
           <div className="min-h-screen flex items-center justify-center">
             <div className="text-center">
@@ -110,13 +105,17 @@ export default async function OnboardingLayout({
 
     // User is authenticated and hasn't completed onboarding
     return <>{children}</>;
-  } catch (error: any) {
+  } catch (error) {
     // Don't catch Next.js redirect errors - let them bubble up
-    if (error?.digest?.includes('NEXT_REDIRECT')) {
+    if (
+      error instanceof Error &&
+      'digest' in error &&
+      typeof error.digest === 'string' &&
+      error.digest.includes('NEXT_REDIRECT')
+    ) {
       throw error;
     }
 
-    console.error('OnboardingLayout error:', error);
     // On unexpected error, show error page
     return (
       <div className="min-h-screen flex items-center justify-center">

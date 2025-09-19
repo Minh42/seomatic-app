@@ -80,8 +80,7 @@ export async function GET() {
       invitations: invitationsWithInviters,
       count: invitationsWithInviters.length,
     });
-  } catch (error) {
-    console.error('Error fetching user invitations:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to fetch invitations' },
       { status: 500 }

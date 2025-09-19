@@ -17,8 +17,7 @@ export async function GET() {
         },
       }
     );
-  } catch (error) {
-    console.error('Error fetching user count:', error);
+  } catch {
     return NextResponse.json({ count: 0 }, { status: 500 });
   }
 }

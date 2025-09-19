@@ -86,8 +86,7 @@ export function Step3TeamMembers({
           setEmailError(data.error);
         }
       }
-    } catch (error) {
-      console.error('Failed to check email uniqueness:', error);
+    } catch {
       setEmailAvailable(false);
     } finally {
       setIsCheckingEmail(false);
@@ -169,7 +168,10 @@ export function Step3TeamMembers({
       </div>
 
       <form.Field name="teamMembers">
-        {(field: any) => {
+        {(field: {
+          state: { value: string[] };
+          handleChange: (value: string[]) => void;
+        }) => {
           const addTeamMember = () => {
             setEmailError(null);
 

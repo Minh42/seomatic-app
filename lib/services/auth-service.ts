@@ -103,9 +103,7 @@ export class AuthService {
         message:
           'Password reset link sent! Check your email inbox. The link will expire in 1 hour.',
       };
-    } catch (error) {
-      console.error('Failed to send password reset email:', error);
-
+    } catch {
       // Clean up token if email failed
       await db
         .delete(verificationTokens)

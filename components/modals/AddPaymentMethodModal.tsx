@@ -109,7 +109,6 @@ function PaymentForm({
         setError('Failed to add payment method');
       }
     } catch (err) {
-      console.error('Error adding payment method:', err);
       setError(
         err instanceof Error ? err.message : 'Failed to add payment method'
       );

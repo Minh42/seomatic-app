@@ -32,8 +32,7 @@ export async function GET(request: NextRequest) {
       success: true,
       connection: connection || null,
     });
-  } catch (error) {
-    console.error('Error fetching connection:', error);
+  } catch {
     return NextResponse.json(
       { success: false, error: 'Failed to fetch connection' },
       { status: 500 }

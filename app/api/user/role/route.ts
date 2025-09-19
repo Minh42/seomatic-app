@@ -27,8 +27,7 @@ export async function GET() {
     const role = await getUserRole(user.id);
 
     return NextResponse.json({ role });
-  } catch (error) {
-    console.error('Error fetching user role:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to fetch user role' },
       { status: 500 }

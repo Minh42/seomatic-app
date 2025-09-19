@@ -30,8 +30,7 @@ export async function GET() {
       lastName: user.lastName,
       image: user.image,
     });
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -89,7 +88,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    console.error('Error updating user profile:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -126,8 +126,7 @@ export function ConnectionsContent() {
           toast.error(data.error || 'Failed to save connection');
           router.replace('/dashboard/connections');
         }
-      } catch (error) {
-        console.error('Callback error:', error);
+      } catch {
         toast.error('Failed to complete WordPress connection');
         router.replace('/dashboard/connections');
       } finally {
@@ -226,8 +225,7 @@ export function ConnectionsContent() {
         const data = await response.json();
         toast.error(data.error || 'Failed to disconnect');
       }
-    } catch (error) {
-      console.error('Error disconnecting:', error);
+    } catch {
       toast.error('Failed to disconnect connection');
     } finally {
       setIsDisconnecting(false);
@@ -268,8 +266,7 @@ export function ConnectionsContent() {
         }
         toast.error(data.error || 'Connection test failed');
       }
-    } catch (error) {
-      console.error('Error testing connection:', error);
+    } catch {
       toast.error('Failed to test connection');
     } finally {
       setIsTestingConnection(false);

@@ -16,6 +16,18 @@ import { organizationNameSchema } from '@/lib/validations/onboarding';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { OrganizationRecovery } from './OrganizationRecovery';
 
+type FormField<T = string> = {
+  state: {
+    value: T;
+    meta: {
+      errors: string[];
+      isTouched: boolean;
+    };
+  };
+  handleChange: (value: T) => void;
+  handleBlur: () => void;
+};
+
 const PROFESSIONAL_ROLES = [
   'Founder',
   'Marketing Manager',
@@ -121,8 +133,7 @@ export function Step2OrganizationInfo({
             message: data.error || 'Failed to check availability',
           });
         }
-      } catch (error) {
-        console.error('Error checking organization name:', error);
+      } catch {
         setAvailabilityStatus({
           available: false,
           message: 'Failed to check availability',
@@ -196,7 +207,7 @@ export function Step2OrganizationInfo({
         <form.Field
           name="organizationName"
           validators={{
-            onBlur: ({ value }: { value: any }) => {
+            onBlur: ({ value }: { value: string }) => {
               // Validate format first
               try {
                 if (!value) {
@@ -213,17 +224,22 @@ export function Step2OrganizationInfo({
                 }
 
                 return undefined;
-              } catch (error: any) {
+              } catch (error) {
                 // Return the validation error message
-                if (error.issues && error.issues[0]) {
-                  return error.issues[0].message;
+                if (
+                  error instanceof Error &&
+                  'issues' in error &&
+                  Array.isArray((error as any).issues) &&
+                  (error as any).issues[0]
+                ) {
+                  return (error as any).issues[0].message;
                 }
                 return 'Invalid organization name';
               }
             },
           }}
         >
-          {(field: any) => (
+          {(field: FormField) => (
             <div>
               <Label htmlFor="organization-name">Organization name</Label>
               <div className="relative">
@@ -294,7 +310,7 @@ export function Step2OrganizationInfo({
         </form.Field>
 
         <form.Field name="professionalRole">
-          {(field: any) => (
+          {(field: FormField) => (
             <div>
               <Label htmlFor="professional-role">
                 Please select your primary professional role
@@ -329,12 +345,14 @@ export function Step2OrganizationInfo({
         </form.Field>
 
         <form.Subscribe
-          selector={(state: any) => state.values.professionalRole}
+          selector={(state: { values: { professionalRole: string } }) =>
+            state.values.professionalRole
+          }
         >
-          {(professionalRole: any) =>
+          {(professionalRole: string) =>
             professionalRole === 'Other' && (
               <form.Field name="otherProfessionalRole">
-                {(field: any) => (
+                {(field: FormField) => (
                   <div>
                     <Textarea
                       placeholder="Please specify your professional role..."
@@ -357,7 +375,7 @@ export function Step2OrganizationInfo({
         </form.Subscribe>
 
         <form.Field name="companySize">
-          {(field: any) => (
+          {(field: FormField) => (
             <div>
               <Label htmlFor="company-size">
                 What is the size of your company?
@@ -388,7 +406,7 @@ export function Step2OrganizationInfo({
         </form.Field>
 
         <form.Field name="industry">
-          {(field: any) => (
+          {(field: FormField) => (
             <div>
               <Label htmlFor="industry">
                 Which industry best describes you?
@@ -422,11 +440,15 @@ export function Step2OrganizationInfo({
           )}
         </form.Field>
 
-        <form.Subscribe selector={(state: any) => state.values.industry}>
-          {(industry: any) =>
+        <form.Subscribe
+          selector={(state: { values: { industry: string } }) =>
+            state.values.industry
+          }
+        >
+          {(industry: string) =>
             industry === 'Other' && (
               <form.Field name="otherIndustry">
-                {(field: any) => (
+                {(field: FormField) => (
                   <div>
                     <Textarea
                       placeholder="Please specify your industry..."

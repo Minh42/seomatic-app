@@ -83,7 +83,6 @@ export function PasswordTab({ user }: PasswordTabProps) {
         error instanceof Error ? error.message : 'Failed to update password'
       );
       SettingsErrorHandler.displayError(settingsError);
-      console.error('Password update error:', error);
     } finally {
       setIsLoading(false);
     }

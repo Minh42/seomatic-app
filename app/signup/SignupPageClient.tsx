@@ -90,9 +90,8 @@ export default function SignupPageClient({ error }: SignupPageClientProps) {
             // Successfully signed in - redirect to onboarding
             window.location.href = '/onboarding';
           }
-        } catch (err) {
+        } catch {
           toast.error('An unexpected error occurred. Please try again.');
-          console.error('Signup error:', err);
         }
       },
     });

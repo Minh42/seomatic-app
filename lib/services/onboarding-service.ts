@@ -6,7 +6,7 @@ import { OnboardingFormData } from '@/lib/validations/onboarding';
 export interface SaveProgressParams {
   userId: string;
   step: number;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 export interface CompleteOnboardingParams extends OnboardingFormData {
@@ -165,8 +165,7 @@ export class OnboardingService {
   static async hasCompletedOnboarding(userId: string): Promise<boolean> {
     try {
       return await this.isCompleted(userId);
-    } catch (error) {
-      console.error('Error checking onboarding status:', error);
+    } catch {
       return false;
     }
   }
@@ -191,7 +190,13 @@ export class OnboardingService {
     }
 
     // Build update object
-    const updateData: any = {
+    const updateData: {
+      updatedAt: Date;
+      step1CompletedAt?: Date;
+      step2CompletedAt?: Date;
+      step3CompletedAt?: Date;
+      onboardingData?: Record<string, unknown>;
+    } = {
       updatedAt: new Date(),
     };
 

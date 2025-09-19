@@ -174,10 +174,6 @@ export async function POST(request: NextRequest) {
           teamMemberIdsToSuspend
         );
         suspendedCount = suspended.length;
-
-        console.log(
-          `Suspended ${suspendedCount} members during downgrade to ${newPlan.name}`
-        );
       }
     }
 

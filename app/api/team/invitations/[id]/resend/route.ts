@@ -42,8 +42,6 @@ export async function POST(
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error resending invitation:', error);
-
     if (error instanceof Error && error.message === 'Invitation not found') {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }

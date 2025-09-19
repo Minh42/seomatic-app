@@ -80,7 +80,6 @@ export class ConnectionService {
         status,
       });
     } catch (error) {
-      console.error('Error in createOrReplace:', error);
       throw error;
     }
   }

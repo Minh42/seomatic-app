@@ -29,8 +29,7 @@ export async function POST(request: NextRequest) {
       success: true,
       redirectUrl: `${protocol}://${subdomain}.${rootDomain}`,
     });
-  } catch (error) {
-    console.error('Error creating subdomain:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -46,8 +45,7 @@ export async function GET() {
   try {
     const subdomains = await SubdomainService.getAll();
     return NextResponse.json(subdomains);
-  } catch (error) {
-    console.error('Error fetching subdomains:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -74,8 +72,7 @@ export async function DELETE(request: NextRequest) {
     await SubdomainService.delete(subdomain);
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting subdomain:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

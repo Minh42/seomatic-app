@@ -37,8 +37,6 @@ export async function POST(request: NextRequest) {
 
     return addRateLimitHeaders(response, request);
   } catch (error: unknown) {
-    console.error('Password reset error:', error);
-
     // Handle service-level errors
     if (error instanceof Error) {
       if (

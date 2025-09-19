@@ -42,8 +42,6 @@ export async function POST(req: NextRequest) {
       role: result.role,
     });
   } catch (error) {
-    console.error('Invitation acceptance error:', error);
-
     if (error instanceof Error) {
       // Handle specific error cases
       if (error.message === 'Invalid or expired invitation') {

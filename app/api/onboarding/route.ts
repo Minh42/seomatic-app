@@ -42,8 +42,7 @@ export async function GET() {
       organizationId: organization?.id || null,
       organizationName: organization?.name || '',
     });
-  } catch (error) {
-    console.error('Error checking onboarding status:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to check onboarding status' },
       { status: 500 }
@@ -141,8 +140,6 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('Error completing onboarding:', error);
-
     // Handle service-level errors
     if (error instanceof Error) {
       if (error.message === 'User not found') {

@@ -33,8 +33,7 @@ export async function POST(req: NextRequest) {
         expiresAt: result.invitation!.expiresAt.toISOString(),
       },
     });
-  } catch (error) {
-    console.error('Invitation validation error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to validate invitation' },
       { status: 500 }

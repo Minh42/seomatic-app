@@ -67,11 +67,12 @@ export async function withRateLimit(
     // Add rate limit headers to successful responses
     // Note: You'll need to add these headers to your actual response
     // Store them in the request for later use
-    (request as any).rateLimitHeaders = RateLimitService.formatHeaders(result);
+    (
+      request as NextRequest & { rateLimitHeaders?: Record<string, string> }
+    ).rateLimitHeaders = RateLimitService.formatHeaders(result);
 
     return null; // Continue with request
-  } catch (error) {
-    console.error('Rate limit middleware error:', error);
+  } catch {
     // On error, allow the request (fail open)
     return null;
   }
@@ -90,7 +91,9 @@ export function addRateLimitHeaders(
   response: NextResponse,
   request: NextRequest
 ): NextResponse {
-  const headers = (request as any).rateLimitHeaders;
+  const headers = (
+    request as NextRequest & { rateLimitHeaders?: Record<string, string> }
+  ).rateLimitHeaders;
   if (headers) {
     Object.entries(headers).forEach(([key, value]) => {
       response.headers.set(key, value as string);

@@ -49,8 +49,7 @@ export async function GET() {
       organizationId: organization?.id || null,
       organizationName: organization?.name || '',
     });
-  } catch (error) {
-    console.error('Error fetching onboarding progress:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to fetch progress' },
       { status: 500 }
@@ -97,8 +96,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error saving onboarding progress:', error);
-
     // Handle service-level errors
     if (error instanceof Error) {
       if (error.message === 'User not found') {

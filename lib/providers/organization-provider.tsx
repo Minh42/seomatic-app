@@ -99,7 +99,6 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   // Show error toast if fetching fails
   useEffect(() => {
     if (error) {
-      console.error('Error fetching organizations:', error);
       toast.error('Failed to load organizations');
     }
   }, [error]);
@@ -107,8 +106,6 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const setSelectedOrganization = (org: Organization) => {
     setSelectedOrganizationState(org);
     localStorage.setItem(ORGANIZATION_STORAGE_KEY, org.id);
-    // Invalidate workspaces when organization changes
-    queryClient.invalidateQueries({ queryKey: ['workspaces'] });
   };
 
   const refreshOrganizations = async () => {

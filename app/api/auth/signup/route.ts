@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
     // Get the trial plan
     const trialPlan = await PlanService.getPlanByName('Trial');
     if (!trialPlan) {
-      console.error('Trial plan not found');
       return NextResponse.json(
         { error: 'Unable to create account. Please try again later.' },
         { status: 500 }
@@ -95,8 +94,6 @@ export async function POST(request: NextRequest) {
 
     return addRateLimitHeaders(response, request);
   } catch (error: unknown) {
-    console.error('Signup error:', error);
-
     // Handle service-level errors
     if (error instanceof Error) {
       if (

@@ -111,8 +111,7 @@ export class ShopifyService {
         shopName: data.data.shop.name,
         primaryDomain: data.data.shop.primaryDomain?.host || cleanDomain,
       };
-    } catch (error) {
-      console.error('Shopify validation error:', error);
+    } catch {
       return {
         isValid: false,
         error: 'Failed to connect to Shopify. Please try again.',

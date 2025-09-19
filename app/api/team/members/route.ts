@@ -103,7 +103,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Get pending invitations (only for owners and admins) - do this after role check
-    let invitations: any[] = [];
+    let invitations: Array<{
+      id: string;
+      email: string;
+      role: string;
+      status: string;
+      createdAt: Date;
+      expiresAt: Date;
+    }> = [];
     if (isOwner || actualRole === 'admin') {
       invitations = await TeamService.getPendingInvitationsByOrganization(
         organization.id
@@ -152,8 +159,7 @@ export async function GET(request: NextRequest) {
       role: actualRole,
       seatUsage,
     });
-  } catch (error) {
-    console.error('Error fetching team members:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to fetch team members' },
       { status: 500 }

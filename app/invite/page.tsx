@@ -54,9 +54,8 @@ export default function InvitePage() {
         }
 
         setInvitation(data.invitation);
-      } catch (err) {
+      } catch {
         setError('Failed to validate invitation. Please try again.');
-        console.error('Invitation validation error:', err);
       } finally {
         setIsLoading(false);
       }
@@ -97,9 +96,8 @@ export default function InvitePage() {
       } else {
         setError('Failed to generate authentication link. Please try again.');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to join team. Please try again.');
-      console.error('Join team error:', err);
     } finally {
       setIsAccepting(false);
     }

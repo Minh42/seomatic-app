@@ -71,8 +71,7 @@ export class EmailService {
         },
       });
       return true;
-    } catch (error) {
-      console.error('Failed to send password reset email:', error);
+    } catch {
       return false;
     }
   }
@@ -101,8 +100,7 @@ export class EmailService {
         },
       });
       return true;
-    } catch (error) {
-      console.error('Failed to send OAuth account reminder email:', error);
+    } catch {
       return false;
     }
   }
@@ -129,8 +127,7 @@ export class EmailService {
         },
       });
       return true;
-    } catch (error) {
-      console.error('Failed to send password reset completed email:', error);
+    } catch {
       return false;
     }
   }
@@ -156,8 +153,7 @@ export class EmailService {
         },
       });
       return true;
-    } catch (error) {
-      console.error('Failed to send welcome email:', error);
+    } catch {
       return false;
     }
   }
@@ -196,8 +192,7 @@ export class EmailService {
         },
       });
       return true;
-    } catch (error) {
-      console.error('Failed to send team invitation:', error);
+    } catch {
       return false;
     }
   }
@@ -238,8 +233,7 @@ export class EmailService {
         },
       });
       return true;
-    } catch (error) {
-      console.error('Failed to send invitation accepted notification:', error);
+    } catch {
       return false;
     }
   }
@@ -271,8 +265,7 @@ export class EmailService {
         success: true,
         messageId: result?.messageId,
       };
-    } catch (error) {
-      console.error('Failed to send magic link:', error);
+    } catch {
       return { success: false };
     }
   }
@@ -300,8 +293,7 @@ export class EmailService {
         },
       });
       return true;
-    } catch (error) {
-      console.error('Failed to track onboarding completion:', error);
+    } catch {
       return false;
     }
   }
@@ -328,8 +320,7 @@ export class EmailService {
         },
       });
       return true;
-    } catch (error) {
-      console.error('Failed to track member removal:', error);
+    } catch {
       return false;
     }
   }
@@ -360,8 +351,7 @@ export class EmailService {
         },
       });
       return true;
-    } catch (error) {
-      console.error('Failed to notify member left:', error);
+    } catch {
       return false;
     }
   }
@@ -384,8 +374,7 @@ export class EmailService {
         fields,
       });
       return true;
-    } catch (error) {
-      console.error(`Failed to trigger event ${type}:`, error);
+    } catch {
       return false;
     }
   }
