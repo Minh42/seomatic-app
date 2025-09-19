@@ -253,9 +253,7 @@ export function TeamTab({ user }: TeamTabProps) {
                   <div>
                     <div className="flex items-center space-x-2">
                       <p className="text-sm font-medium text-zinc-900">
-                        {member.member?.name ||
-                          member.member?.email ||
-                          'Unknown'}
+                        {member.member?.name || member.member?.email}
                       </p>
                       {/* Role Badge */}
                       <span
@@ -284,9 +282,10 @@ export function TeamTab({ user }: TeamTabProps) {
                         </span>
                       )}
                     </div>
+                    {/* Show email below name if we have both, or hide if email is already shown as name */}
                     {member.member?.name && member.member?.email && (
                       <p className="text-sm text-zinc-500">
-                        {member.member.email}
+                        {member.member?.email}
                       </p>
                     )}
                   </div>

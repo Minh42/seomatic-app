@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { toast } from 'sonner';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useOrganization } from '@/lib/providers/organization-provider';
 
 interface TeamMember {
   id: string;
@@ -43,8 +44,14 @@ export function EditMemberDialog({
   member,
   onSuccess,
 }: EditMemberDialogProps) {
+  const { selectedOrganization } = useOrganization();
+  const {
+    updateMember,
+    isUpdatingMember,
+    resendInvitation,
+    isResendingInvite,
+  } = useTeamMembers(selectedOrganization?.id);
   const [role, setRole] = useState<'admin' | 'member' | 'viewer'>('member');
-  const [isLoading, setIsLoading] = useState(false);
 
   // Update role when member changes or dialog opens
   useEffect(() => {
@@ -53,7 +60,7 @@ export function EditMemberDialog({
     }
   }, [member]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!member) return;
 
     // Don't submit if role hasn't changed
@@ -62,60 +69,20 @@ export function EditMemberDialog({
       return;
     }
 
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`/api/team/members/${member.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
+    updateMember(
+      { memberId: member.id, role },
+      {
+        onSuccess: () => {
+          onOpenChange(false);
+          onSuccess();
         },
-        body: JSON.stringify({ role }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update member role');
       }
-
-      toast.success('Member role updated successfully');
-      onOpenChange(false);
-      onSuccess();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to update member'
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    );
   };
 
-  const handleResendInvite = async () => {
+  const handleResendInvite = () => {
     if (!member) return;
-
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(
-        `/api/team/invitations/${member.id}/resend`,
-        {
-          method: 'POST',
-        }
-      );
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to resend invitation');
-      }
-
-      toast.success('Invitation resent successfully');
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to resend invitation'
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    resendInvitation(member.id);
   };
 
   if (!member) return null;
@@ -202,10 +169,10 @@ export function EditMemberDialog({
               <Button
                 variant="link"
                 onClick={handleResendInvite}
-                disabled={isLoading}
+                disabled={isResendingInvite}
                 className="text-yellow-700 hover:text-yellow-800 underline p-0 h-auto mt-1 cursor-pointer"
               >
-                Resend invitation email
+                {isResendingInvite ? 'Resending...' : 'Resend invitation email'}
               </Button>
             </div>
           )}
@@ -215,17 +182,17 @@ export function EditMemberDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isLoading}
+            disabled={isUpdatingMember}
             className="!h-11 rounded-md border border-zinc-300 bg-white text-sm font-bold leading-6 text-zinc-600 hover:bg-gray-50 cursor-pointer"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isLoading || role === member?.role}
+            disabled={isUpdatingMember || role === member?.role}
             className="!h-11 rounded-md bg-indigo-600 text-sm font-bold leading-6 text-white hover:bg-indigo-700 cursor-pointer disabled:bg-zinc-300 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Updating...' : 'Update Role'}
+            {isUpdatingMember ? 'Updating...' : 'Update Role'}
           </Button>
         </div>
       </DialogContent>

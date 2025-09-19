@@ -44,7 +44,6 @@ export async function POST(request: NextRequest) {
 
     const { teamMembers } = validationResult.data;
     const userId = session.user.id;
-    const invitationResults = [];
 
     // Get user's organization
     let organizationId: string;
@@ -61,31 +60,29 @@ export async function POST(request: NextRequest) {
       organizationId = organization.id;
     }
 
-    // Process each team member invitation
-    for (const member of teamMembers) {
+    // Process all team member invitations in parallel for better performance
+    const invitationPromises = teamMembers.map(async member => {
       try {
         // Additional validation
         const normalizedEmail = member.email.toLowerCase().trim();
 
         // Skip if email is the same as the inviter
         if (normalizedEmail === session.user.email?.toLowerCase()) {
-          invitationResults.push({
+          return {
             email: member.email,
             status: 'failed',
             error: 'Cannot invite yourself',
-          });
-          continue;
+          };
         }
 
         // Check for disposable emails
         const emailValidation = validateWorkEmail(normalizedEmail);
         if (!emailValidation.isValid) {
-          invitationResults.push({
+          return {
             email: member.email,
             status: 'failed',
             error: emailValidation.error,
-          });
-          continue;
+          };
         }
 
         // Check if invitation already exists for this user
@@ -95,12 +92,11 @@ export async function POST(request: NextRequest) {
         );
 
         if (existingInvitation) {
-          invitationResults.push({
+          return {
             email: member.email,
             status: 'skipped',
             message: 'Invitation already sent',
-          });
-          continue;
+          };
         }
 
         // Send invitation
@@ -113,28 +109,31 @@ export async function POST(request: NextRequest) {
 
         // Check if invitation was already sent
         if (result.status === 'already_invited') {
-          invitationResults.push({
+          return {
             email: member.email,
             status: 'skipped',
             message: 'Invitation already sent',
-          });
+          };
         } else {
-          invitationResults.push({
+          return {
             email: member.email,
             status: 'sent',
-          });
+          };
         }
       } catch (error) {
-        invitationResults.push({
+        return {
           email: member.email,
           status: 'failed',
           error:
             error instanceof Error
               ? error.message
               : 'Failed to send invitation',
-        });
+        };
       }
-    }
+    });
+
+    // Wait for all invitations to complete in parallel
+    const invitationResults = await Promise.all(invitationPromises);
 
     // Count results
     const successCount = invitationResults.filter(

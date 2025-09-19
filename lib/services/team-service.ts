@@ -219,17 +219,21 @@ export class TeamService {
       .where(eq(organizations.id, organizationId))
       .limit(1);
 
-    // Send invitation email
+    // Send invitation email (fire and forget - don't wait for response)
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
     const inviteUrl = `${baseUrl}/invite?token=${token}`;
 
-    await EmailService.sendTeamInvitation({
+    // Fire and forget - don't await email sending to improve performance
+    EmailService.sendTeamInvitation({
       email: email.toLowerCase(),
       inviterEmail: inviter!.email,
       organizationName: organization?.name,
       role,
       inviteUrl,
       expiresAt,
+    }).catch(error => {
+      console.error('Failed to send team invitation email:', error);
+      // Don't throw - invitation was created successfully, just email failed
     });
 
     return {
@@ -414,15 +418,19 @@ export class TeamService {
         )
       );
 
-    // Return with consistent structure
+    // Return with consistent structure - put email in member field for consistency
     return invitations.map(inv => ({
       id: inv.id,
-      email: inv.email,
       role: inv.role,
       status: inv.status,
       createdAt: inv.createdAt,
       expiresAt: inv.expiresAt,
-      member: null, // Pending invitations don't have member data yet
+      member: {
+        id: '', // No user ID yet for pending invitations
+        email: inv.email,
+        name: null,
+        profileImage: null,
+      },
     }));
   }
 
@@ -756,7 +764,7 @@ export class TeamService {
       .select({
         id: teamMembers.id,
         role: teamMembers.role,
-        userId: teamMembers.userId,
+        organizationId: teamMembers.organizationId,
         invitedBy: teamMembers.invitedBy,
       })
       .from(teamMembers)
@@ -767,9 +775,16 @@ export class TeamService {
       return { valid: false, error: 'Team member record not found' };
     }
 
-    // Get organization details
-    const organization = await OrganizationService.getUserOrganization(
-      teamMember.userId
+    if (!teamMember.organizationId) {
+      return {
+        valid: false,
+        error: 'Team member not associated with an organization',
+      };
+    }
+
+    // Get organization details using organizationId directly
+    const organization = await OrganizationService.getById(
+      teamMember.organizationId
     );
 
     if (!organization) {
@@ -1122,12 +1137,9 @@ export class TeamService {
         updatedAt: new Date(),
       })
       .where(
-        and(
-          teamMembers.id as any,
-          memberIds
-            .map(id => eq(teamMembers.id, id))
-            .reduce((acc, curr) => (acc ? or(acc, curr) : curr))
-        )
+        memberIds
+          .map(id => eq(teamMembers.id, id))
+          .reduce((acc, curr) => (acc ? or(acc, curr) : curr))
       )
       .returning();
 
@@ -1164,12 +1176,9 @@ export class TeamService {
         updatedAt: new Date(),
       })
       .where(
-        and(
-          teamMembers.id as any,
-          membersToReactivate
-            .map(m => eq(teamMembers.id, m.id))
-            .reduce((acc, curr) => (acc ? or(acc, curr) : curr))
-        )
+        membersToReactivate
+          .map(m => eq(teamMembers.id, m.id))
+          .reduce((acc, curr) => (acc ? or(acc, curr) : curr))
       )
       .returning();
 

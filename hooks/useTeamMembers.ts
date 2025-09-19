@@ -59,7 +59,15 @@ async function addTeamMember(params: AddMemberParams): Promise<void> {
   const response = await fetch('/api/team/invite', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
+    body: JSON.stringify({
+      teamMembers: [
+        {
+          email: params.email,
+          role: params.role,
+        },
+      ],
+      organizationId: params.organizationId,
+    }),
   });
 
   if (!response.ok) {
@@ -71,7 +79,7 @@ async function addTeamMember(params: AddMemberParams): Promise<void> {
 // Update team member role
 async function updateTeamMember(params: UpdateMemberParams): Promise<void> {
   const response = await fetch(`/api/team/members/${params.memberId}`, {
-    method: 'PUT',
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ role: params.role }),
   });
@@ -162,8 +170,13 @@ export function useTeamMembers(organizationId?: string) {
       toast.error(err.message);
     },
     onSuccess: () => {
-      toast.success('Invitation sent successfully');
+      // Don't show toast here - let the component handle it
+      // AddMemberDialog shows its own toast with count
       queryClient.invalidateQueries({ queryKey });
+      // Also invalidate plan usage to update team member count
+      queryClient.invalidateQueries({
+        queryKey: ['plan-usage', organizationId],
+      });
     },
   });
 
@@ -199,6 +212,10 @@ export function useTeamMembers(organizationId?: string) {
     onSuccess: () => {
       toast.success('Member role updated');
       queryClient.invalidateQueries({ queryKey });
+      // Also invalidate plan usage in case status changes affect count
+      queryClient.invalidateQueries({
+        queryKey: ['plan-usage', organizationId],
+      });
     },
   });
 
@@ -236,6 +253,10 @@ export function useTeamMembers(organizationId?: string) {
     onSuccess: () => {
       toast.success('Team member removed successfully');
       queryClient.invalidateQueries({ queryKey });
+      // Also invalidate plan usage to update team member count
+      queryClient.invalidateQueries({
+        queryKey: ['plan-usage', organizationId],
+      });
     },
   });
 
